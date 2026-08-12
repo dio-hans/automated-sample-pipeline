@@ -13,9 +13,26 @@ class Company(models.Model):
     city = models.CharField(max_length=100)
     contact_person = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
+    phone_number = models.CharField(max_length=20, unique=True)
+    address = models.TextField()
     is_acquired_client = models.BooleanField(default= True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    pipeline_stage = models.CharField(max_length=50, 
+        choices = [
+            ('new_lead', 'New Lead'),
+            ('sample_sent', 'Sample Sent'),
+            ('sample_received', 'Sample Received'),
+            ('followup', 'Follow-up'),
+            ('negotiation', 'Negotiation'),
+            ('contract_signed', 'Contract Signed'),
+            ('recurring_supply', 'Recurring Supply'),
+            ('lost', 'Lost'),
+        ],
+        default='new_lead'    )  # initial_contact, sample_sent, followup, contract_signed, recurring_supply
+
+    def __str__(self):
+        return self.name
 
 # inventory stock
 class CoffeeStock (models.Model):
@@ -28,19 +45,33 @@ class CoffeeStock (models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-# sample
+    def __str__(self):
+        return f"{self.variety_name} - {self.washing_station} - {self.coffee_type}"
+
+
+
+    # sample
+delivery_status_choices = [
+    ('in_transit', 'In Transit'),
+    ('delivered', 'Delivered'),
+    ('failed', 'Failed')
+    ]
 class Sample(models.Model):
     id = models.UUIDField(primary_key=True,  default=uuid.uuid4, editable=False)
-    company = models.ForeignKey(Company, on_delete=models.Cascade)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE)
     coffee_stock = models.ForeignKey(CoffeeStock, on_delete=models.RESTRICT)
     sample_weight = models.DecimalField(max_digits=8, decimal_places=2, default=1)
     date_sent = models.DateTimeField(auto_now_add=True)
     delivered_at = models.DateTimeField(null=True)
-    delivery_status = models.CharField(max_length=30, default='in_transit')  # in_transit, delivered, failed
+    delivery_status = models.CharField(max_length=30,
+         choices=delivery_status_choices,
+        default='in_transit')  # in_transit, delivered, failed
     courier_name = models.CharField(max_length=50, default='DHL')
     tracking_number = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    def __str__(self):
+        return f"{self.company.name} - {self.coffee_stock.variety_name} - {self.sample_weight}kg"
 
 # follow up tracker
 class Followup(models.Model):
@@ -50,7 +81,25 @@ class Followup(models.Model):
     day_7_contract_sent_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    is_converted_to_contract = models.BooleanField(default=False)
 
+    def __str__(self):
+        return f"Followup for Sample ID: {self.sample.id}"
+
+class SampleFeedback(models.Model):
+    sample = models.OneToOneField(Sample, on_delete=models.CASCADE)
+    comments = models.TextField()
+    rating = models.PositiveSmallIntegerField()  # Assuming a rating scale of 1-5
+    interested_in_contract  = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Feedback for Sample ID: {self.sample.id} - Rating: {self.rating}"
+contract_signing_status_choices = [
+    ('pending', 'Pending'),
+    ('signed', 'Signed'),
+    ('declined', 'Declined')]
 class Contract(models.Model):
     id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
     company = models.ForeignKey(Company, on_delete=models.CASCADE)
@@ -62,10 +111,15 @@ class Contract(models.Model):
         ('weekly', 'weekly'),
         ('montly', 'monthly'),
                 ])     
-    status = models.CharField(max_length=20, default='active')  # active, paused, cancelled
+    status = models.CharField(max_length=20,
+        choices=contract_signing_status_choices,
+        default='pending')  # active, paused, cancelled
     signed_name = models.CharField(max_length=150, blank=True)
     signed_at = models.DateTimeField(null=True, blank=True)
     next_delivery_date = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Contract for {self.company.name} - {self.sample.coffee_stock.variety_name} - {self.volume_per_cycle_kg}kg"
 
 # --- 6. RECURRING SUPPLY LOG ---
 class SupplyFulfillment(models.Model):
@@ -74,3 +128,6 @@ class SupplyFulfillment(models.Model):
     volume_shipped_kg = models.DecimalField(max_digits=8, decimal_places=2)
     shipped_date = models.DateField(auto_now_add=True)
     invoice_number = models.CharField(max_length=50, unique=True)
+
+    def __str__(self):
+        return f"Supply Fulfillment for Contract ID: {self.contract.id} - {self.volume_shipped_kg}kg"
