@@ -1,8 +1,8 @@
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.urls import reverse_lazy
+from django.db import transaction
 from .models import Company, CoffeeStock, Sample
 from .forms import CompanyForm, CoffeeStockForm, SampleForm
-from django.http import HttpResponseRedirect, response
 
 # company views here
 class CompanyListView(ListView):
@@ -74,13 +74,39 @@ class SampleCreateView(CreateView):
     success_url = reverse_lazy('sample_list')
 
     def form_valid(self, form):
-        stock = self.object.coffee_stock
-        stock.quantity_available -= self.object.sample_weight
-        stock.save()
-        company = self.object.company
-        company.pipeline_stage = "sample_sent"
+        sample_weight = form.instance.sample_weight
 
-        company.save()
+        with transaction.atomic():
+            # select_for_update locks this stock row until the transaction
+            # commits, so two samples submitted at the same instant can't
+            # both read the same quantity_available and both pass the check
+            # below. (SQLite ignores the lock silently — this only takes
+            # effect once you're on Postgres/MySQL — but it's harmless
+            # either way and costs nothing to have in now.)
+            stock = CoffeeStock.objects.select_for_update().get(
+                pk=form.instance.coffee_stock_id
+            )
+
+            if stock.quantity_available < sample_weight:
+                form.add_error(
+                    'sample_weight',
+                    'Not enough coffee stock available.'
+                )
+                return self.form_invalid(form)
+
+            # Only save the sample once we know the stock actually covers
+            # it — this is what stops a rejected sample from leaving an
+            # orphan row behind.
+            response = super().form_valid(form)
+
+            # Deduct stock
+            stock.quantity_available -= sample_weight
+            stock.save()
+
+            # Progress the company pipeline stage
+            company = self.object.company
+            company.pipeline_stage = "sample_sent"
+            company.save()
 
         return response
 
@@ -95,5 +121,3 @@ class SampleDeleteView(DeleteView):
     model = Sample
     template_name = 'pipeline/sample_confirm_delete.html'
     success_url = reverse_lazy('sample_list')
-
-    

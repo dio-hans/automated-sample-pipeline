@@ -35,7 +35,7 @@ class Company(models.Model):
         return self.name
 
 # inventory stock
-class CoffeeStock (models.Model):
+class CoffeeStock(models.Model):
     coffee_type = models.CharField(max_length=20, choices=Coffee_type.choices)
     variety_name = models.CharField(max_length=150)
     washing_station = models.CharField(max_length=150)

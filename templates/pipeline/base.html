@@ -1,0 +1,243 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>
+        {% block title %}
+            Nonda Commodities
+        {% endblock %}
+    </title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet">
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ink: '#211815',
+                        paper: '#F5F3EC',
+                        rust: '#A8432F',
+                        olive: '#5C7A5A',
+                        gold: '#C08A3E',
+                        clay: '#8A6F63'
+                    },
+                    fontFamily: {
+                        display: ['Fraunces', 'serif'],
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        .dropdown:hover .dropdown-menu{
+            display:block;
+        }
+    </style>
+
+    {% block extra_head %}
+    {% endblock %}
+</head>
+
+<body class="bg-paper text-ink font-sans min-h-screen flex flex-col">
+
+    <!-- ================= NAVBAR ================= -->
+
+    <header class="bg-ink text-paper sticky top-0 z-50 shadow">
+
+        <div class="max-w-7xl mx-auto px-6">
+
+            <div class="flex justify-between items-center h-16">
+
+                <!-- Logo -->
+
+                <a href="{% url 'company_list' %}"
+                   class="flex flex-col">
+
+                    <span class="font-display italic text-2xl">
+                        Nonda
+                    </span>
+
+                    <span class="text-xs text-clay">
+                        Commodities
+                    </span>
+
+                </a>
+
+                <!-- Right Navigation -->
+
+                <div class="flex items-center gap-4">
+
+                    <!-- Pipeline Dropdown -->
+
+                    <div class="relative dropdown">
+
+                        <button
+                            class="px-4 py-2 rounded-md hover:bg-white/10 transition">
+
+                            Pipeline ▼
+
+                        </button>
+
+                        <div
+                            class="dropdown-menu hidden absolute right-0 mt-2 w-56 bg-white text-ink rounded-md shadow-lg overflow-hidden">
+
+                            <a href="#"
+                               class="block px-4 py-2 hover:bg-gray-100">
+                                Dashboard
+                            </a>
+
+                            <a href="{% url 'company_list' %}"
+                               class="block px-4 py-2 hover:bg-gray-100">
+                                Companies
+                            </a>
+
+                            <a href="{% url 'stock_list' %}"
+                               class="block px-4 py-2 hover:bg-gray-100">
+                                Coffee Stock
+                            </a>
+
+                            <a href="{% url 'sample_list' %}"
+                               class="block px-4 py-2 hover:bg-gray-100">
+                                Samples
+                            </a>
+
+                            <a href="#"
+                               class="block px-4 py-2 hover:bg-gray-100">
+                                Followups
+                            </a>
+
+                            <a href="#"
+                               class="block px-4 py-2 hover:bg-gray-100">
+                                Contracts
+                            </a>
+
+                            <a href="#"
+                               class="block px-4 py-2 hover:bg-gray-100">
+                                Reports
+                            </a>
+
+                        </div>
+
+                    </div>
+
+                    <!-- User Dropdown -->
+
+                    <div class="relative dropdown">
+
+                        <button
+                            class="px-4 py-2 rounded-md hover:bg-white/10 transition">
+
+                            {% if request.user.is_authenticated %}
+                                {{ request.user.username }}
+                            {% else %}
+                                Guest
+                            {% endif %}
+                            ▼
+
+                        </button>
+
+                        <div
+                            class="dropdown-menu hidden absolute right-0 mt-2 w-48 bg-white text-ink rounded-md shadow-lg overflow-hidden">
+
+                            <a href="#"
+                               class="block px-4 py-2 hover:bg-gray-100">
+                                Profile
+                            </a>
+
+                            <a href="#"
+                               class="block px-4 py-2 hover:bg-gray-100">
+                                Settings
+                            </a>
+
+                            <a href="#"
+                               class="block px-4 py-2 hover:bg-gray-100">
+                                Logout
+                            </a>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </header>
+
+    <!-- ================= PAGE HEADER ================= -->
+
+    <section class="max-w-7xl mx-auto w-full px-6 pt-8">
+
+        <p class="text-sm text-clay uppercase tracking-widest">
+            {% block breadcrumb %}
+                Pipeline
+            {% endblock %}
+        </p>
+
+        <div class="flex justify-between items-center mt-2">
+
+            <h1 class="font-display text-3xl">
+                {% block page_title %}
+                {% endblock %}
+            </h1>
+
+            <div>
+                {% block header_action %}
+                {% endblock %}
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- ================= MESSAGES ================= -->
+
+    <main class="flex-1 max-w-7xl mx-auto w-full px-6 py-6">
+
+        {% if messages %}
+            <div class="mb-6 space-y-2">
+
+                {% for message in messages %}
+
+                    <div class="bg-white border rounded-md px-4 py-3 shadow-sm">
+
+                        {{ message }}
+
+                    </div>
+
+                {% endfor %}
+
+            </div>
+        {% endif %}
+
+        {% block content %}
+        {% endblock %}
+
+    </main>
+
+    # foorter
+
+    <footer class="border-t border-gray-200 py-4 text-center text-sm text-clay">
+
+        Nonda Commodities © {% now "Y" %}
+
+    </footer>
+
+</body>
+</html>

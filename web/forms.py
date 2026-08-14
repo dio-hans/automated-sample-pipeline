@@ -1,5 +1,5 @@
 from django import forms
-from .models import Company, Coffee_stock, Sample
+from .models import Company, CoffeeStock, Sample
 
 class CompanyForm(forms.models.ModelForm):
     class Meta:
@@ -8,7 +8,7 @@ class CompanyForm(forms.models.ModelForm):
 
 class CoffeeStockForm(forms.ModelForm):
     class Meta:
-        model = Coffee_stock
+        model = CoffeeStock
         fields = "__all__"
 
 class SampleForm(forms.ModelForm):

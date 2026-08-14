@@ -16,9 +16,9 @@ urlpatterns = [
     path('stocks/<int:pk>/update/', CoffeeStockUpdateView.as_view(), name='stock_update'),
     # sample urls here
     path('samples/', SampleListView.as_view(), name='sample_list'),
-    path('samples/<UUID:pk>/', SampleDetailView.as_view(), name='sample_detail'),
+    path('samples/<uuid:pk>/', SampleDetailView.as_view(), name='sample_detail'),
     path('samples/create/', SampleCreateView.as_view(), name='sample_create'),
-    path('samples/<UUID:pk>/update/', SampleUpdateView.as_view(), name='sample_update'),
-    path('samples/<UUID:pk>/delete/', SampleDeleteView.as_view(), name='sample_delete'),
+    path('samples/<uuid:pk>/update/', SampleUpdateView.as_view(), name='sample_update'),
+    path('samples/<uuid:pk>/delete/', SampleDeleteView.as_view(), name='sample_delete'),
 
 ]

@@ -1,0 +1,135 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}
+Companies
+{% endblock %}
+
+{% block breadcrumb %}
+Pipeline / Companies
+{% endblock %}
+
+{% block page_title %}
+Companies
+{% endblock %}
+
+{% block header_action %}
+<a href="{% url 'company_create' %}"
+   class="bg-rust text-white px-4 py-2 rounded-md hover:opacity-90">
+    + Add Company
+</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+
+    <div class="p-4 border-b">
+        <h2 class="font-semibold text-lg">
+            Client Companies
+        </h2>
+
+        <p class="text-sm text-gray-500 mt-1">
+            Manage coffee buyers, prospects, and recurring customers.
+        </p>
+    </div>
+
+    <div class="overflow-x-auto">
+
+        <table class="w-full">
+
+            <thead class="bg-gray-50">
+
+                <tr class="text-left">
+
+                    <th class="px-4 py-3">Company</th>
+                    <th class="px-4 py-3">Contact Person</th>
+                    <th class="px-4 py-3">Email</th>
+                    <th class="px-4 py-3">Phone</th>
+                    <th class="px-4 py-3">Pipeline Stage</th>
+                    <th class="px-4 py-3">Actions</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                {% for company in companies %}
+
+                <tr class="border-t hover:bg-gray-50">
+
+                    <td class="px-4 py-3 font-medium">
+                        {{ company.name }}
+                    </td>
+
+                    <td class="px-4 py-3">
+                        {{ company.contact_person }}
+                    </td>
+
+                    <td class="px-4 py-3">
+                        {{ company.email }}
+                    </td>
+
+                    <td class="px-4 py-3">
+                        {{ company.phone_number }}
+                    </td>
+
+                    <td class="px-4 py-3">
+
+                        <span class="px-2 py-1 rounded-full text-xs bg-gold/10">
+
+                            {{ company.get_pipeline_stage_display }}
+
+                        </span>
+
+                    </td>
+
+                    <td class="px-4 py-3">
+
+                        <div class="flex gap-2">
+
+                            <a href="{% url 'company_detail' company.pk %}"
+                               class="text-olive hover:underline">
+                                View
+                            </a>
+
+                            <a href="{% url 'company_update' company.pk %}"
+                               class="text-blue-600 hover:underline">
+                                Edit
+                            </a>
+
+                            <a href="{% url 'company_delete' company.pk %}"
+                               class="text-red-600 hover:underline">
+                                Delete
+                            </a>
+
+                        </div>
+
+                    </td>
+
+                </tr>
+
+                {% empty %}
+
+                <tr>
+
+                    <td colspan="6"
+                        class="text-center py-12 text-gray-500">
+
+                        No companies have been added yet.
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+{% endblock %}
