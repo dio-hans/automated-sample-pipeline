@@ -1,0 +1,155 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}
+Coffee Stock
+{% endblock %}
+
+{% block breadcrumb %}
+Pipeline / Coffee Stock
+{% endblock %}
+
+{% block page_title %}
+Coffee Stock
+{% endblock %}
+
+{% block header_action %}
+<a href="{% url 'stock_create' %}"
+   class="bg-rust text-white px-4 py-2 rounded-md hover:opacity-90">
+    + Add Stock
+</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+
+    <div class="p-4 border-b">
+        <h2 class="font-semibold text-lg">
+            Roasted Coffee Inventory
+        </h2>
+
+        <p class="text-sm text-gray-500 mt-1">
+            Track coffee available for sampling and fulfillment. Low-stock items are flagged for reordering.
+        </p>
+    </div>
+
+    <div class="overflow-x-auto">
+
+        <table class="w-full">
+
+            <thead class="bg-gray-50">
+
+                <tr class="text-left text-xs uppercase tracking-wider text-gray-500">
+
+                    <th class="px-4 py-3">Variety</th>
+                    <th class="px-4 py-3">Type</th>
+                    <th class="px-4 py-3">Washing Station</th>
+                    <th class="px-4 py-3">Roast Date</th>
+                    <th class="px-4 py-3 text-right">Available</th>
+                    <th class="px-4 py-3 text-right">Reorder At</th>
+                    <th class="px-4 py-3 text-center">Status</th>
+                    <th class="px-4 py-3">Actions</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                {% for stock in stocks %}
+
+                <tr class="border-t hover:bg-gray-50">
+
+                    <td class="px-4 py-3 font-medium">
+                        <a href="{% url 'stock_detail' stock.pk %}"
+                           class="hover:underline">
+                            {{ stock.variety_name }}
+                        </a>
+                    </td>
+
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-1 rounded-full text-xs bg-olive/10 capitalize">
+                            {{ stock.get_coffee_type_display }}
+                        </span>
+                    </td>
+
+                    <td class="px-4 py-3 text-sm">
+                        {{ stock.washing_station }}
+                    </td>
+
+                    <td class="px-4 py-3 text-sm">
+                        {{ stock.roast_date|date:"d M Y" }}
+                    </td>
+
+                    <td class="px-4 py-3 text-right text-sm font-medium">
+                        {{ stock.quantity_available|floatformat:2 }} kg
+                    </td>
+
+                    <td class="px-4 py-3 text-right text-sm text-gray-500">
+                        {{ stock.reorder_level|floatformat:2 }} kg
+                    </td>
+
+                    <td class="px-4 py-3 text-center">
+
+                        {% if stock.quantity_available <= 0 %}
+                            <span class="px-2 py-1 rounded-full text-xs bg-rust/10 text-rust">
+                                Out of stock
+                            </span>
+
+                        {% elif stock.quantity_available <= stock.reorder_level %}
+                            <span class="px-2 py-1 rounded-full text-xs bg-gold/10 text-gold">
+                                Low stock
+                            </span>
+
+                        {% else %}
+                            <span class="px-2 py-1 rounded-full text-xs bg-olive/10 text-olive">
+                                In stock
+                            </span>
+                        {% endif %}
+
+                    </td>
+
+                    <td class="px-4 py-3">
+
+                        <div class="flex gap-2">
+
+                            <a href="{% url 'stock_detail' stock.pk %}"
+                               class="text-olive hover:underline">
+                                View
+                            </a>
+
+                            <a href="{% url 'stock_update' stock.pk %}"
+                               class="text-blue-600 hover:underline">
+                                Edit
+                            </a>
+
+                        </div>
+
+                    </td>
+
+                </tr>
+
+                {% empty %}
+
+                <tr>
+
+                    <td colspan="8"
+                        class="text-center py-12 text-gray-500">
+
+                        No coffee stock has been added yet.
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -38,6 +38,27 @@ class CoffeeStockListViews(ListView):
     template_name = 'pipeline/coffee_stock_list.html'
     context_object_name = "stocks"
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+
+        ctx['total_available'] = sum(
+            s.quantity_available for s in ctx['stocks']
+        )
+
+        ctx['low_stock_count'] = sum(
+            1
+            for s in ctx['stocks']
+            if 0 < s.quantity_available <= s.reorder_level
+        )
+
+        ctx['out_of_stock_count'] = sum(
+            1
+            for s in ctx['stocks']
+            if s.quantity_available <= 0
+        )
+
+        return ctx
+
 class CoffeeStockDetailView(DetailView):
     model = CoffeeStock
     template_name = 'pipeline/coffee_stock_detail.html'

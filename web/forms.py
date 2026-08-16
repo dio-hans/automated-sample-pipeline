@@ -73,10 +73,46 @@ class CompanyForm(forms.ModelForm):
 
 
 class CoffeeStockForm(forms.ModelForm):
-
     class Meta:
         model = CoffeeStock
-        fields = "__all__"
+        fields = (
+            "coffee_type",
+            "variety_name",
+            "washing_station",
+            "quantity_available",
+            "reorder_level",
+            "roast_date",
+        )
+        widgets = {
+            "coffee_type": forms.Select(attrs={
+                "class": "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-rust"
+            }),
+
+            "variety_name": forms.TextInput(attrs={
+                "class": "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-rust",
+                "placeholder": "e.g. Bugisu AA"
+            }),
+
+            "washing_station": forms.TextInput(attrs={
+                "class": "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-rust",
+                "placeholder": "e.g. Bugisu Washing Station"
+            }),
+            "quantity_available": forms.NumberInput(attrs={
+                "class": "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-rust",
+                "step": "0.01",
+                "min": "0"
+            }),
+
+            "reorder_level": forms.NumberInput(attrs={
+                "class": "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-rust",
+                "step": "0.01",
+                "min": "0"
+            }),
+            "roast_date": forms.DateInput(attrs={
+                "class": "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-rust",
+                "type": "date"
+            }),
+        }
 
 
 class SampleForm(forms.ModelForm):

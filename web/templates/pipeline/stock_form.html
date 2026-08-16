@@ -1,0 +1,281 @@
+
+{% extends "pipeline/base.html" %}
+
+{% block title %}
+    {% if object %}
+        Edit Stock
+    {% else %}
+        Add Coffee Stock
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumb %}
+Coffee Stock
+{% endblock %}
+
+{% block page_title %}
+    {% if object %}
+        Edit Stock
+    {% else %}
+        Add Coffee Stock
+    {% endif %}
+{% endblock %}
+
+{% block header_action %}
+    <a href="{% url 'stock_list' %}"
+       class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium
+              border border-[#E4DECB] rounded-md
+              text-ink hover:bg-white transition">
+        ← Back to Stock
+    </a>
+{% endblock %}
+
+{% block content %}
+
+<div class="max-w-3xl">
+
+    <!-- Introduction -->
+    <div class="mb-8">
+        <p class="text-sm text-clay">
+            {% if object %}
+                Update the details for {{ object.variety_name }}.
+            {% else %}
+                Register a roasted coffee variety available for sampling and fulfillment.
+            {% endif %}
+        </p>
+    </div>
+
+
+    <!-- Form Card -->
+    <div class="card p-6 md:p-8">
+
+        <form method="post" novalidate>
+
+            {% csrf_token %}
+
+            <!-- Non-field errors -->
+            {% if form.non_field_errors %}
+                <div class="mb-6 rounded-md border border-rust-light
+                            bg-rust-50 px-4 py-3">
+                    {% for error in form.non_field_errors %}
+                        <p class="text-sm text-rust-dark">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            
+            {% if form.errors %}
+        <div class="mb-6 rounded-md border border-red-300 bg-red-50 px-4 py-3">
+            <p class="font-semibold text-red-800">
+                Please correct the following errors:
+            </p>
+
+            {{ form.errors }}
+        </div>
+    {% endif %}
+
+
+            <!-- Coffee Identity -->
+            <div class="mb-8">
+
+                <div class="mb-5">
+                    <p class="eyebrow text-clay">
+                        Coffee Identity
+                    </p>
+
+                    <h2 class="font-display text-xl mt-1">
+                        Variety Details
+                    </h2>
+                </div>
+
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                    <!-- Variety Name -->
+                    <div class="md:col-span-2">
+
+                        <label for="{{ form.variety_name.id_for_label }}"
+                               class="field-label block mb-2">
+                            Variety Name
+                        </label>
+
+                        {{ form.variety_name }}
+
+                        {% if form.variety_name.errors %}
+                            <div class="mt-1 text-sm text-rust-dark">
+                                {% for error in form.variety_name.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                    </div>
+
+
+                    <!-- Coffee Type -->
+                    <div>
+
+                        <label for="{{ form.coffee_type.id_for_label }}"
+                               class="field-label block mb-2">
+                            Coffee Type
+                        </label>
+
+                        {{ form.coffee_type }}
+
+                        {% if form.coffee_type.errors %}
+                            <div class="mt-1 text-sm text-rust-dark">
+                                {% for error in form.coffee_type.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                    </div>
+
+
+                    <!-- Washing Station -->
+                    <div>
+
+                        <label for="{{ form.washing_station.id_for_label }}"
+                               class="field-label block mb-2">
+                            Washing Station
+                        </label>
+
+                        {{ form.washing_station }}
+
+                        {% if form.washing_station.errors %}
+                            <div class="mt-1 text-sm text-rust-dark">
+                                {% for error in form.washing_station.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- Stock & Roast -->
+            <div class="mb-8">
+
+                <div class="mb-5">
+                    <p class="eyebrow text-clay">
+                        Inventory
+                    </p>
+
+                    <h2 class="font-display text-xl mt-1">
+                        Quantities &amp; Roast
+                    </h2>
+                </div>
+
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+                    <!-- Roast Date -->
+                    <div>
+
+                        <label for="{{ form.roast_date.id_for_label }}"
+                               class="field-label block mb-2">
+                            Roast Date
+                        </label>
+
+                        {{ form.roast_date }}
+
+                        {% if form.roast_date.errors %}
+                            <div class="mt-1 text-sm text-rust-dark">
+                                {% for error in form.roast_date.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                    </div>
+
+
+                    <!-- Quantity Available -->
+                    <div>
+
+                        <label for="{{ form.quantity_available.id_for_label }}"
+                               class="field-label block mb-2">
+                            Quantity Available (kg)
+                        </label>
+
+                        {{ form.quantity_available }}
+
+                        {% if form.quantity_available.errors %}
+                            <div class="mt-1 text-sm text-rust-dark">
+                                {% for error in form.quantity_available.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                    </div>
+
+
+                    <!-- Reorder Level -->
+                    <div>
+
+                        <label for="{{ form.reorder_level.id_for_label }}"
+                               class="field-label block mb-2">
+                            Reorder Level (kg)
+                        </label>
+
+                        {{ form.reorder_level }}
+
+                        {% if form.reorder_level.errors %}
+                            <div class="mt-1 text-sm text-rust-dark">
+                                {% for error in form.reorder_level.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <p class="mt-2 text-xs text-clay">
+                            Flagged as low stock when available drops to this level.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- Actions -->
+            <div class="flex items-center justify-end gap-3
+                        pt-6 border-t border-[#E4DECB]">
+
+                <a href="{% url 'stock_list' %}"
+                   class="px-4 py-2.5 text-sm font-medium
+                          rounded-md border border-[#E4DECB]
+                          hover:bg-paper-dim transition">
+                    Cancel
+                </a>
+
+                <button type="submit"
+                        class="px-5 py-2.5 text-sm font-semibold
+                               rounded-md bg-rust text-white
+                               hover:bg-rust-dark transition">
+
+                    {% if object %}
+                        Save Changes
+                    {% else %}
+                        Add Stock
+                    {% endif %}
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+{% endblock %}
