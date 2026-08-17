@@ -1,0 +1,180 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}
+Sample {{ sample.pk }}
+{% endblock %}
+
+{% block breadcrumb %}
+Pipeline / Samples / {{ sample.company.name }}
+{% endblock %}
+
+{% block page_title %}
+Sample Dispatch
+{% endblock %}
+
+{% block header_action %}
+<div class="flex items-center gap-2">
+    <a href="{% url 'sample_update' sample.pk %}"
+       class="bg-rust text-white px-4 py-2 rounded-md hover:opacity-90">
+        Edit
+    </a>
+    <a href="{% url 'sample_list' %}"
+       class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium
+              border border-[#E4DECB] rounded-md
+              text-ink hover:bg-white transition">
+        ← Back to Samples
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<div class="max-w-5xl space-y-6">
+
+    <!-- Status banner -->
+    {% if sample.delivery_status == 'failed' %}
+    <div class="rounded-md border border-rust-light bg-rust-50 px-4 py-3">
+        <p class="font-medium text-rust-dark">Delivery failed</p>
+        <p class="text-sm text-rust-dark mt-0.5">
+            This sample was not delivered. Follow up with the courier or resend.
+        </p>
+    </div>
+    {% elif sample.delivery_status == 'delivered' %}
+    <div class="rounded-md border border-olive/30 bg-olive/10 px-4 py-3">
+        <p class="font-medium text-olive">Delivered</p>
+        <p class="text-sm text-olive mt-0.5">
+            Sample received on {{ sample.delivered_at|date:"d F Y, H:i" }}. Begin follow-up.
+        </p>
+    </div>
+    {% else %}
+    <div class="rounded-md border border-gold/30 bg-gold/10 px-4 py-3">
+        <p class="font-medium text-gold">In transit</p>
+        <p class="text-sm text-gold mt-0.5">
+            Sample dispatched via {{ sample.courier_name }}. Awaiting delivery confirmation.
+        </p>
+    </div>
+    {% endif %}
+
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Details -->
+        <div class="lg:col-span-2 bg-white rounded-lg shadow-sm border">
+
+            <div class="p-4 border-b">
+                <h2 class="font-semibold text-lg">
+                    Sample Details
+                </h2>
+            </div>
+
+            <dl class="divide-y">
+
+                <div class="px-4 py-3 grid grid-cols-3 gap-4">
+                    <dt class="text-sm text-gray-500">Recipient</dt>
+                    <dd class="col-span-2 text-sm font-medium">
+                        <a href="{% url 'company_detail' sample.company.pk %}"
+                           class="text-olive hover:underline">
+                            {{ sample.company.name }}
+                        </a>
+                    </dd>
+                </div>
+
+                <div class="px-4 py-3 grid grid-cols-3 gap-4">
+                    <dt class="text-sm text-gray-500">Coffee</dt>
+                    <dd class="col-span-2 text-sm">
+                        {{ sample.coffee_stock.variety_name }}
+                        <span class="block text-xs text-gray-400 capitalize">
+                            {{ sample.coffee_stock.get_coffee_type_display }}
+                            &middot; {{ sample.coffee_stock.washing_station }}
+                        </span>
+                    </dd>
+                </div>
+
+                <div class="px-4 py-3 grid grid-cols-3 gap-4">
+                    <dt class="text-sm text-gray-500">Sample weight</dt>
+                    <dd class="col-span-2 text-sm font-medium">
+                        {{ sample.sample_weight|floatformat:2 }} kg
+                    </dd>
+                </div>
+
+                <div class="px-4 py-3 grid grid-cols-3 gap-4">
+                    <dt class="text-sm text-gray-500">Date sent</dt>
+                    <dd class="col-span-2 text-sm">
+                        {{ sample.date_sent|date:"d F Y, H:i" }}
+                    </dd>
+                </div>
+
+                <div class="px-4 py-3 grid grid-cols-3 gap-4">
+                    <dt class="text-sm text-gray-500">Courier</dt>
+                    <dd class="col-span-2 text-sm">
+                        {{ sample.courier_name }}
+                    </dd>
+                </div>
+
+                <div class="px-4 py-3 grid grid-cols-3 gap-4">
+                    <dt class="text-sm text-gray-500">Tracking number</dt>
+                    <dd class="col-span-2 text-sm font-mono text-xs">
+                        {{ sample.tracking_number }}
+                    </dd>
+                </div>
+
+                <div class="px-4 py-3 grid grid-cols-3 gap-4">
+                    <dt class="text-sm text-gray-500">Delivered at</dt>
+                    <dd class="col-span-2 text-sm">
+                        {% if sample.delivered_at %}
+                            {{ sample.delivered_at|date:"d F Y, H:i" }}
+                        {% else %}
+                            <span class="text-gray-400">—</span>
+                        {% endif %}
+                    </dd>
+                </div>
+
+            </dl>
+
+        </div>
+
+        <!-- Snapshot -->
+        <div class="space-y-6">
+
+            <div class="bg-white rounded-lg shadow-sm border p-6">
+                <p class="eyebrow text-clay">Delivery status</p>
+                <div class="mt-2">
+
+                    {% if sample.delivery_status == 'delivered' %}
+                        <span class="px-3 py-1 rounded-full text-sm font-medium bg-olive/10 text-olive">
+                            Delivered
+                        </span>
+                    {% elif sample.delivery_status == 'failed' %}
+                        <span class="px-3 py-1 rounded-full text-sm font-medium bg-rust/10 text-rust">
+                            Failed
+                        </span>
+                    {% else %}
+                        <span class="px-3 py-1 rounded-full text-sm font-medium bg-gold/10 text-gold">
+                            In Transit
+                        </span>
+                    {% endif %}
+
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-sm border p-6">
+                <p class="eyebrow text-clay">Sample ID</p>
+                <p class="font-mono text-xs mt-1 break-all text-gray-500">
+                    {{ sample.pk }}
+                </p>
+
+                <div class="mt-4 pt-4 border-t border-[#E4DECB]">
+                    <p class="eyebrow text-clay">Company stage</p>
+                    <p class="text-sm mt-1">
+                        {{ sample.company.get_pipeline_stage_display }}
+                    </p>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

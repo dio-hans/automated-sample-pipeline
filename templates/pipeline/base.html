@@ -46,6 +46,18 @@
         .dropdown:hover .dropdown-menu{
             display:block;
         }
+
+        .header{
+            background-color: #3A5333;
+            height: 80px;
+            }
+
+        img {
+            height: 90px;
+            width: 90px;
+            border-radius: 50%;
+            border-bottom: -2px solid;
+        }    
     </style>
 
     {% block extra_head %}
@@ -54,28 +66,19 @@
 
 <body class="bg-paper text-ink font-sans min-h-screen flex flex-col">
 
-    <!-- ================= NAVBAR ================= -->
+    
+    <!-- === NAVBAR === -->
 
-    <header class="bg-ink text-paper sticky top-0 z-50 shadow">
+    <header id="main-header" class=" header text-paper sticky top-0 z-50 shadow">
 
         <div class="max-w-7xl mx-auto px-6">
 
             <div class="flex justify-between items-center h-16">
 
-                <!-- Logo -->
-
-                <a href="{% url 'company_list' %}"
-                   class="flex flex-col">
-
-                    <span class="font-display italic text-2xl">
-                        Nonda
-                    </span>
-
-                    <span class="text-xs text-clay">
-                        Commodities
-                    </span>
-
-                </a>
+    <!-- Logo -->
+     <img src="{% static 'images/nonda-logo-green.jpg' %}" alt="Logo" class="">
+     <img src="{% static 'images/nonda-logo-cream.jpg' %}" alt="Logo" class="">
+    </a>
 
                 <!-- Right Navigation -->
 

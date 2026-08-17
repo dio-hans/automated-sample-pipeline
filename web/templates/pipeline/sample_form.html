@@ -1,0 +1,295 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}
+    {% if object %}
+        Edit Sample
+    {% else %}
+        Send Sample
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumb %}
+Samples
+{% endblock %}
+
+{% block page_title %}
+    {% if object %}
+        Edit Sample
+    {% else %}
+        Send Sample
+    {% endif %}
+{% endblock %}
+
+{% block header_action %}
+    <a href="{% url 'sample_list' %}"
+       class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium
+              border border-[#E4DECB] rounded-md
+              text-ink hover:bg-white transition">
+        ← Back to Samples
+    </a>
+{% endblock %}
+
+{% block content %}
+
+<div class="max-w-3xl">
+
+    <!-- Introduction -->
+    <div class="mb-8">
+        <p class="text-sm text-clay">
+            {% if object %}
+                Update the details for this sample dispatch.
+            {% else %}
+                Send a coffee sample to a prospect. Stock is deducted automatically and the company advances to "Sample Sent".
+            {% endif %}
+        </p>
+    </div>
+
+
+    <!-- Form Card -->
+    <div class="card p-6 md:p-8">
+
+        <form method="post" novalidate>
+
+            {% csrf_token %}
+
+            <!-- Non-field errors -->
+            {% if form.non_field_errors %}
+                <div class="mb-6 rounded-md border border-rust-light
+                            bg-rust-50 px-4 py-3">
+                    {% for error in form.non_field_errors %}
+                        <p class="text-sm text-rust-dark">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+
+            <!-- Recipient & Coffee -->
+            <div class="mb-8">
+
+                <div class="mb-5">
+                    <p class="eyebrow text-clay">
+                        Dispatch
+                    </p>
+
+                    <h2 class="font-display text-xl mt-1">
+                        Recipient &amp; Coffee
+                    </h2>
+                </div>
+
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                    <!-- Company -->
+                    <div>
+
+                        <label for="{{ form.company.id_for_label }}"
+                               class="field-label block mb-2">
+                            Recipient Company
+                        </label>
+
+                        {{ form.company }}
+
+                        {% if form.company.errors %}
+                            <div class="mt-1 text-sm text-rust-dark">
+                                {% for error in form.company.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                    </div>
+
+
+                    <!-- Coffee Stock -->
+                    <div>
+
+                        <label for="{{ form.coffee_stock.id_for_label }}"
+                               class="field-label block mb-2">
+                            Coffee Sample
+                        </label>
+
+                        {{ form.coffee_stock }}
+
+                        {% if form.coffee_stock.errors %}
+                            <div class="mt-1 text-sm text-rust-dark">
+                                {% for error in form.coffee_stock.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                    </div>
+
+
+                    <!-- Sample Weight -->
+                    <div>
+
+                        <label for="{{ form.sample_weight.id_for_label }}"
+                               class="field-label block mb-2">
+                            Sample Weight (kg)
+                        </label>
+
+                        {{ form.sample_weight }}
+
+                        {% if form.sample_weight.errors %}
+                            <div class="mt-1 text-sm text-rust-dark">
+                                {% for error in form.sample_weight.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <p class="mt-2 text-xs text-clay">
+                            This amount is deducted from the selected stock on dispatch.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- Courier & Tracking -->
+            <div class="mb-8">
+
+                <div class="mb-5">
+                    <p class="eyebrow text-clay">
+                        Shipping
+                    </p>
+
+                    <h2 class="font-display text-xl mt-1">
+                        Courier &amp; Tracking
+                    </h2>
+                </div>
+
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                    <!-- Courier Name -->
+                    <div>
+
+                        <label for="{{ form.courier_name.id_for_label }}"
+                               class="field-label block mb-2">
+                            Courier
+                        </label>
+
+                        {{ form.courier_name }}
+
+                        {% if form.courier_name.errors %}
+                            <div class="mt-1 text-sm text-rust-dark">
+                                {% for error in form.courier_name.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                    </div>
+
+
+                    <!-- Tracking Number -->
+                    <div>
+
+                        <label for="{{ form.tracking_number.id_for_label }}"
+                               class="field-label block mb-2">
+                            Tracking Number
+                        </label>
+
+                        {{ form.tracking_number }}
+
+                        {% if form.tracking_number.errors %}
+                            <div class="mt-1 text-sm text-rust-dark">
+                                {% for error in form.tracking_number.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                    </div>
+
+
+                    <!-- Delivery Status -->
+                    <div>
+
+                        <label for="{{ form.delivery_status.id_for_label }}"
+                               class="field-label block mb-2">
+                            Delivery Status
+                        </label>
+
+                        {{ form.delivery_status }}
+
+                        {% if form.delivery_status.errors %}
+                            <div class="mt-1 text-sm text-rust-dark">
+                                {% for error in form.delivery_status.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                    </div>
+
+
+                    <!-- Delivered At -->
+                    <div>
+
+                        <label for="{{ form.delivered_at.id_for_label }}"
+                               class="field-label block mb-2">
+                            Delivered At
+                        </label>
+
+                        {{ form.delivered_at }}
+
+                        {% if form.delivered_at.errors %}
+                            <div class="mt-1 text-sm text-rust-dark">
+                                {% for error in form.delivered_at.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <p class="mt-2 text-xs text-clay">
+                            Leave blank until the sample is confirmed delivered.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- Actions -->
+            <div class="flex items-center justify-end gap-3
+                        pt-6 border-t border-[#E4DECB]">
+
+                <a href="{% url 'sample_list' %}"
+                   class="px-4 py-2.5 text-sm font-medium
+                          rounded-md border border-[#E4DECB]
+                          hover:bg-paper-dim transition">
+                    Cancel
+                </a>
+
+                <button type="submit"
+                        class="px-5 py-2.5 text-sm font-semibold
+                               rounded-md bg-rust text-white
+                               hover:bg-rust-dark transition">
+
+                    {% if object %}
+                        Save Changes
+                    {% else %}
+                        Send Sample
+                    {% endif %}
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+{% endblock %}

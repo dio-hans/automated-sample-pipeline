@@ -1,0 +1,159 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}
+Samples
+{% endblock %}
+
+{% block breadcrumb %}
+Pipeline / Samples
+{% endblock %}
+
+{% block page_title %}
+Samples
+{% endblock %}
+
+{% block header_action %}
+<a href="{% url 'sample_create' %}"
+   class="bg-rust text-white px-4 py-2 rounded-md hover:opacity-90">
+    + Send Sample
+</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+
+    <div class="p-4 border-b">
+        <h2 class="font-semibold text-lg">
+            Dispatched Samples
+        </h2>
+
+        <p class="text-sm text-gray-500 mt-1">
+            Coffee samples sent to prospects. Sending a sample automatically deducts stock and advances the company's pipeline stage.
+        </p>
+    </div>
+
+    <div class="overflow-x-auto">
+
+        <table class="w-full">
+
+            <thead class="bg-gray-50">
+
+                <tr class="text-left text-xs uppercase tracking-wider text-gray-500">
+
+                    <th class="px-4 py-3">Recipient</th>
+                    <th class="px-4 py-3">Coffee</th>
+                    <th class="px-4 py-3 text-right">Weight</th>
+                    <th class="px-4 py-3">Date Sent</th>
+                    <th class="px-4 py-3">Courier</th>
+                    <th class="px-4 py-3">Tracking #</th>
+                    <th class="px-4 py-3 text-center">Status</th>
+                    <th class="px-4 py-3">Actions</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                {% for sample in samples %}
+
+                <tr class="border-t hover:bg-gray-50">
+
+                    <td class="px-4 py-3 font-medium">
+                        <a href="{% url 'company_detail' sample.company.pk %}"
+                           class="hover:underline">
+                            {{ sample.company.name }}
+                        </a>
+                    </td>
+
+                    <td class="px-4 py-3 text-sm">
+                        {{ sample.coffee_stock.variety_name }}
+                        <span class="block text-xs text-gray-400 capitalize">
+                            {{ sample.coffee_stock.get_coffee_type_display }}
+                        </span>
+                    </td>
+
+                    <td class="px-4 py-3 text-right text-sm">
+                        {{ sample.sample_weight|floatformat:2 }} kg
+                    </td>
+
+                    <td class="px-4 py-3 text-sm">
+                        {{ sample.date_sent|date:"d M Y" }}
+                    </td>
+
+                    <td class="px-4 py-3 text-sm">
+                        {{ sample.courier_name }}
+                    </td>
+
+                    <td class="px-4 py-3 text-sm font-mono text-xs">
+                        {{ sample.tracking_number }}
+                    </td>
+
+                    <td class="px-4 py-3 text-center">
+
+                        {% if sample.delivery_status == 'delivered' %}
+                            <span class="px-2 py-1 rounded-full text-xs bg-olive/10 text-olive">
+                                Delivered
+                            </span>
+                        {% elif sample.delivery_status == 'failed' %}
+                            <span class="px-2 py-1 rounded-full text-xs bg-rust/10 text-rust">
+                                Failed
+                            </span>
+                        {% else %}
+                            <span class="px-2 py-1 rounded-full text-xs bg-gold/10 text-gold">
+                                In Transit
+                            </span>
+                        {% endif %}
+
+                    </td>
+
+                    <td class="px-4 py-3">
+
+                        <div class="flex gap-2">
+
+                            <a href="{% url 'sample_detail' sample.pk %}"
+                               class="text-olive hover:underline">
+                                View
+                            </a>
+
+                            <a href="{% url 'sample_update' sample.pk %}"
+                               class="text-blue-600 hover:underline">
+                                Edit
+                            </a>
+
+                            <a href="{% url 'sample_delete' sample.pk %}"
+                               class="text-red-600 hover:underline">
+                                Delete
+                            </a>
+
+                        </div>
+
+                    </td>
+
+                </tr>
+
+                {% empty %}
+
+                <tr>
+
+                    <td colspan="8"
+                        class="text-center py-12 text-gray-500">
+
+                        No samples have been dispatched yet.
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+{% endblock %}
