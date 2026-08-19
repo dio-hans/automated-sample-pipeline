@@ -401,3 +401,42 @@ The MVP will be considered successful if it demonstrates:
 > Sample-to-Contract Conversion Rate
 
 If this metric improves, the business case for WhatsApp automation, advanced analytics, logistics integrations, and larger-scale CRM functionality becomes clear.
+
+---
+
+# 9. Stock Intake Behaviour
+
+Coffee is received on one form (`Add Stock`) that asks for a **name of material**
+instead of a variety dropdown:
+
+* The field is backed by a datalist of every active `CoffeeVariety`, each option
+  carrying that variety's master defaults (coffee type, grade, source, process,
+  foreign smell). Selecting or typing a known name prefills the empty batch
+  fields client-side.
+* On submit, the name is resolved case-insensitively:
+  * **Known name** — the existing `CoffeeVariety` is reused. If the supplier and
+    receiving date match a batch already on file, the intake tops up that batch;
+    otherwise a new, separately traceable batch is opened under the same variety.
+  * **New name** — a new `CoffeeVariety` definition is auto-generated from the
+    batch details, plus its first batch.
+* Quantities are never written onto the batch row. Every intake posts a
+  `receipt` `StockMovement`, so the movement ledger stays the single source of
+  truth for what is available at each processing stage (green, roasted, ground,
+  packaged) and samples deduct from it.
+
+# 10. Running Locally
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# .env
+# SECRET_KEY=...
+# DEBUG=True
+# ALLOWED_HOSTS=127.0.0.1,localhost
+
+python manage.py migrate
+python manage.py test
+python manage.py runserver
+```

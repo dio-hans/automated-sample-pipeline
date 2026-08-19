@@ -57,29 +57,26 @@
                             Name of Material
                         </label>
 
-                        <div>
-    <label for="{{ form.variety.id_for_label }}"
-           class="field-label block mb-2">
-        Coffee Variety
-    </label>
+                        {{ form.variety_name }}
 
-    {{ form.variety }}
-
-    {% if form.variety.errors %}
-        <div class="mt-1 text-sm text-rust-dark">
-            {% for error in form.variety.errors %}
-                <p>{{ error }}</p>
-            {% endfor %}
-        </div>
-    {% endif %}
-</div>
-
-                        <!-- Datalist containing existing stock names -->
+                        <!-- Existing coffee definitions, with their master defaults -->
                         <datalist id="variety_list">
                             {% for variety in existing_varieties %}
-                                <option value="{{ variety }}"></option>
+                                <option value="{{ variety.name }}"
+                                        data-coffee-type="{{ variety.default_coffee_type }}"
+                                        data-grade="{{ variety.default_grade }}"
+                                        data-source="{{ variety.default_source }}"
+                                        data-process="{{ variety.default_process }}"
+                                        data-foreign-smell="{{ variety.default_foreign_smell }}"></option>
                             {% endfor %}
                         </datalist>
+
+                        <p class="mt-2 text-xs text-clay">
+                            Typing a matching name restocks that coffee line; a custom name
+                            auto-generates a new coffee definition.
+                        </p>
+
+                        <p id="variety_hint" class="mt-1 text-xs text-olive hidden"></p>
 
                         {% if form.variety_name.errors %}
                             <div class="mt-1 text-sm text-rust-dark">
@@ -156,15 +153,20 @@
                         {% endif %}
                     </div>
 
+                    {% if form.quantity_received %}
                     <div>
-                        <label for="{{ form.quantity_received.id_for_label }}" class="field-label block mb-2">Quantities Received (kg)</label>
+                        <label for="{{ form.quantity_received.id_for_label }}" class="field-label block mb-2">Quantity Received (kg)</label>
                         {{ form.quantity_received }}
+                        <p class="mt-2 text-xs text-clay">
+                            Posted to the stock ledger as a green-coffee receipt.
+                        </p>
                         {% if form.quantity_received.errors %}
                             <div class="mt-1 text-sm text-rust-dark">
                                 {% for error in form.quantity_received.errors %}<p>{{ error }}</p>{% endfor %}
                             </div>
                         {% endif %}
                     </div>
+                    {% endif %}
 
                     <div>
                         <label for="{{ form.moisture_content.id_for_label }}" class="field-label block mb-2">Moisture Content</label>
@@ -278,44 +280,14 @@
                 </div>
             </div>
 
-            <!-- Processing Stage -->
-            <div class="mb-8">
-                <div class="mb-5">
-                    <p class="eyebrow text-clay">Processing</p>
-                    <h2 class="font-display text-xl mt-1">Roast, Grind &amp; Package</h2>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-                    <div>
-                        <label for="{{ form.stage.id_for_label }}" class="field-label block mb-2">Current Stage</label>
-                        {{ form.stage }}
-                        {% if form.stage.errors %}
-                            <div class="mt-1 text-sm text-rust-dark">
-                                {% for error in form.stage.errors %}<p>{{ error }}</p>{% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
-                
-
             <!-- Inventory -->
             <div class="mb-8">
                 <div class="mb-5">
                     <p class="eyebrow text-clay">Inventory</p>
-                    <h2 class="font-display text-xl mt-1">Available &amp; Reorder</h2>
+                    <h2 class="font-display text-xl mt-1">Reorder Settings</h2>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-                    <div>
-                        <label for="{{ form.quantity_available.id_for_label }}" class="field-label block mb-2">Quantity Available (kg)</label>
-                        {{ form.quantity_available }}
-                        {% if form.quantity_available.errors %}
-                            <div class="mt-1 text-sm text-rust-dark">
-                                {% for error in form.quantity_available.errors %}<p>{{ error }}</p>{% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
 
                     <div>
                         <label for="{{ form.reorder_level.id_for_label }}" class="field-label block mb-2">Reorder Level (kg)</label>
@@ -355,42 +327,59 @@
 
 {% block extra_scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
+
     const varietyInput = document.getElementById('{{ form.variety_name.id_for_label }}');
+    const hint = document.getElementById('variety_hint');
+
     if (!varietyInput) return;
 
-    function fetchVarietyData() {
-        const selectedValue = varietyInput.value.trim();
-        if (selectedValue.length < 2) return;
+    const fieldByDataset = {
+        coffeeType: '{{ form.coffee_type.id_for_label }}',
+        grade: '{{ form.grade.id_for_label }}',
+        source: '{{ form.source.id_for_label }}',
+        process: '{{ form.process.id_for_label }}',
+        foreignSmell: '{{ form.foreign_smell.id_for_label }}',
+    };
 
-        fetch(`{% url 'get_variety_details' %}?name=${encodeURIComponent(selectedValue)}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const setFieldValue = (fieldId, value) => {
-                        if (!value) return;
-                        const el = document.getElementById(fieldId);
-                        if (el) {
-                            el.value = value;
-                            // Trigger change event for dynamic selects/listeners
-                            el.dispatchEvent(new Event('change', { bubbles: true }));
-                        }
-                    };
+    function matchedOption() {
+        const typed = varietyInput.value.trim().toLowerCase();
+        if (!typed) return null;
 
-                    setFieldValue('{{ form.coffee_type.id_for_label }}', data.coffee_type);
-                    setFieldValue('{{ form.supplier.id_for_label }}', data.supplier);
-                    setFieldValue('{{ form.source.id_for_label }}', data.source);
-                    setFieldValue('{{ form.grade.id_for_label }}', data.grade);
-                    setFieldValue('{{ form.foreign_smell.id_for_label }}', data.foreign_smell);
-                    setFieldValue('{{ form.car_number.id_for_label }}', data.car_number);
-                }
-            })
-            .catch(error => console.error('Error fetching variety details:', error));
+        return Array.from(
+            document.querySelectorAll('#variety_list option')
+        ).find(option => option.value.trim().toLowerCase() === typed) || null;
     }
 
-    // Trigger on typing and on datalist selection
-    varietyInput.addEventListener('input', fetchVarietyData);
-    varietyInput.addEventListener('change', fetchVarietyData);
+    function applyVarietyDefaults() {
+        const option = matchedOption();
+
+        if (!option) {
+            hint.classList.add('hidden');
+            return;
+        }
+
+        // Only prefill fields the user has left empty, so a typed batch
+        // detail is never overwritten by the master default.
+        Object.entries(fieldByDataset).forEach(([key, fieldId]) => {
+            const value = option.dataset[key];
+            const field = document.getElementById(fieldId);
+
+            if (!value || !field || field.value) return;
+
+            field.value = value;
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+
+        hint.textContent =
+            'Existing coffee — this intake restocks "' + option.value + '".';
+        hint.classList.remove('hidden');
+    }
+
+    varietyInput.addEventListener('input', applyVarietyDefaults);
+    varietyInput.addEventListener('change', applyVarietyDefaults);
+
+    applyVarietyDefaults();
 });
 </script>
 {% endblock %}

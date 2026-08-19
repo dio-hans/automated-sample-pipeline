@@ -1,5 +1,9 @@
+from decimal import Decimal
+
 from django import forms
+
 from .models import Company, CoffeeStock, Sample
+from .services.intake import generate_batch_number, resolve_variety
 
 
 class CompanyForm(forms.ModelForm):
@@ -77,17 +81,19 @@ FIELD_CLASS = (
 )
 
 class CoffeeStockForm(forms.ModelForm):
+    """
+    Edit an existing batch. The variety is typed by name: an existing name
+    re-points the batch at that definition, a new one creates it.
+    """
 
-    quantity_received = forms.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        min_value=0,
-        required=True,
-        widget=forms.NumberInput(attrs={
+    variety_name = forms.CharField(
+        max_length=150,
+        label="Name of material",
+        widget=forms.TextInput(attrs={
             "class": FIELD_CLASS,
-            "step": "0.01",
-            "min": "0",
-            "placeholder": "e.g. 500"
+            "list": "variety_list",
+            "autocomplete": "off",
+            "placeholder": "e.g. Bugisu AA (Sipi Falls)",
         })
     )
 
@@ -95,7 +101,6 @@ class CoffeeStockForm(forms.ModelForm):
         model = CoffeeStock
         fields = (
             "coffee_type",
-            "variety",
             "received_date",
             "supplier",
             "source",
@@ -119,10 +124,6 @@ class CoffeeStockForm(forms.ModelForm):
 
         widgets = {
             "coffee_type": forms.Select(attrs={"class": FIELD_CLASS}),
-
-            "variety": forms.Select(attrs={
-                "class": FIELD_CLASS
-            }),
 
             "received_date": forms.DateInput(attrs={
                 "class": FIELD_CLASS,
@@ -223,6 +224,72 @@ class CoffeeStockForm(forms.ModelForm):
                 "min": "0",
             }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if self.instance.pk:
+            self.fields["variety_name"].initial = self.instance.variety.name
+
+    def clean_variety_name(self):
+        name = self.cleaned_data["variety_name"].strip()
+
+        if not name:
+            raise forms.ValidationError("Enter the name of the material.")
+
+        return name
+
+    def save(self, commit=True):
+        stock = super().save(commit=False)
+
+        variety, _ = resolve_variety(
+            self.cleaned_data["variety_name"],
+            self.cleaned_data,
+        )
+
+        stock.variety = variety
+
+        if not stock.batch_number:
+            stock.batch_number = generate_batch_number(
+                variety,
+                stock.received_date,
+            )
+
+        if commit:
+            stock.save()
+
+        return stock
+
+
+class CoffeeStockIntakeForm(CoffeeStockForm):
+    """
+    Receive coffee. Quantity is never written to the batch directly — it is
+    posted as a receipt StockMovement so the ledger stays the source of truth.
+    """
+
+    quantity_received = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        required=True,
+        label="Quantity received (kg)",
+        widget=forms.NumberInput(attrs={
+            "class": FIELD_CLASS,
+            "step": "0.01",
+            "min": "0",
+            "placeholder": "e.g. 500",
+        })
+    )
+
+    def batch_data(self):
+        """Cleaned batch attributes, without the intake-only fields."""
+
+        return {
+            field: self.cleaned_data[field]
+            for field in self.Meta.fields
+        }
+
+
 class SampleForm(forms.ModelForm):
 
     class Meta:

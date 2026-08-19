@@ -1,17 +1,32 @@
+from django.contrib import messages
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.urls import reverse_lazy
-from django.shortcuts import render
 from django.db import transaction
-from .models import Company, CoffeeStock, Sample,  CoffeeVariety
-from .forms import CompanyForm, CoffeeStockForm, SampleForm
 from django.http import JsonResponse
+from django.shortcuts import redirect
+
+from .models import Company, CoffeeStock, Sample, StockMovement, CoffeeVariety
+from .forms import (
+    CompanyForm,
+    CoffeeStockForm,
+    CoffeeStockIntakeForm,
+    SampleForm,
+)
+from .services.intake import record_intake
+from .services.inventory import get_stage_inventory
+
+
+def current_user(request):
+    """The acting user, or None while the app runs without authentication."""
+
+    return request.user if request.user.is_authenticated else None
 
 
 # company views here
 class CompanyListView(ListView):
     model = Company
     template_name = 'pipeline/company_list.html'
-    context_object_name = "companies"\
+    context_object_name = "companies"
 
 class CompanyDetailView(DetailView):
     model = Company
@@ -25,33 +40,34 @@ class CompanyCreateView(CreateView):
     success_url = reverse_lazy('company_list')
 
 def get_variety_details(request):
+    """
+    Master defaults for a coffee variety, looked up by name (what the
+    intake form types) or by id.
+    """
+
+    varieties = CoffeeVariety.objects.filter(is_active=True)
 
     variety_id = request.GET.get('id')
+    name = (request.GET.get('name') or '').strip()
 
-    if not variety_id:
-        return JsonResponse({
-            'success': False
-        })
+    if variety_id:
+        variety = varieties.filter(pk=variety_id).first()
+    elif name:
+        variety = varieties.filter(name__iexact=name).first()
+    else:
+        variety = None
 
-    try:
-        variety = CoffeeVariety.objects.get(
-            pk=variety_id,
-            is_active=True
-        )
-    except CoffeeVariety.DoesNotExist:
-        return JsonResponse({
-            'success': False
-        })
+    if variety is None:
+        return JsonResponse({'success': False})
 
     return JsonResponse({
         'success': True,
-        'defaults': {
-            'coffee_type': variety.default_coffee_type,
-            'grade': variety.default_grade,
-            'source': variety.default_source,
-            'process': variety.default_process,
-            'foreign_smell': variety.default_foreign_smell,
-        }
+        'name': variety.name,
+        'coffee_type': variety.default_coffee_type,
+        'grade': variety.default_grade,
+        'source': variety.default_source,
+        'process': variety.default_process,
+        'foreign_smell': variety.default_foreign_smell,
     })
 
 class CompanyUpdateView(UpdateView):
@@ -66,15 +82,18 @@ class CompanyDeleteView(DeleteView):
     success_url = reverse_lazy('company_list')
 
 # coffee stock views here
-def product_list(request):
-    products = CoffeeStock.objects.all().order_by('current_stock')
-    context = {'products': products}
-    return render(request, 'coffee_stock_list.html', context)
-
 class CoffeeStockListViews(ListView):
     model = CoffeeStock
     template_name = 'pipeline/coffee_stock_list.html'
     context_object_name = "stocks"
+
+    def get_queryset(self):
+        return (
+            CoffeeStock.objects
+            .select_related('variety')
+            .prefetch_related('movements')
+            .order_by('-received_date', '-created_at')
+        )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -99,37 +118,14 @@ class CoffeeStockListViews(ListView):
 
 class CoffeeStockDetailView(DetailView):
     model = CoffeeStock
-    template_name = 'pipeline/coffee_stock_detail.html'
+    template_name = 'pipeline/stock_detail.html'
     context_object_name = "stock"
-class CoffeeStockCreateView(CreateView):
 
-    model = CoffeeStock
-    form_class = CoffeeStockForm
-    template_name = "pipeline/stock_form.html"
-    success_url = reverse_lazy("stock_list")
 
-    @transaction.atomic
-    def form_valid(self, form):
-
-        stock = form.save()
-
-        quantity_received = form.cleaned_data["quantity_received"]
-
-        StockMovement.objects.create(
-            stock=stock,
-            movement_type="receipt",
-            to_stage="green_received",
-            quantity=quantity_received,
-            reference=stock.batch_number,
-            created_by=self.request.user,
-        )
-
-        self.object = stock
-
-        return super().form_valid(form)
+class VarietyDatalistMixin:
+    """Feeds the 'name of material' datalist with its master defaults."""
 
     def get_context_data(self, **kwargs):
-
         context = super().get_context_data(**kwargs)
 
         context["existing_varieties"] = CoffeeVariety.objects.filter(
@@ -138,7 +134,31 @@ class CoffeeStockCreateView(CreateView):
 
         return context
 
-class CoffeeStockUpdateView(UpdateView):
+
+class CoffeeStockCreateView(VarietyDatalistMixin, CreateView):
+
+    model = CoffeeStock
+    form_class = CoffeeStockIntakeForm
+    template_name = "pipeline/stock_form.html"
+    success_url = reverse_lazy("stock_list")
+
+    def form_valid(self, form):
+
+        result = record_intake(
+            variety_name=form.cleaned_data["variety_name"],
+            batch_data=form.batch_data(),
+            quantity_received=form.cleaned_data["quantity_received"],
+            user=current_user(self.request),
+        )
+
+        self.object = result.stock
+
+        messages.success(self.request, result.message)
+
+        return redirect(self.get_success_url())
+
+
+class CoffeeStockUpdateView(VarietyDatalistMixin, UpdateView):
     model = CoffeeStock
     form_class = CoffeeStockForm
     template_name = "pipeline/stock_form.html"
@@ -149,6 +169,12 @@ class SampleListView(ListView):
     model = Sample
     template_name = 'pipeline/sample_list.html'
     context_object_name = "samples"
+
+    def get_queryset(self):
+        return Sample.objects.select_related(
+            'company',
+            'coffee_stock__variety',
+        ).order_by('-date_sent')
 
 class SampleDetailView(DetailView):
     model = Sample
@@ -196,7 +222,7 @@ class SampleCreateView(CreateView):
                 from_stage='roasted',
                 quantity=sample_weight,
                 reference=str(self.object.id),
-                created_by=self.request.user,
+                created_by=current_user(self.request),
             )
 
             company = self.object.company
@@ -217,4 +243,5 @@ class SampleUpdateView(UpdateView):
 class SampleDeleteView(DeleteView):
     model = Sample
     template_name = 'pipeline/sample_confirm_delete.html'
+
     success_url = reverse_lazy('sample_list')

@@ -252,6 +252,69 @@ class CoffeeStock(models.Model):
             total=Sum('quantity')
         )['total'] or 0
 
+    @property
+    def variety_name(self):
+        return self.variety.name
+
+    def stage_quantity(self, stage):
+        """Quantity of this batch currently sitting at a processing stage."""
+
+        incoming = self.movements.filter(
+            to_stage=stage
+        ).aggregate(total=Sum('quantity'))['total'] or 0
+
+        outgoing = self.movements.filter(
+            from_stage=stage
+        ).aggregate(total=Sum('quantity'))['total'] or 0
+
+        return incoming - outgoing
+
+    @property
+    def quantity_available(self):
+        """
+        Total quantity of this batch still inside the business, across
+        every stage. Internal transfers cancel out because they carry
+        both a from_stage and a to_stage.
+        """
+
+        incoming = self.movements.exclude(
+            to_stage=None
+        ).aggregate(total=Sum('quantity'))['total'] or 0
+
+        outgoing = self.movements.exclude(
+            from_stage=None
+        ).aggregate(total=Sum('quantity'))['total'] or 0
+
+        return incoming - outgoing
+
+    @property
+    def quantity_green(self):
+        return self.stage_quantity('green_received')
+
+    @property
+    def quantity_roasted(self):
+        return self.stage_quantity('roasted')
+
+    @property
+    def quantity_ground(self):
+        return self.stage_quantity('ground')
+
+    @property
+    def quantity_packaged(self):
+        return self.stage_quantity('packaged')
+
+    @property
+    def roast_date(self):
+        movement = self.movements.filter(
+            to_stage='roasted'
+        ).order_by('created_at').first()
+
+        return movement.created_at if movement else None
+
+    @property
+    def is_low_stock(self):
+        return 0 < self.quantity_available <= self.reorder_level
+
     def __str__(self):
         return f"{self.batch_number} - {self.variety.name}"
 
@@ -357,12 +420,12 @@ class Sample(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     def __str__(self):
-        return f"{self.company.name} - {self.coffee_stock.variety_name} - {self.sample_weight}kg"
+        return f"{self.company.name} - {self.coffee_stock.variety.name} - {self.sample_weight}kg"
 
 # follow up tracker
 class Followup(models.Model):
     sample = models.OneToOneField(Sample, on_delete=models.CASCADE)
-    dispatch_alert_sent_at = models.DateTimeField(blank=True)
+    dispatch_alert_sent_at = models.DateTimeField(null=True, blank=True)
     day_3_guide_sent_at = models.DateTimeField(null=True, blank=True)
     day_7_contract_sent_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -406,7 +469,7 @@ class Contract(models.Model):
     next_delivery_date = models.DateField(null=True, blank=True)
 
     def __str__(self):
-        return f"Contract for {self.company.name} - {self.sample.coffee_stock.variety_name} - {self.volume_per_cycle_kg}kg"
+        return f"Contract for {self.company.name} - {self.volume_per_cycle_kg}kg"
 
 # --- 6. RECURRING SUPPLY LOG ---
 class SupplyFulfillment(models.Model):
