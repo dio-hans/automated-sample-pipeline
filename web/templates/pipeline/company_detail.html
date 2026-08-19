@@ -1,0 +1,79 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}{{ company.name }}{% endblock %}
+
+{% block breadcrumb %}Pipeline / Companies / {{ company.name }}{% endblock %}
+
+{% block page_title %}{{ company.name }}{% endblock %}
+
+{% block header_action %}
+<div class="flex gap-2">
+    <a href="{% url 'company_update' company.pk %}"
+       class="px-4 py-2 text-sm font-medium rounded-md border border-[#E4DECB] hover:bg-paper-dim">
+        Edit
+    </a>
+    <a href="{% url 'company_delete' company.pk %}"
+       class="px-4 py-2 text-sm font-medium rounded-md border border-[#E4DECB] text-rust-dark hover:bg-paper-dim">
+        Delete
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <div class="lg:col-span-2 bg-white rounded-lg border overflow-hidden">
+        <table class="w-full">
+            <tbody class="divide-y">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">Contact person</th>
+                    <td class="px-6 py-3 text-sm">{{ company.contact_person }}</td>
+                </tr>
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">Email</th>
+                    <td class="px-6 py-3 text-sm">{{ company.email }}</td>
+                </tr>
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">Phone</th>
+                    <td class="px-6 py-3 text-sm">{{ company.phone_number }}</td>
+                </tr>
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">Location</th>
+                    <td class="px-6 py-3 text-sm">{{ company.city }}, {{ company.country }}</td>
+                </tr>
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">Address</th>
+                    <td class="px-6 py-3 text-sm">{{ company.address }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="space-y-6">
+
+        <div class="bg-white rounded-lg border p-6">
+            <p class="eyebrow text-clay">Pipeline stage</p>
+            <p class="text-lg mt-1">{{ company.get_pipeline_stage_display }}</p>
+        </div>
+
+        <div class="bg-white rounded-lg border p-6">
+            <p class="eyebrow text-clay">Samples sent</p>
+            <ul class="mt-2 space-y-2">
+                {% for sample in company.sample_set.all %}
+                    <li class="text-sm">
+                        <a href="{% url 'sample_detail' sample.pk %}" class="hover:underline">
+                            {{ sample.coffee_stock.variety_name }} &middot;
+                            {{ sample.sample_weight|floatformat:2 }} kg &middot;
+                            {{ sample.date_sent|date:"d M Y" }}
+                        </a>
+                    </li>
+                {% empty %}
+                    <li class="text-sm text-gray-500">No samples sent yet.</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}Delete {{ company.name }}{% endblock %}
+
+{% block breadcrumb %}Pipeline / Companies / Delete{% endblock %}
+
+{% block page_title %}Delete company{% endblock %}
+
+{% block content %}
+<div class="max-w-lg bg-white rounded-lg border p-6">
+
+    <p class="text-sm">
+        Delete <span class="font-semibold">{{ company.name }}</span>?
+        Its samples, follow-ups and contracts are deleted with it.
+    </p>
+
+    <form method="post" class="flex items-center justify-end gap-3 pt-6">
+        {% csrf_token %}
+
+        <a href="{% url 'company_list' %}"
+           class="px-4 py-2.5 text-sm font-medium rounded-md border border-[#E4DECB] hover:bg-paper-dim">
+            Cancel
+        </a>
+
+        <button type="submit"
+                class="px-5 py-2.5 text-sm font-semibold rounded-md bg-rust text-white hover:bg-rust-dark">
+            Delete
+        </button>
+    </form>
+
+</div>
+{% endblock %}
