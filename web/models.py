@@ -3,6 +3,8 @@ import uuid
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Sum
+
 
 # Create your models here.
 #company details
@@ -38,19 +40,220 @@ class Company(models.Model):
         return self.name
 
 # inventory stock
-class CoffeeStock(models.Model):
-    coffee_type = models.CharField(max_length=20, choices=Coffee_type.choices)
-    variety_name = models.CharField(max_length=150)
-    washing_station = models.CharField(max_length=150)
-    quantity_available = models.DecimalField(max_digits=8, default=0, decimal_places=2)
-    reorder_level = models.DecimalField(max_digits=8, default=50, decimal_places=2)
-    roast_date = models.DateField()
+
+class CoffeeVariety(models.Model):
+    name = models.CharField(
+        max_length=150,
+        unique=True
+    )
+
+    # Default / master information
+    default_coffee_type = models.CharField(
+        max_length=20,
+        choices=Coffee_type.choices
+    )
+
+    default_grade = models.CharField(
+        max_length=50,
+        blank=True
+    )
+
+    default_source = models.CharField(
+        max_length=250,
+        blank=True
+    )
+
+    default_process = models.CharField(
+        max_length=50,
+        blank=True
+    )
+
+    default_foreign_smell = models.CharField(
+        max_length=50,
+        default="None",
+        blank=True
+    )
+
+    is_active = models.BooleanField(default=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.variety_name} - {self.washing_station} - {self.coffee_type}"
+        return self.name
 
+    
+class CoffeeStock(models.Model):
+
+    STAGE_CHOICES = (
+        ('green_received', 'Green Bean Received'),
+        ('stored', 'Stored'),
+        ('roasted', 'Roasted'),
+        ('ground', 'Ground'),
+        ('packaged', 'Packaged'),
+    )
+
+    # BATCH IDENTITY
+
+    batch_number = models.CharField(
+    max_length=50,
+    unique=True,
+    blank=True
+)
+
+    variety = models.ForeignKey(
+    CoffeeVariety,
+    on_delete=models.PROTECT,
+    related_name="stock_batches"
+)
+
+    # --------------------------------------------------
+    # ACTUAL BATCH INFORMATION
+    # --------------------------------------------------
+
+    coffee_type = models.CharField(
+        max_length=20,
+        choices=Coffee_type.choices
+    )
+
+    received_date = models.DateField(
+        null=True,
+        blank=True
+    )
+
+    supplier = models.CharField(
+        max_length=250,
+        blank=True
+    )
+
+    source = models.CharField(
+        max_length=250,
+        blank=True
+    )
+
+    grade = models.CharField(
+        max_length=50,
+        blank=True
+    )
+
+    moisture_content = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+
+    process = models.CharField(
+        max_length=50,
+        blank=True
+    )
+
+    season_of_harvest = models.CharField(
+        max_length=100,
+        blank=True
+    )
+
+    foreign_smell = models.CharField(
+        max_length=50,
+        blank=True
+    )
+
+    foreign_matter = models.CharField(
+        max_length=50,
+        blank=True
+    )
+
+    prints = models.CharField(
+        max_length=50,
+        blank=True
+    )
+
+    physical_damages = models.CharField(
+        max_length=10,
+        blank=True
+    )
+
+    defects = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+
+    quantity_after_sorting = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+
+    checked_by = models.CharField(
+        max_length=150,
+        blank=True
+    )
+
+    verified_by = models.CharField(
+        max_length=250,
+        blank=True
+    )
+
+    delivered_by = models.CharField(
+        max_length=150,
+        blank=True
+    )
+
+    car_number = models.CharField(
+        max_length=50,
+        blank=True
+    )
+
+    received_by = models.CharField(
+        max_length=150,
+        blank=True
+    )
+
+    # --------------------------------------------------
+    # CURRENT PROCESSING STAGE
+    # --------------------------------------------------
+
+    stage = models.CharField(
+        max_length=30,
+        choices=STAGE_CHOICES,
+        default='green_received'
+    )
+
+    # --------------------------------------------------
+    # REORDER SETTINGS
+    # --------------------------------------------------
+
+    reorder_level = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=50
+    )
+
+    # --------------------------------------------------
+    # SYSTEM DATES
+    # --------------------------------------------------
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
+
+    @property
+    def quantity_received(self):
+        return self.movements.filter(
+            movement_type='receipt'
+        ).aggregate(
+            total=Sum('quantity')
+        )['total'] or 0
+
+    def __str__(self):
+        return f"{self.batch_number} - {self.variety.name}"
 
 
     # sample
@@ -59,6 +262,86 @@ delivery_status_choices = [
     ('delivered', 'Delivered'),
     ('failed', 'Failed')
     ]
+
+
+
+class StockMovement(models.Model):
+
+    MOVEMENT_TYPES = (
+        ('receipt', 'Stock Received'),
+        ('sample', 'Sample Taken'),
+        ('roast_input', 'Sent for Roasting'),
+        ('roast_output', 'Roasted Output'),
+        ('grind_input', 'Sent for Grinding'),
+        ('grind_output', 'Ground Output'),
+        ('package_input', 'Sent for Packaging'),
+        ('package_output', 'Packaged Output'),
+        ('dispatch', 'Dispatched'),
+        ('loss', 'Loss / Waste'),
+        ('adjustment', 'Inventory Adjustment'),
+    )
+
+    STAGE_CHOICES = CoffeeStock.STAGE_CHOICES
+
+    stock = models.ForeignKey(
+        CoffeeStock,
+        on_delete=models.PROTECT,
+        related_name="movements"
+    )
+
+    movement_type = models.CharField(
+        max_length=30,
+        choices=MOVEMENT_TYPES
+    )
+
+    from_stage = models.CharField(
+        max_length=30,
+        choices=STAGE_CHOICES,
+        null=True,
+        blank=True
+    )
+
+    to_stage = models.CharField(
+        max_length=30,
+        choices=STAGE_CHOICES,
+        null=True,
+        blank=True
+    )
+
+    quantity = models.DecimalField(
+        max_digits=10,
+        decimal_places=2
+    )
+
+    reference = models.CharField(
+        max_length=100,
+        blank=True
+    )
+
+    notes = models.TextField(
+        blank=True
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return (
+            f"{self.stock} - "
+            f"{self.movement_type} - "
+            f"{self.quantity}kg"
+        )
 class Sample(models.Model):
     id = models.UUIDField(primary_key=True,  default=uuid.uuid4, editable=False)
     company = models.ForeignKey(Company, on_delete=models.CASCADE)
@@ -88,6 +371,7 @@ class Followup(models.Model):
 
     def __str__(self):
         return f"Followup for Sample ID: {self.sample.id}"
+
 
 class SampleFeedback(models.Model):
     sample = models.OneToOneField(Sample, on_delete=models.CASCADE)
@@ -137,11 +421,11 @@ class SupplyFulfillment(models.Model):
 
 class AuditLog(models.Model):
 
-    ACTION_CHOICES = [
+    ACTION_CHOICES = (
         ("create", "Created"),
         ("update", "Updated"),
         ("delete", "Deleted"),
-    ]
+    )
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

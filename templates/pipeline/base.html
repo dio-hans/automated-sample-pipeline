@@ -76,9 +76,24 @@
             <div class="flex justify-between items-center h-16">
 
     <!-- Logo -->
-     <img src="{% static 'images/nonda-logo-green.jpg' %}" alt="Logo" class="">
-     <img src="{% static 'images/nonda-logo-cream.jpg' %}" alt="Logo" class="">
-    </a>
+     <a href="{% url 'company_list' %}"
+   class="flex items-center">
+
+    <img
+        id="logo-dark"
+        src="{% static 'images/nonda-logo-green.jpg' %}"
+        alt="Nonda Commodities"
+        class="logo-image"
+    >
+
+    <img
+        id="logo-light"
+        src="{% static 'images/nonda-logo-cream.jpg' %}"
+        alt="Nonda Commodities"
+        class="logo-image hidden"
+    >
+
+</a>
 
                 <!-- Right Navigation -->
 

@@ -41,14 +41,21 @@ Coffee Stock
 
                 <tr class="text-left text-xs uppercase tracking-wider text-gray-500">
 
-                    <th class="px-4 py-3">Variety</th>
-                    <th class="px-4 py-3">Type</th>
-                    <th class="px-4 py-3">Washing Station</th>
-                    <th class="px-4 py-3">Roast Date</th>
-                    <th class="px-4 py-3 text-right">Available</th>
-                    <th class="px-4 py-3 text-right">Reorder At</th>
+                    <th class="px-4 py-3">Company Name</th>
+                    <th class="px-4 py-3">Source</th>
+                    <th class="px-4 py-3">Name of material</th>
+                    <th class="px-4 py-3 text-right">Quantity Received</th>
+                    <th class="px-4 py-3 text-right">Grade</th>
                     <th class="px-4 py-3 text-center">Status</th>
-                    <th class="px-4 py-3">Actions</th>
+                    <th class="px-4 py-3">Moisture content</th>
+                    <th class="px-4 py-3">Process</th>
+                    <th class="px-4 py-3">Season of harvest</th>
+                    <th class="px-4 py-3 text-center">Foreign Matter</th>
+                    <th class="px-4 py-3">Quantity after Sorting</th>
+                    <th class="px-4 py-3 text-center">Verified by</th>
+                    <th class="px-4 py-3 text-center">Delivered By</th>
+                    <th class="px-4 py-3 text-center">Received By</th>
+                    <th class="px-4 py-3">Date Received</th>
 
                 </tr>
 
@@ -56,95 +63,154 @@ Coffee Stock
 
             <tbody>
 
-                {% for stock in stocks %}
+{% for stock in stocks %}
 
-                <tr class="border-t hover:bg-gray-50">
+<tr class="border-t hover:bg-gray-50">
 
-                    <td class="px-4 py-3 font-medium">
-                        <a href="{% url 'stock_detail' stock.pk %}"
-                           class="hover:underline">
-                            {{ stock.variety_name }}
-                        </a>
-                    </td>
+    <td class="px-4 py-3 font-medium">
 
-                    <td class="px-4 py-3">
-                        <span class="px-2 py-1 rounded-full text-xs bg-olive/10 capitalize">
-                            {{ stock.get_coffee_type_display }}
-                        </span>
-                    </td>
+        <a href="{% url 'stock_detail' stock.pk %}"
+           class="hover:underline">
 
-                    <td class="px-4 py-3 text-sm">
-                        {{ stock.washing_station }}
-                    </td>
+            {{ stock.supplier }}
 
-                    <td class="px-4 py-3 text-sm">
-                        {{ stock.roast_date|date:"d M Y" }}
-                    </td>
+        </a>
 
-                    <td class="px-4 py-3 text-right text-sm font-medium">
-                        {{ stock.quantity_available|floatformat:2 }} kg
-                    </td>
+    </td>
 
-                    <td class="px-4 py-3 text-right text-sm text-gray-500">
-                        {{ stock.reorder_level|floatformat:2 }} kg
-                    </td>
 
-                    <td class="px-4 py-3 text-center">
+    <td class="px-4 py-3 text-sm">
+        {{ stock.source }}
+    </td>
 
-                        {% if stock.quantity_available <= 0 %}
-                            <span class="px-2 py-1 rounded-full text-xs bg-rust/10 text-rust">
-                                Out of stock
-                            </span>
 
-                        {% elif stock.quantity_available <= stock.reorder_level %}
-                            <span class="px-2 py-1 rounded-full text-xs bg-gold/10 text-gold">
-                                Low stock
-                            </span>
+    <td class="px-4 py-3 text-sm">
 
-                        {% else %}
-                            <span class="px-2 py-1 rounded-full text-xs bg-olive/10 text-olive">
-                                In stock
-                            </span>
-                        {% endif %}
+        {{ stock.variety.name }}
 
-                    </td>
+    </td>
 
-                    <td class="px-4 py-3">
 
-                        <div class="flex gap-2">
+    <td class="px-4 py-3 text-sm">
 
-                            <a href="{% url 'stock_detail' stock.pk %}"
-                               class="text-olive hover:underline">
-                                View
-                            </a>
+        {{ stock.coffee_type }}
 
-                            <a href="{% url 'stock_update' stock.pk %}"
-                               class="text-blue-600 hover:underline">
-                                Edit
-                            </a>
+    </td>
 
-                        </div>
 
-                    </td>
+    <td class="px-4 py-3 text-sm">
 
-                </tr>
+        {{ stock.grade }}
 
-                {% empty %}
+    </td>
 
-                <tr>
 
-                    <td colspan="8"
-                        class="text-center py-12 text-gray-500">
+    <td class="px-4 py-3 text-sm">
 
-                        No coffee stock has been added yet.
+        {{ stock.quantity_received|floatformat:2 }} kg
 
-                    </td>
+    </td>
 
-                </tr>
 
-                {% endfor %}
+    <td class="px-4 py-3 text-sm">
 
-            </tbody>
+        {{ stock.moisture_content }}
+
+    </td>
+
+
+    <td class="px-4 py-3 text-sm">
+
+        {{ stock.process }}
+
+    </td>
+
+
+    <td class="px-4 py-3 text-sm">
+
+        {{ stock.season_of_harvest }}
+
+    </td>
+
+
+    <td class="px-4 py-3 text-sm">
+
+        {{ stock.foreign_matter }}
+
+    </td>
+
+
+    <td class="px-4 py-3 text-sm">
+
+        {{ stock.quantity_after_sorting|floatformat:2 }} kg
+
+    </td>
+
+
+    <td class="px-4 py-3 text-sm">
+
+        {{ stock.verified_by }}
+
+    </td>
+
+
+    <td class="px-4 py-3 text-sm">
+
+        {{ stock.delivered_by }}
+
+    </td>
+
+
+    <td class="px-4 py-3 text-sm">
+
+        {{ stock.received_by }}
+
+    </td>
+
+
+    <td class="px-4 py-3 text-sm">
+
+        {{ stock.received_date|date:"d M Y" }}
+
+    </td>
+
+
+    <td class="px-4 py-3">
+
+        <div class="flex gap-2">
+
+            <a href="{% url 'stock_detail' stock.pk %}"
+               class="text-olive hover:underline">
+                View
+            </a>
+
+            <a href="{% url 'stock_update' stock.pk %}"
+               class="text-blue-600 hover:underline">
+                Edit
+            </a>
+
+        </div>
+
+    </td>
+
+</tr>
+
+{% empty %}
+
+<tr>
+
+    <td colspan="16"
+        class="text-center py-12 text-gray-500">
+
+        No coffee stock has been added yet.
+
+    </td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
 
         </table>
 

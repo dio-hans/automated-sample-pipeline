@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import *
-
+from . import views
 urlpatterns = [
     # company urls here
     path('companies/', CompanyListView.as_view(), name='company_list'),
@@ -20,5 +20,9 @@ urlpatterns = [
     path('samples/create/', SampleCreateView.as_view(), name='sample_create'),
     path('samples/<uuid:pk>/update/', SampleUpdateView.as_view(), name='sample_update'),
     path('samples/<uuid:pk>/delete/', SampleDeleteView.as_view(), name='sample_delete'),
+
+    # api endpoint
+    path('api/get-variety-details/', views.get_variety_details, name='get_variety_details'),
+
 
 ]

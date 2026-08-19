@@ -71,50 +71,158 @@ class CompanyForm(forms.ModelForm):
             }),
         }
 
+FIELD_CLASS = (
+    "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white "
+    "text-sm focus:outline-none focus:ring-2 focus:ring-rust focus:border-rust"
+)
 
 class CoffeeStockForm(forms.ModelForm):
+
+    quantity_received = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=0,
+        required=True,
+        widget=forms.NumberInput(attrs={
+            "class": FIELD_CLASS,
+            "step": "0.01",
+            "min": "0",
+            "placeholder": "e.g. 500"
+        })
+    )
+
     class Meta:
         model = CoffeeStock
         fields = (
             "coffee_type",
-            "variety_name",
-            "washing_station",
-            "quantity_available",
+            "variety",
+            "received_date",
+            "supplier",
+            "source",
+            "grade",
+            "moisture_content",
+            "process",
+            "season_of_harvest",
+            "foreign_smell",
+            "foreign_matter",
+            "prints",
+            "physical_damages",
+            "defects",
+            "quantity_after_sorting",
+            "checked_by",
+            "verified_by",
+            "delivered_by",
+            "car_number",
+            "received_by",
             "reorder_level",
-            "roast_date",
         )
+
         widgets = {
-            "coffee_type": forms.Select(attrs={
-                "class": "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-rust"
+            "coffee_type": forms.Select(attrs={"class": FIELD_CLASS}),
+
+            "variety": forms.Select(attrs={
+                "class": FIELD_CLASS
             }),
 
-            "variety_name": forms.TextInput(attrs={
-                "class": "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-rust",
-                "placeholder": "e.g. Bugisu AA"
+            "received_date": forms.DateInput(attrs={
+                "class": FIELD_CLASS,
+                "type": "date",
             }),
 
-            "washing_station": forms.TextInput(attrs={
-                "class": "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-rust",
-                "placeholder": "e.g. Bugisu Washing Station"
+            "supplier": forms.TextInput(attrs={
+                "class": FIELD_CLASS,
+                "placeholder": "e.g. Darling Coffee Uganda",
             }),
-            "quantity_available": forms.NumberInput(attrs={
-                "class": "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-rust",
+
+            "source": forms.TextInput(attrs={
+                "class": FIELD_CLASS,
+                "placeholder": "e.g. Mbale / Bulambuli",
+            }),
+
+            "grade": forms.TextInput(attrs={
+                "class": FIELD_CLASS,
+                "placeholder": "e.g. AA, AB",
+            }),
+
+            "moisture_content": forms.NumberInput(attrs={
+                "class": FIELD_CLASS,
+                "step": "0.1",
+                "min": "0",
+            }),
+
+            "process": forms.TextInput(attrs={
+                "class": FIELD_CLASS,
+                "placeholder": "e.g. Natural process",
+            }),
+
+            "season_of_harvest": forms.TextInput(attrs={
+                "class": FIELD_CLASS,
+                "placeholder": "e.g. 2025/26",
+            }),
+
+            "foreign_smell": forms.TextInput(attrs={
+                "class": FIELD_CLASS,
+                "placeholder": "e.g. None",
+            }),
+
+            "foreign_matter": forms.TextInput(attrs={
+                "class": FIELD_CLASS,
+                "placeholder": "e.g. None",
+            }),
+
+            "prints": forms.TextInput(attrs={
+                "class": FIELD_CLASS,
+                "placeholder": "e.g. None",
+            }),
+
+            "physical_damages": forms.TextInput(attrs={
+                "class": FIELD_CLASS,
+                "placeholder": "Yes / No",
+            }),
+
+            "defects": forms.NumberInput(attrs={
+                "class": FIELD_CLASS,
                 "step": "0.01",
-                "min": "0"
+                "min": "0",
+            }),
+
+            "quantity_after_sorting": forms.NumberInput(attrs={
+                "class": FIELD_CLASS,
+                "step": "0.01",
+                "min": "0",
+            }),
+
+            "checked_by": forms.TextInput(attrs={
+                "class": FIELD_CLASS,
+                "placeholder": "Name",
+            }),
+
+            "verified_by": forms.TextInput(attrs={
+                "class": FIELD_CLASS,
+                "placeholder": "Names",
+            }),
+
+            "delivered_by": forms.TextInput(attrs={
+                "class": FIELD_CLASS,
+                "placeholder": "Name",
+            }),
+
+            "car_number": forms.TextInput(attrs={
+                "class": FIELD_CLASS,
+                "placeholder": "e.g. UAB 123X",
+            }),
+
+            "received_by": forms.TextInput(attrs={
+                "class": FIELD_CLASS,
+                "placeholder": "Names",
             }),
 
             "reorder_level": forms.NumberInput(attrs={
-                "class": "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-rust",
+                "class": FIELD_CLASS,
                 "step": "0.01",
-                "min": "0"
-            }),
-            "roast_date": forms.DateInput(attrs={
-                "class": "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-rust",
-                "type": "date"
+                "min": "0",
             }),
         }
-
-
 class SampleForm(forms.ModelForm):
 
     class Meta:
