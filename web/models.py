@@ -44,7 +44,7 @@ class Company(models.Model):
 class CoffeeVariety(models.Model):
     name = models.CharField(
         max_length=150,
-        unique=True
+       
     )
 
     # Default / master information
@@ -150,6 +150,13 @@ class CoffeeStock(models.Model):
 
     season_of_harvest = models.CharField(
         max_length=100,
+        blank=True
+    )
+
+    quantity_sorted_out = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
         blank=True
     )
 

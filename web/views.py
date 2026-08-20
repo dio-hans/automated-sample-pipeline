@@ -245,3 +245,4 @@ class SampleDeleteView(DeleteView):
     template_name = 'pipeline/sample_confirm_delete.html'
 
     success_url = reverse_lazy('sample_list')
+

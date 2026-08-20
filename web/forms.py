@@ -97,6 +97,21 @@ class CoffeeStockForm(forms.ModelForm):
         })
     )
 
+    quantity_sorted_out = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal('0'),
+        required=False,
+        initial=Decimal('0'),
+        label="Quantity Sorted Out (kg)",
+        widget=forms.NumberInput(attrs={
+            "class": FIELD_CLASS,
+            "step": "0.01",
+            "min": "0",
+            "placeholder": "e.g. 12",
+        })
+    )
+
     class Meta:
         model = CoffeeStock
         fields = (
@@ -223,6 +238,8 @@ class CoffeeStockForm(forms.ModelForm):
                 "step": "0.01",
                 "min": "0",
             }),
+
+           
         }
 
     def __init__(self, *args, **kwargs):
