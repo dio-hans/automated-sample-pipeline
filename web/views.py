@@ -4,7 +4,7 @@ from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse_lazy
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, View
+from django.views.generic import ListView, TemplateView, CreateView, UpdateView, DeleteView, DetailView, View
 
 from .models import Company, CoffeeStock, CoffeeVariety, Sample, StockMovement, Followup, Contract
 from .forms import (
@@ -12,6 +12,8 @@ from .forms import (
     ProcessingForm, ContractForm,
 )
 from .services.intake import record_intake
+from django.db.models import F, DecimalField, ExpressionWrapper, Case, When, Value, IntegerField
+from django.shortcuts import render
 from .services.inventory import get_stage_inventory
 from .services.processing import process_stock, PROCESS_STEPS
 from .services.followup import (
@@ -372,4 +374,135 @@ def stock_stage_inventory_api(request, pk):
         "ground": float(get_stage_inventory(stock, "ground")),
         "packaged": float(get_stage_inventory(stock, "packaged")),
         "available": float(stock.quantity_available),
+    })
+
+class StockMovementListView(ListView):
+    model = StockMovement
+    template_name = "pipeline/stock_movement_list.html"
+    context_object_name = "movements"
+    paginate_by = 50
+
+    def get_queryset(self):
+        qs = (
+            StockMovement.objects
+            .select_related(
+                "stock",
+                "stock__variety",
+                "created_by",
+            )
+            .order_by("-created_at")
+        )
+
+        qs, preset, today, start, end = apply_date_filters(
+            self.request,
+            qs,
+            "created_at",
+        )
+
+        self._preset = preset
+        self._start = start
+        self._end = end
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["preset"] = getattr(
+            self,
+            "_preset",
+            "this_month",
+        )
+
+        context["start_date"] = getattr(
+            self,
+            "_start",
+            None,
+        )
+
+        context["end_date"] = getattr(
+            self,
+            "_end",
+            None,
+        )
+
+        return context
+
+class DashboardView(TemplateView):
+    template_name = "pipeline/dashboard.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        stocks = (
+            CoffeeStock.objects
+            .select_related("variety")
+            .prefetch_related("movements")
+        )
+
+        movements = (
+            StockMovement.objects
+            .select_related(
+                "stock",
+                "stock__variety",
+                "created_by",
+            )
+        )
+
+        context["stocks"] = stocks
+        context["recent_movements"] = movements[:10]
+
+        context["total_stock"] = sum(
+            stock.quantity_available
+            for stock in stocks
+        )
+
+        context["green_stock"] = sum(
+            stock.quantity_green
+            for stock in stocks
+        )
+
+        context["roasted_stock"] = sum(
+            stock.quantity_roasted
+            for stock in stocks
+        )
+
+        context["ground_stock"] = sum(
+            stock.quantity_ground
+            for stock in stocks
+        )
+
+        context["packaged_stock"] = sum(
+            stock.quantity_packaged
+            for stock in stocks
+        )
+
+        context["low_stock"] = [
+            stock
+            for stock in stocks
+            if stock.is_low_stock
+        ]
+
+        context["out_of_stock"] = [
+            stock
+            for stock in stocks
+            if stock.quantity_available <= 0
+        ]
+
+        return context
+
+
+def low_stock_list(request):
+    stocks = (
+        CoffeeStock.objects
+        .select_related("variety")
+        .prefetch_related("movements")
+    )
+    low_stocks = [s for s in stocks if s.quantity_available <= s.reorder_level]
+    # Out-of-stock first, then by lowest available
+    low_stocks.sort(key=lambda s: (s.quantity_available > 0, s.quantity_available))
+
+    return render(request, "pipeline/low_stock_list.html", {
+        "low_stocks": low_stocks,
+        "low_stock_count": len(low_stocks),
     })

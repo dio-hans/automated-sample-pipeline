@@ -80,4 +80,4 @@ def apply_date_filters(request, queryset, date_field="created_at"):
     else:
         queryset = queryset.filter(**{f"{date_field}__date__gte": r.start, f"{date_field}__date__lte": r.end})
 
-    return queryset, r.preset, today, r.start, r.en
+    return queryset, r.preset, today, r.start, r.end

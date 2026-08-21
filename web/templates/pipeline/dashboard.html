@@ -1,0 +1,82 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block breadcrumb %}Pipeline / Dashboard{% endblock %}
+{% block page_title %}Management Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <p class="text-sm text-clay">Overview of coffee inventory, stock movement and pipeline activity.</p>
+
+  <!-- OVERVIEW CARDS -->
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+    <!-- Total Available Stock -->
+    <a href="{% url 'stock_list' %}"
+       class="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-olive/40 transition">
+      <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Total Available Stock</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-800">{{ total_available|floatformat:0|default:0 }} <span class="text-lg text-clay">kg</span></p>
+      <p class="mt-1 text-xs text-slate-500">Current available quantity →</p>
+    </a>
+
+    <!-- Stock Items -->
+    <a href="{% url 'stock_list' %}"
+       class="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-olive/40 transition">
+      <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Stock Items</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-800">{{ stock_count|default:0 }}</p>
+      <p class="mt-1 text-xs text-slate-500">Coffee stock records →</p>
+    </a>
+
+    <!-- Low Stock -->
+    <a href="{% url 'stock_low' %}"
+       class="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-amber-400 transition">
+      <p class="text-xs font-medium uppercase tracking-wider text-slate-500">⚠ Low Stock</p>
+      <p class="mt-2 text-3xl font-semibold text-amber-600">{{ low_stock_count|default:0 }}</p>
+      <p class="mt-1 text-xs text-slate-500">Items requiring attention →</p>
+    </a>
+
+    <!-- Stock Movements -->
+    <a href="{% url 'stock_ledger' %}"
+       class="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-olive/40 transition">
+      <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Stock Movements</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-800">{{ movement_count|default:0 }}</p>
+      <p class="mt-1 text-xs text-slate-500">Recorded inventory transactions →</p>
+    </a>
+
+    <!-- Companies -->
+    <a href="{% url 'company_list' %}"
+       class="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-olive/40 transition">
+      <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Companies</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-800">{{ company_count|default:0 }}</p>
+      <p class="mt-1 text-xs text-slate-500">Buyers and prospects →</p>
+    </a>
+
+    <!-- Reports -->
+    <a href="#"
+       class="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-rust/40 transition">
+      <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Reports</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-800">View</p>
+      <p class="mt-1 text-xs text-slate-500">Inventory & pipeline reports →</p>
+    </a>
+
+  </div>
+
+  <!-- PIPELINE SNAPSHOT -->
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <a href="{% url 'sample_list' %}" class="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md transition">
+      <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Samples Dispatched</p>
+      <p class="mt-2 text-2xl font-semibold text-slate-800">{{ sample_count|default:0 }}</p>
+    </a>
+    <a href__="{% url 'contract_list' %}" class="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md transition">
+      <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Contracts</p>
+      <p class="mt-2 text-2xl font-semibold text-slate-800">{{ contract_count|default:0 }}</p>
+    </a>
+    <a href="{% url 'followup_list' %}" class="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md transition">
+      <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Active Follow-ups</p>
+      <p class="mt-2 text-2xl font-semibold text-slate-800">{{ followup_count|default:0 }}</p>
+    </a>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,4 +1,5 @@
 {% extends "pipeline/base.html" %}
+{% load pipeline_tags %}
 
 {% block title %}
 Coffee Stock
@@ -27,7 +28,7 @@ Coffee Stock
 
     <div class="p-4 border-b">
         <h2 class="font-semibold text-lg">
-            Roasted Coffee Inventory
+            Coffee Inventory
         </h2>
 
         <p class="text-sm text-gray-500 mt-1">
@@ -37,10 +38,6 @@ Coffee Stock
 
     <div class="overflow-x-auto">
 
-       <a href="?preset=today">Today</a>
-<a href="?preset=yesterday">Yesterday</a>
-<a href="?preset=this_month">This Month</a>
-<a href="?preset=this_year">This Year</a>
 
         <table class="w-full">
         

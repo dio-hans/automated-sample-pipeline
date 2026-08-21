@@ -338,17 +338,17 @@ delivery_status_choices = [
 class StockMovement(models.Model):
 
     MOVEMENT_TYPES = (
-        ('receipt', 'Stock Received'),
-        ('sample', 'Sample Taken'),
-        ('roast_input', 'Sent for Roasting'),
-        ('roast_output', 'Roasted Output'),
-        ('grind_input', 'Sent for Grinding'),
-        ('grind_output', 'Ground Output'),
-        ('package_input', 'Sent for Packaging'),
-        ('package_output', 'Packaged Output'),
-        ('dispatch', 'Dispatched'),
-        ('loss', 'Loss / Waste'),
-        ('adjustment', 'Inventory Adjustment'),
+        ("receipt", "Stock Received"),
+        ("sample", "Sample Taken"),
+        ("roast_input", "Sent for Roasting"),
+        ("roast_output", "Roasted Output"),
+        ("grind_input", "Sent for Grinding"),
+        ("grind_output", "Ground Output"),
+        ("package_input", "Sent for Packaging"),
+        ("package_output", "Packaged Output"),
+        ("dispatch", "Dispatched"),
+        ("loss", "Loss / Waste"),
+        ("adjustment", "Inventory Adjustment"),
     )
 
     STAGE_CHOICES = CoffeeStock.STAGE_CHOICES
@@ -356,61 +356,62 @@ class StockMovement(models.Model):
     stock = models.ForeignKey(
         CoffeeStock,
         on_delete=models.PROTECT,
-        related_name="movements"
+        related_name="movements",
     )
 
     movement_type = models.CharField(
         max_length=30,
-        choices=MOVEMENT_TYPES
+        choices=MOVEMENT_TYPES,
     )
 
     from_stage = models.CharField(
         max_length=30,
         choices=STAGE_CHOICES,
         null=True,
-        blank=True
+        blank=True,
     )
 
     to_stage = models.CharField(
         max_length=30,
         choices=STAGE_CHOICES,
         null=True,
-        blank=True
+        blank=True,
     )
 
     quantity = models.DecimalField(
         max_digits=10,
-        decimal_places=2
+        decimal_places=2,
     )
 
     reference = models.CharField(
         max_length=100,
-        blank=True
+        blank=True,
     )
 
     notes = models.TextField(
-        blank=True
+        blank=True,
     )
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
-        blank=True
+        blank=True,
+        related_name="stock_movements",
     )
 
     created_at = models.DateTimeField(
-        auto_now_add=True
+        auto_now_add=True,
     )
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
 
     def __str__(self):
         return (
-            f"{self.stock} - "
-            f"{self.movement_type} - "
-            f"{self.quantity}kg"
+            f"{self.stock.batch_number} - "
+            f"{self.get_movement_type_display()} - "
+            f"{self.quantity} kg"
         )
 class Sample(models.Model):
     id = models.UUIDField(primary_key=True,  default=uuid.uuid4, editable=False)

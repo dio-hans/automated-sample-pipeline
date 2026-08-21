@@ -25,7 +25,7 @@
       <tbody>
         {% for f in followups %}
         <tr class="border-t hover:bg-gray-50">
-          <td class="px-4 py-3 font-medium"><a href__="{% url 'company_detail' f.sample.company.pk %}" class="hover:underline">{{ f.sample.company.name }}</a></td>
+          <td class="px-4 py-3 font-medium"><a href="{% url 'company_detail' f.sample.company.pk %}" class="hover:underline">{{ f.sample.company.name }}</a></td>
           <td class="px-4 py-3 text-sm">{{ f.sample.coffee_stock.variety_name }}</td>
           <td class="px-4 py-3 text-sm">{{ f.sample.date_sent|date:"d M Y" }}</td>
           <td class="px-4 py-3 text-sm">{{ f.day_3_guide_sent_at|date:"d M Y"|default_if_none:"—" }}</td>

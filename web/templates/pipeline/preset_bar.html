@@ -1,11 +1,12 @@
 <div class="flex flex-wrap items-center gap-2 mb-4">
   {% for preset in presets %}
-    <a href__="?preset={{ preset }}"
+    <a href="?preset={{ preset }}"
        class="px-3 py-1.5 rounded-md text-xs font-medium uppercase tracking-wider transition-colors
               {% if current == preset and not is_custom %}bg-olive text-white{% else %}bg-paper text-clay hover:bg-clay/10{% endif %}">
       {{ preset|cut:"_"|title }}
     </a>
   {% endfor %}
+
 
   <span class="mx-2 text-clay">|</span>
 

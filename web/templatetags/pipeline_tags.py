@@ -4,7 +4,7 @@ from ..utils.util import PRESETS, DEFAULT_PRESET
 register = template.Library()
 
 
-@register.inclusion_tag("pipeline/_preset_bar.html", takes_context=True)
+@register.inclusion_tag("pipeline/preset_bar.html", takes_context=True)
 def preset_bar(context):
     request = context["request"]
     current = request.GET.get("preset") or DEFAULT_PRESET

@@ -37,4 +37,9 @@ urlpatterns = [
     # api
     path("api/get-variety-details/", views.get_variety_details, name="get_variety_details"),
     path("api/stocks/<int:pk>/inventory/", views.stock_stage_inventory_api, name="stock_inventory_api"),
+    path("inventory/ledger/",views.StockMovementListView.as_view(),name="stock_ledger",),
+    path("",views.DashboardView.as_view(),name="dashboard",),
+     # low stock 
+    path("stock/low/", views.low_stock_list, name="stock_low"),
+
 ]

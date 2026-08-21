@@ -1,63 +1,93 @@
+from decimal import Decimal
+
 from django.db import transaction
 from django.db.models import Sum
 
 from ..models import StockMovement
 
 
+ZERO = Decimal("0")
+
+
 def get_stage_inventory(stock, stage):
     """
-    Return the quantity of a stock batch currently
-    available at a particular processing stage.
+    Return the quantity currently available at a specific stage.
     """
 
-    incoming = stock.movements.filter(
-        to_stage=stage
-    ).aggregate(
-        total=Sum("quantity")
-    )["total"] or 0
+    incoming = (
+        stock.movements
+        .filter(to_stage=stage)
+        .aggregate(total=Sum("quantity"))
+        ["total"]
+        or ZERO
+    )
 
-    outgoing = stock.movements.filter(
-        from_stage=stage
-    ).aggregate(
-        total=Sum("quantity")
-    )["total"] or 0
+    outgoing = (
+        stock.movements
+        .filter(from_stage=stage)
+        .aggregate(total=Sum("quantity"))
+        ["total"]
+        or ZERO
+    )
+
+    return incoming - outgoing
+
+
+def get_stock_available(stock):
+    """
+    Return the total quantity of a batch currently
+    inside the business.
+    """
+
+    incoming = (
+        stock.movements
+        .exclude(to_stage=None)
+        .aggregate(total=Sum("quantity"))
+        ["total"]
+        or ZERO
+    )
+
+    outgoing = (
+        stock.movements
+        .exclude(from_stage=None)
+        .aggregate(total=Sum("quantity"))
+        ["total"]
+        or ZERO
+    )
 
     return incoming - outgoing
 
 
 def get_green_available(stock):
-    return get_stage_inventory(
-        stock,
-        "green_received"
-    )
+    return get_stage_inventory(stock, "green_received")
 
 
 def get_roasted_available(stock):
-    return get_stage_inventory(
-        stock,
-        "roasted"
-    )
+    return get_stage_inventory(stock, "roasted")
 
 
 def get_ground_available(stock):
-    return get_stage_inventory(
-        stock,
-        "ground"
-    )
+    return get_stage_inventory(stock, "ground")
 
 
 def get_packaged_available(stock):
-    return get_stage_inventory(
-        stock,
-        "packaged"
-    )
+    return get_stage_inventory(stock, "packaged")
 
 
 @transaction.atomic
-def record_receipt(stock, quantity, user=None, reference=""):
+def record_receipt(
+    stock,
+    quantity,
+    user=None,
+    reference="",
+    notes="",
+):
     """
-    Record the initial receipt of a coffee batch.
+    Receive coffee into green inventory.
     """
+
+    if quantity <= 0:
+        raise ValueError("Receipt quantity must be greater than zero.")
 
     return StockMovement.objects.create(
         stock=stock,
@@ -66,12 +96,14 @@ def record_receipt(stock, quantity, user=None, reference=""):
         to_stage="green_received",
         quantity=quantity,
         reference=reference,
+        notes=notes,
         created_by=user,
     )
 
 
 @transaction.atomic
 def move_stock(
+    *,
     stock,
     quantity,
     from_stage,
@@ -79,15 +111,23 @@ def move_stock(
     movement_type,
     user=None,
     reference="",
-    notes=""
+    notes="",
 ):
     """
-    Move coffee from one processing stage to another.
+    Move stock between processing stages.
+
+    The ledger is updated; stock balances are calculated from
+    the resulting movements.
     """
+
+    if quantity <= 0:
+        raise ValueError(
+            "Movement quantity must be greater than zero."
+        )
 
     available = get_stage_inventory(
         stock,
-        from_stage
+        from_stage,
     )
 
     if quantity > available:
