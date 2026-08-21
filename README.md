@@ -395,6 +395,8 @@ The MVP will be considered successful if it demonstrates:
 * Improved sample-to-contract conversion rate
 * Better inventory visibility
 * Better customer tracking
+* Provide operational reports
+
 
 ### Primary KPI
 

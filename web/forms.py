@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from django import forms
 
-from .models import Company, CoffeeStock, Sample
+from .models import Company, CoffeeStock, Sample, Contract
 from .services.intake import generate_batch_number, resolve_variety
 
 
@@ -318,3 +318,51 @@ class SampleForm(forms.ModelForm):
             "courier_name",
             "tracking_number",
         )
+
+# ... your existing CompanyForm, CoffeeStockForm, CoffeeStockIntakeForm, SampleForm ...
+# (keep them as-is)
+
+
+class ProcessingForm(forms.Form):
+    """Record one processing step (roast / grind / package) with its loss."""
+
+    STEP_CHOICES = (
+        ("roast", "Roasting"),
+        ("grind", "Grinding"),
+        ("package", "Packaging"),
+    )
+
+    step = forms.ChoiceField(choices=STEP_CHOICES, widget=forms.Select(attrs={"class": FIELD_CLASS}))
+    input_quantity = forms.DecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal("0.01"),
+        widget=forms.NumberInput(attrs={"class": FIELD_CLASS, "step": "0.01", "min": "0"}),
+        label="Quantity into process (kg)",
+    )
+    output_quantity = forms.DecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal("0.01"),
+        widget=forms.NumberInput(attrs={"class": FIELD_CLASS, "step": "0.01", "min": "0"}),
+        label="Quantity out of process (kg)",
+    )
+    notes = forms.CharField(required=False, widget=forms.Textarea(attrs={
+        "class": FIELD_CLASS, "rows": 2, "placeholder": "Optional notes",
+    }))
+
+    def clean(self):
+        cleaned = super().clean()
+        inp = cleaned.get("input_quantity")
+        out = cleaned.get("output_quantity")
+        if inp and out and out > inp:
+            raise forms.ValidationError("Output cannot exceed input.")
+        return cleaned
+
+
+class ContractForm(forms.ModelForm):
+    class Meta:
+        model = Contract
+        fields = ("volume_per_cycle_kg", "price_per_kg", "delivery_frequency", "signed_name")
+        widgets = {
+            "volume_per_cycle_kg": forms.NumberInput(attrs={"class": FIELD_CLASS, "step": "0.01"}),
+            "price_per_kg": forms.NumberInput(attrs={"class": FIELD_CLASS, "step": "0.01"}),
+            "delivery_frequency": forms.Select(attrs={"class": FIELD_CLASS}),
+            "signed_name": forms.TextInput(attrs={"class": FIELD_CLASS}),
+        }

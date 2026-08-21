@@ -1,0 +1,45 @@
+{% extends "pipeline/base.html" %}
+{% block title %}Follow-ups{% endblock %}
+{% block breadcrumb %}Pipeline / Follow-ups{% endblock %}
+{% block page_title %}Follow-ups{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+  <div class="p-4 border-b">
+    <h2 class="font-semibold text-lg">Sample Follow-ups</h2>
+    <p class="text-sm text-gray-500 mt-1">Track each dispatched sample toward a signed contract.</p>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full">
+      <thead class="bg-gray-50">
+        <tr class="text-left text-xs uppercase tracking-wider text-gray-500">
+          <th class="px-4 py-3">Company</th>
+          <th class="px-4 py-3">Coffee</th>
+          <th class="px-4 py-3">Sent</th>
+          <th class="px-4 py-3">Guide sent</th>
+          <th class="px-4 py-3">Contract prompt</th>
+          <th class="px-4 py-3 text-center">Converted</th>
+          <th class="px-4 py-3">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in followups %}
+        <tr class="border-t hover:bg-gray-50">
+          <td class="px-4 py-3 font-medium"><a href__="{% url 'company_detail' f.sample.company.pk %}" class="hover:underline">{{ f.sample.company.name }}</a></td>
+          <td class="px-4 py-3 text-sm">{{ f.sample.coffee_stock.variety_name }}</td>
+          <td class="px-4 py-3 text-sm">{{ f.sample.date_sent|date:"d M Y" }}</td>
+          <td class="px-4 py-3 text-sm">{{ f.day_3_guide_sent_at|date:"d M Y"|default_if_none:"—" }}</td>
+          <td class="px-4 py-3 text-sm">{{ f.day_7_contract_sent_at|date:"d M Y"|default_if_none:"—" }}</td>
+          <td class="px-4 py-3 text-center">
+            {% if f.is_converted_to_contract %}<span class="px-2 py-1 rounded-full text-xs bg-olive/10 text-olive">Yes</span>{% else %}<span class="px-2 py-1 rounded-full text-xs bg-gold/10 text-gold">Pending</span>{% endif %}
+          </td>
+          <td class="px-4 py-3"><a href__="{% url 'followup_detail' f.pk %}" class="text-olive hover:underline">Manage</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center py-12 text-gray-500">No follow-ups yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

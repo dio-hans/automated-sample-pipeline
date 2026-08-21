@@ -271,4 +271,69 @@ Pipeline / Coffee Stock / {{ stock.variety_name }}
 
 </div>
 
+<!-- PROCESSING ACTION -->
+<div class="bg-white rounded-lg shadow-sm border p-6">
+  <p class="eyebrow text-clay">Processing</p>
+  <h2 class="font-display text-xl mt-1 mb-4">Record a processing step</h2>
+
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
+    <div class="bg-paper rounded-md p-3"><span class="block text-xs text-clay">Green</span><span class="font-medium">{{ available_green|floatformat:2 }} kg</span></div>
+    <div class="bg-paper rounded-md p-3"><span class="block text-xs text-clay">Roasted</span><span class="font-medium">{{ available_roasted|floatformat:2 }} kg</span></div>
+    <div class="bg-paper rounded-md p-3"><span class="block text-xs text-clay">Ground</span><span class="font-medium">{{ available_ground|floatformat:2 }} kg</span></div>
+    <div class="bg-paper rounded-md p-3"><span class="block text-xs text-clay">Available</span><span class="font-medium">{{ stock.quantity_available|floatformat:2 }} kg</span></div>
+  </div>
+
+  <form method="post" action="{% url 'stock_process' stock.pk %}" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+    {% csrf_token %}
+    <div>
+      <label class="field-label block mb-2 text-xs">Step</label>
+      {{ processing_form.step }}
+    </div>
+    <div>
+      <label class="field-label block mb-2 text-xs">Input (kg)</label>
+      {{ processing_form.input_quantity }}
+    </div>
+    <div>
+      <label class="field-label block mb-2 text-xs">Output (kg)</label>
+      {{ processing_form.output_quantity }}
+    </div>
+    <button type="submit" class="px-4 py-2.5 text-sm font-semibold rounded-md bg-olive text-white hover:opacity-90">Process</button>
+    {{ processing_form.notes.as_hidden }}
+  </form>
+  <p class="mt-3 text-xs text-clay">Loss = input − output. It is posted to the ledger automatically so every kilogram is traceable.</p>
+</div>
+
+<!-- MOVEMENT HISTORY -->
+<div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+  <div class="p-4 border-b"><h2 class="font-semibold text-lg">Stock Ledger</h2></div>
+  <div class="overflow-x-auto">
+    <table class="w-full">
+      <thead class="bg-gray-50">
+        <tr class="text-left text-xs uppercase tracking-wider text-gray-500">
+          <th class="px-4 py-3">When</th>
+          <th class="px-4 py-3">Type</th>
+          <th class="px-4 py-3">From</th>
+          <th class="px-4 py-3">To</th>
+          <th class="px-4 py-3 text-right">Quantity</th>
+          <th class="px-4 py-3">Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in movements %}
+        <tr class="border-t hover:bg-gray-50">
+          <td class="px-4 py-3 text-sm">{{ m.created_at|date:"d M Y, H:i" }}</td>
+          <td class="px-4 py-3 text-sm">{{ m.get_movement_type_display }}</td>
+          <td class="px-4 py-3 text-sm">{{ m.from_stage|default_if_none:"—" }}</td>
+          <td class="px-4 py-3 text-sm">{{ m.to_stage|default_if_none:"—" }}</td>
+          <td class="px-4 py-3 text-sm text-right">{{ m.quantity|floatformat:2 }} kg</td>
+          <td class="px-4 py-3 text-sm text-clay">{{ m.notes|default_if_none:"" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center py-8 text-gray-500">No movements recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
 {% endblock %}

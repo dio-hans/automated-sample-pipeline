@@ -1,0 +1,26 @@
+<div class="flex flex-wrap items-center gap-2 mb-4">
+  {% for preset in presets %}
+    <a href__="?preset={{ preset }}"
+       class="px-3 py-1.5 rounded-md text-xs font-medium uppercase tracking-wider transition-colors
+              {% if current == preset and not is_custom %}bg-olive text-white{% else %}bg-paper text-clay hover:bg-clay/10{% endif %}">
+      {{ preset|cut:"_"|title }}
+    </a>
+  {% endfor %}
+
+  <span class="mx-2 text-clay">|</span>
+
+  <form method="get" class="flex items-center gap-2">
+    <input type="date" name="start_date" value="{{ start_date }}"
+           class="px-2 py-1 text-xs border border-[#E4DECB] rounded-md bg-white">
+    <span class="text-clay text-xs">to</span>
+    <input type="date" name="end_date" value="{{ end_date }}"
+           class="px-2 py-1 text-xs border border-[#E4DECB] rounded-md bg-white">
+    <button type="submit"
+            class="px-3 py-1.5 rounded-md text-xs font-medium bg-rust text-white hover:bg-rust-dark">
+      Apply
+    </button>
+    {% if is_custom %}
+      <span class="px-3 py-1.5 rounded-md text-xs font-medium bg-olive text-white">Custom</span>
+    {% endif %}
+  </form>
+</div>

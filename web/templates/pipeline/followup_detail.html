@@ -1,0 +1,48 @@
+{% extends "pipeline/base.html" %}
+{% block title %}Follow-up {{ followup.pk }}{% endblock %}
+{% block breadcrumb %}Pipeline / Follow-ups / {{ followup.sample.company.name }}{% endblock %}
+{% block page_title %}Follow-up: {{ followup.sample.company.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl space-y-6">
+  <div class="bg-white rounded-lg shadow-sm border p-6">
+    <p class="eyebrow text-clay">Sample</p>
+    <p class="mt-1">{{ followup.sample.coffee_stock.variety_name }} · {{ followup.sample.sample_weight|floatformat:2 }} kg · sent {{ followup.sample.date_sent|date:"d M Y" }}</p>
+  </div>
+
+  <div class="bg-white rounded-lg shadow-sm border p-6">
+    <h2 class="font-semibold text-lg mb-4">Follow-up timeline</h2>
+    <dl class="divide-y">
+      <div class="py-3 flex justify-between"><dt class="text-sm text-gray-500">Dispatch alert</dt><dd class="text-sm">{{ followup.dispatch_alert_sent_at|date:"d M Y, H:i"|default_if_none:"—" }}</dd></div>
+      <div class="py-3 flex justify-between"><dt class="text-sm text-gray-500">Day-3 guide</dt><dd class="text-sm">{{ followup.day_3_guide_sent_at|date:"d M Y"|default_if_none:"—" }}</dd></div>
+      <div class="py-3 flex justify-between"><dt class="text-sm text-gray-500">Day-7 contract prompt</dt><dd class="text-sm">{{ followup.day_7_contract_sent_at|date:"d M Y"|default_if_none:"—" }}</dd></div>
+      <div class="py-3 flex justify-between"><dt class="text-sm text-gray-500">Converted to contract</dt><dd class="text-sm">{% if followup.is_converted_to_contract %}Yes{% else %}No{% endif %}</dd></div>
+    </dl>
+
+    {% if not followup.is_converted_to_contract %}
+    <div class="flex gap-3 mt-6">
+      <form method="post" action="{% url 'followup_mark_guide' followup.pk %}">{% csrf_token %}<button class="px-4 py-2 text-sm rounded-md border border-[#E4DECB] hover:bg-paper">Mark guide sent</button></form>
+      <form method="post" action="{% url 'followup_mark_contract' followup.pk %}">{% csrf_token %}<button class="px-4 py-2 text-sm rounded-md border border-[#E4DECB] hover:bg-paper">Mark contract prompt sent</button></form>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if not followup.is_converted_to_contract %}
+  <div class="bg-white rounded-lg shadow-sm border p-6">
+    <h2 class="font-semibold text-lg mb-4">Convert to contract</h2>
+    <form method="post" action="{% url 'followup_convert' followup.pk %}" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {% csrf_token %}
+      <div><label class="field-label block mb-2 text-xs">Volume / cycle (kg)</label>{{ contract_form.volume_per_cycle_kg }}</div>
+      <div><label class="field-label block mb-2 text-xs">Price / kg</label>{{ contract_form.price_per_kg }}</div>
+      <div><label class="field-label block mb-2 text-xs">Frequency</label>{{ contract_form.delivery_frequency }}</div>
+      <div><label class="field-label block mb-2 text-xs">Signed by</label>{{ contract_form.signed_name }}</div>
+      <div class="md:col-span-2"><button class="px-5 py-2.5 text-sm font-semibold rounded-md bg-rust text-white hover:bg-rust-dark">Sign contract</button></div>
+    </form>
+  </div>
+  {% else %}
+  <div class="rounded-md border border-olive/30 bg-olive/10 px-4 py-3">
+    <p class="text-olive font-medium">Converted — this company is now a signed contract holder.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
