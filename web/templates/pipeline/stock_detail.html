@@ -1,339 +1,262 @@
 {% extends "pipeline/base.html" %}
 
 {% block title %}
-{{ stock.variety_name }}
+Batch {{ stock.batch_number }} — {{ stock.variety_name }}
 {% endblock %}
 
 {% block breadcrumb %}
-Pipeline / Coffee Stock / {{ stock.variety_name }}
+Pipeline / Coffee Stock / {{ stock.batch_number }}
 {% endblock %}
 
 {% block page_title %}
-{{ stock.variety_name }}
+<div class="flex items-center gap-3">
+    <span>{{ stock.variety_name }}</span>
+    <span class="text-xs font-mono font-normal px-2.5 py-1 bg-gray-100 text-gray-600 rounded-md border">
+        {{ stock.batch_number }}
+    </span>
+</div>
 {% endblock %}
 
 {% block header_action %}
 <div class="flex items-center gap-2">
     <a href="{% url 'stock_update' stock.pk %}"
-       class="bg-rust text-white px-4 py-2 rounded-md hover:opacity-90">
-        Edit
+       class="px-4 py-2 text-sm font-semibold text-white bg-rust rounded-md hover:bg-rust/90 shadow-sm transition">
+        Edit Batch
     </a>
     <a href="{% url 'stock_list' %}"
-       class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium
-              border border-[#E4DECB] rounded-md
-              text-ink hover:bg-white transition">
+       class="px-4 py-2 text-sm font-medium border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 transition">
         ← Back to Stock
     </a>
 </div>
 {% endblock %}
 
 {% block content %}
+<div class="space-y-6 max-w-7xl">
 
-<div class="max-w-5xl space-y-6">
+    <!-- 1. TOP HEADER & KPI SUMMARY -->
+    <div class="bg-white rounded-xl shadow-sm border p-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-100">
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <!-- Status Badge -->
+                    {% if stock.quantity_available <= 0 %}
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                            Out of Stock
+                        </span>
+                    {% elif stock.quantity_available <= stock.reorder_level %}
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                            Low Stock Alert
+                        </span>
+                    {% else %}
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                            Available
+                        </span>
+                    {% endif %}
 
-    <!-- Stage badge -->
-    <div class="flex items-center gap-2">
-        <span class="px-3 py-1 rounded-full text-sm font-medium bg-olive/10 text-olive">
-            {{ stock.get_stage_display|default_if_none:"Green Bean" }}
-        </span>
-        {% if stock.quantity_available <= 0 %}
-            <span class="px-3 py-1 rounded-full text-sm font-medium bg-rust/10 text-rust">
-                Out of stock
-            </span>
-        {% elif stock.quantity_available <= stock.reorder_level %}
-            <span class="px-3 py-1 rounded-full text-sm font-medium bg-gold/10 text-gold">
-                Low stock
-            </span>
-        {% endif %}
-    </div>
+                    <!-- Stage Badge -->
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border">
+                        {{ stock.get_stage_display|default:"Green Bean" }}
+                    </span>
+                </div>
+                <p class="text-xs text-gray-500">
+                    Received on {{ stock.received_date|date:"jS F Y"|default:"—" }} • Supplier: <span class="font-medium text-gray-800">{{ stock.supplier|default:"—" }}</span>
+                </p>
+            </div>
 
-    <!-- Stage progress -->
-    <div class="bg-white rounded-lg shadow-sm border p-4">
-        <p class="eyebrow text-clay mb-3">Processing Stage</p>
-        <div class="flex items-center gap-1 text-xs overflow-x-auto">
-            {% with current=stock.stage %}
-                <span class="px-3 py-1.5 rounded-md {% if current == 'green_received' %}bg-olive text-white{% else %}bg-paper text-clay{% endif %}">Green Bean</span>
-                <span class="text-clay">→</span>
-                <span class="px-3 py-1.5 rounded-md {% if current == 'stored' %}bg-olive text-white{% else %}bg-paper text-clay{% endif %}">Stored</span>
-                <span class="text-clay">→</span>
-                <span class="px-3 py-1.5 rounded-md {% if current == 'roasted' %}bg-olive text-white{% else %}bg-paper text-clay{% endif %}">Roasted</span>
-                <span class="text-clay">→</span>
-                <span class="px-3 py-1.5 rounded-md {% if current == 'ground' %}bg-olive text-white{% else %}bg-paper text-clay{% endif %}">Ground</span>
-                <span class="text-clay">→</span>
-                <span class="px-3 py-1.5 rounded-md {% if current == 'packaged' %}bg-olive text-white{% else %}bg-paper text-clay{% endif %}">Packaged</span>
-            {% endwith %}
+            <!-- Quick Action Triggers -->
+            <div class="flex items-center gap-2">
+                <a href="#processing-section" class="px-3 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition">
+                    + Record Processing Step
+                </a>
+                <button onclick="window.print()" class="px-3 py-2 text-xs font-semibold text-gray-700 border hover:bg-gray-50 rounded-lg transition">
+                    Print Batch Tag
+                </button>
+            </div>
+        </div>
+
+        <!-- Metric KPI Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+            <div class="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                <span class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Quantity Received</span>
+                <p class="text-2xl font-bold text-gray-900 mt-1">
+                    {{ stock.quantity_received|floatformat:2|default:"0.00" }} <span class="text-sm font-normal text-gray-500">kg</span>
+                </p>
+            </div>
+            <div class="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                <span class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Defects / Sorted Out</span>
+                <p class="text-2xl font-bold text-red-600 mt-1">
+                    -{{ stock.defects|floatformat:2|default:"0.00" }} <span class="text-sm font-normal text-gray-500">kg</span>
+                </p>
+            </div>
+            <div class="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                <span class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Net After Sorting</span>
+                <p class="text-2xl font-bold text-gray-900 mt-1">
+                    {{ stock.quantity_after_sorting|floatformat:2|default:"0.00" }} <span class="text-sm font-normal text-gray-500">kg</span>
+                </p>
+            </div>
+            <div class="p-4 bg-emerald-50/50 border border-emerald-100 rounded-lg">
+                <span class="text-xs text-emerald-700 uppercase tracking-wider font-semibold">Current Available Balance</span>
+                <p class="text-2xl font-bold text-emerald-900 mt-1">
+                    {{ stock.quantity_available|floatformat:2|default:"0.00" }} <span class="text-sm font-normal text-emerald-600">kg</span>
+                </p>
+            </div>
         </div>
     </div>
 
-
-    <!-- GREEN COFFEE ANALYSIS / RECEIVING FORM -->
-    <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
-
-        <div class="bg-ink text-paper px-6 py-3">
-            <h2 class="font-display text-lg">
-                Green Coffee Receiving Analysis
-            </h2>
-        </div>
-
-        <table class="w-full">
-
-            <tbody class="divide-y">
-
-                <tr class="bg-paper">
-                    <td class="px-6 py-3 w-1/3 text-sm font-medium text-ink">Date</td>
-                    <td class="px-6 py-3 text-sm">
-                        {{ stock.received_date|date:"jS F Y"|default_if_none:"—" }}
-                    </td>
-                </tr>
-
-                <tr>
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Company name</td>
-                    <td class="px-6 py-3 text-sm">{{ stock.supplier|default_if_none:"—" }}</td>
-                </tr>
-
-                <tr class="bg-paper">
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Source</td>
-                    <td class="px-6 py-3 text-sm">{{ stock.source|default_if_none:"—" }}</td>
-                </tr>
-
-                <tr>
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Name of material</td>
-                    <td class="px-6 py-3 text-sm">{{ stock.variety_name }}</td>
-                </tr>
-
-                <tr class="bg-paper">
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Quantities</td>
-                    <td class="px-6 py-3 text-sm">
-                        {{ stock.quantity_received|floatformat:0|default_if_none:"—" }} kg
-                    </td>
-                </tr>h
-
-                <tr>
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Grade</td>
-                    <td class="px-6 py-3 text-sm">{{ stock.grade|default_if_none:"—" }}</td>
-                </tr>
-
-                <tr class="bg-paper">
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Moisture content</td>
-                    <td class="px-6 py-3 text-sm">
-                        {% if stock.moisture_content %}{{ stock.moisture_content|floatformat:1 }}{% else %}—{% endif %}
-                    </td>
-                </tr>
-
-                <tr>
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Process</td>
-                    <td class="px-6 py-3 text-sm">{{ stock.process|default_if_none:"—" }}</td>
-                </tr>
-
-                <tr class="bg-paper">
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Season of harvest</td>
-                    <td class="px-6 py-3 text-sm">{{ stock.season_of_harvest|default_if_none:"—" }}</td>
-                </tr>
-
-                <tr>
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Foreign smell</td>
-                    <td class="px-6 py-3 text-sm">{{ stock.foreign_smell|default_if_none:"—" }}</td>
-                </tr>
-
-                <tr class="bg-paper">
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Foreign matter</td>
-                    <td class="px-6 py-3 text-sm">{{ stock.foreign_matter|default_if_none:"—" }}</td>
-                </tr>
-
-                <tr>
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Prints</td>
-                    <td class="px-6 py-3 text-sm">{{ stock.prints|default_if_none:"—" }}</td>
-                </tr>
-
-                <tr class="bg-paper">
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Physical damages</td>
-                    <td class="px-6 py-3 text-sm">{{ stock.physical_damages|default_if_none:"—" }}</td>
-                </tr>
-
-                <tr>
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Defects</td>
-                    <td class="px-6 py-3 text-sm">
-                        {% if stock.defects %}{{ stock.defects|floatformat:0 }} kg{% else %}—{% endif %}
-                    </td>
-                </tr>
-
-                <tr class="bg-paper">
-                    <td class="px-6 py-3 text-sm font-medium text-ink">After Sorting</td>
-                    <td class="px-6 py-3 text-sm">
-                        {% if stock.quantity_after_sorting %}{{ stock.quantity_after_sorting|floatformat:0 }} kg{% else %}—{% endif %}
-                    </td>
-                </tr>
-
-                <tr>
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Checked by:</td>
-                    <td class="px-6 py-3 text-sm">{{ stock.checked_by|default_if_none:"—" }}</td>
-                </tr>
-
-                <tr class="bg-paper">
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Verified by:</td>
-                    <td class="px-6 py-3 text-sm">{{ stock.verified_by|default_if_none:"—" }}</td>
-                </tr>
-
-                <tr>
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Delivered by:</td>
-                    <td class="px-6 py-3 text-sm">{{ stock.delivered_by|default_if_none:"—" }}</td>
-                </tr>
-
-                <tr class="bg-paper">
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Car No.</td>
-                    <td class="px-6 py-3 text-sm">{{ stock.car_number|default_if_none:"—" }}</td>
-                </tr>
-
-                <tr>
-                    <td class="px-6 py-3 text-sm font-medium text-ink">Received by:</td>
-                    <td class="px-6 py-3 text-sm">{{ stock.received_by|default_if_none:"—" }}</td>
-                </tr>
-
-            </tbody>
-
-        </table>
-
-    </div>
-
-
-    <!-- Processing & inventory snapshot -->
+    <!-- 2. MAIN SPECIFICATIONS GRID -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <div class="lg:col-span-2 bg-white rounded-lg shadow-sm border">
-
-            <div class="p-4 border-b">
-                <h2 class="font-semibold text-lg">
-                    Processing &amp; Inventory
-                </h2>
+        <!-- Quality & Physical Specifications -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div class="px-6 py-4 border-b bg-gray-50/50 flex justify-between items-center">
+                <h3 class="font-semibold text-gray-800">Quality & Physical Attributes</h3>
+                <span class="text-xs text-gray-500">Intake Analysis Sheet</span>
             </div>
-
-            <dl class="divide-y">
-
-                <div class="px-4 py-3 grid grid-cols-3 gap-4">
-                    <dt class="text-sm text-gray-500">Coffee type</dt>
-                    <dd class="col-span-2 text-sm capitalize">{{ stock.get_coffee_type_display }}</dd>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+                <div class="flex justify-between py-2 border-b">
+                    <span class="text-gray-500">Variety Name</span>
+                    <span class="font-medium text-gray-900">{{ stock.variety_name }}</span>
                 </div>
-
-                <div class="px-4 py-3 grid grid-cols-3 gap-4">
-                    <dt class="text-sm text-gray-500">Roast date</dt>
-                    <dd class="col-span-2 text-sm">
-                        {{ stock.roast_date|date:"d F Y"|default_if_none:"—" }}
-                    </dd>
+                <div class="flex justify-between py-2 border-b">
+                    <span class="text-gray-500">Coffee Type</span>
+                    <span class="font-medium text-gray-900 capitalize">{{ stock.get_coffee_type_display|default:"—" }}</span>
                 </div>
-
-                <div class="px-4 py-3 grid grid-cols-3 gap-4">
-                    <dt class="text-sm text-gray-500">Quantity roasted</dt>
-                    <dd class="col-span-2 text-sm">{{ stock.quantity_roasted|floatformat:2 }} kg</dd>
+                <div class="flex justify-between py-2 border-b">
+                    <span class="text-gray-500">Grade</span>
+                    <span class="font-medium text-gray-900">{{ stock.grade|default:"—" }}</span>
                 </div>
-
-                <div class="px-4 py-3 grid grid-cols-3 gap-4">
-                    <dt class="text-sm text-gray-500">Quantity ground</dt>
-                    <dd class="col-span-2 text-sm">{{ stock.quantity_ground|floatformat:2 }} kg</dd>
+                <div class="flex justify-between py-2 border-b">
+                    <span class="text-gray-500">Processing Method</span>
+                    <span class="font-medium text-gray-900">{{ stock.process|default:"—" }}</span>
                 </div>
-
-                <div class="px-4 py-3 grid grid-cols-3 gap-4">
-                    <dt class="text-sm text-gray-500">Quantity packaged</dt>
-                    <dd class="col-span-2 text-sm">{{ stock.quantity_packaged|floatformat:2 }} kg</dd>
+                <div class="flex justify-between py-2 border-b">
+                    <span class="text-gray-500">Moisture Content</span>
+                    <span class="font-medium text-gray-900">
+                        {% if stock.moisture_content %}{{ stock.moisture_content|floatformat:1 }}%{% else %}—{% endif %}
+                    </span>
                 </div>
-
-                <div class="px-4 py-3 grid grid-cols-3 gap-4">
-                    <dt class="text-sm text-gray-500">Added</dt>
-                    <dd class="col-span-2 text-sm">{{ stock.created_at|date:"d M Y, H:i" }}</dd>
+                <div class="flex justify-between py-2 border-b">
+                    <span class="text-gray-500">Season of Harvest</span>
+                    <span class="font-medium text-gray-900">{{ stock.season_of_harvest|default:"—" }}</span>
                 </div>
-
-                <div class="px-4 py-3 grid grid-cols-3 gap-4">
-                    <dt class="text-sm text-gray-500">Last updated</dt>
-                    <dd class="col-span-2 text-sm">{{ stock.updated_at|date:"d M Y, H:i" }}</dd>
+                <div class="flex justify-between py-2 border-b">
+                    <span class="text-gray-500">Foreign Smell Check</span>
+                    <span class="font-medium text-gray-900">{{ stock.foreign_smell|default:"None" }}</span>
                 </div>
-
-            </dl>
-
-        </div>
-
-        <div class="space-y-6">
-
-            <div class="bg-white rounded-lg shadow-sm border p-6">
-                <p class="eyebrow text-clay">Available</p>
-                <p class="font-display text-4xl mt-1">
-                    {{ stock.quantity_available|floatformat:2 }}
-                    <span class="text-lg text-clay ml-1">kg</span>
-                </p>
-
-                <div class="mt-4 pt-4 border-t border-[#E4DECB]">
-                    <p class="eyebrow text-clay">Reorder threshold</p>
-                    <p class="text-lg mt-1">{{ stock.reorder_level|floatformat:2 }} kg</p>
+                <div class="flex justify-between py-2 border-b">
+                    <span class="text-gray-500">Foreign Matter Check</span>
+                    <span class="font-medium text-gray-900">{{ stock.foreign_matter|default:"None" }}</span>
+                </div>
+                <div class="flex justify-between py-2 border-b">
+                    <span class="text-gray-500">Physical Damages</span>
+                    <span class="font-medium text-gray-900">{{ stock.physical_damages|default:"None" }}</span>
+                </div>
+                <div class="flex justify-between py-2 border-b">
+                    <span class="text-gray-500">Prints / Branding</span>
+                    <span class="font-medium text-gray-900">{{ stock.prints|default:"—" }}</span>
                 </div>
             </div>
-
         </div>
 
+        <!-- Provenance & Chain of Custody -->
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div class="px-6 py-4 border-b bg-gray-50/50">
+                <h3 class="font-semibold text-gray-800">Chain of Custody & Logistics</h3>
+            </div>
+            <div class="p-6 space-y-4 text-sm">
+                <div class="flex justify-between py-2 border-b">
+                    <span class="text-gray-500">Supplier Name</span>
+                    <span class="font-medium text-gray-900">{{ stock.supplier|default:"—" }}</span>
+                </div>
+                <div class="flex justify-between py-2 border-b">
+                    <span class="text-gray-500">Source / Origin</span>
+                    <span class="font-medium text-gray-900">{{ stock.source|default:"—" }}</span>
+                </div>
+                <div class="flex justify-between py-2 border-b">
+                    <span class="text-gray-500">Transport / Car No.</span>
+                    <span class="font-medium text-gray-900">{{ stock.car_number|default:"—" }}</span>
+                </div>
+                <div class="flex justify-between py-2 border-b">
+                    <span class="text-gray-500">Delivered By</span>
+                    <span class="font-medium text-gray-900">{{ stock.delivered_by|default:"—" }}</span>
+                </div>
+                <div class="flex justify-between py-2 border-b">
+                    <span class="text-gray-500">Received By</span>
+                    <span class="font-medium text-gray-900">{{ stock.received_by|default:"—" }}</span>
+                </div>
+                <div class="flex justify-between py-2 border-b">
+                    <span class="text-gray-500">Verified By</span>
+                    <span class="font-medium text-gray-900">{{ stock.verified_by|default:"—" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. PROCESSING ACTION BAR -->
+    <div id="processing-section" class="bg-white rounded-xl shadow-sm border p-6">
+        <div class="mb-4">
+            <h3 class="text-base font-semibold text-gray-900">Record Processing Stage Step</h3>
+            <p class="text-xs text-gray-500">Convert stock from green to roasted, ground, or packaged states. Processed losses are automatically logged.</p>
+        </div>
+
+        <form method="post" action="{% url 'stock_process' stock.pk %}" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-gray-50 p-4 rounded-lg border">
+            {% csrf_token %}
+            <div>
+                <label class="block mb-1 text-xs font-medium text-gray-700">Target Step</label>
+                {{ processing_form.step }}
+            </div>
+            <div>
+                <label class="block mb-1 text-xs font-medium text-gray-700">Input Weight (kg)</label>
+                {{ processing_form.input_quantity }}
+            </div>
+            <div>
+                <label class="block mb-1 text-xs font-medium text-gray-700">Output Yield (kg)</label>
+                {{ processing_form.output_quantity }}
+            </div>
+            <button type="submit" class="w-full px-4 py-2 text-sm font-semibold text-white bg-olive rounded-md hover:bg-olive/90 shadow-sm transition">
+                Execute Transition
+            </button>
+            {{ processing_form.notes.as_hidden }}
+        </form>
+    </div>
+
+    <!-- 4. MOVEMENT LEDGER TABLE -->
+    <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <div class="px-6 py-4 border-b flex justify-between items-center">
+            <h3 class="font-semibold text-gray-800">Batch Movement Ledger</h3>
+            <span class="text-xs text-gray-500">Complete audit log of all drawdowns and receipts</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="bg-gray-50 text-xs uppercase text-gray-500 tracking-wider">
+                    <tr>
+                        <th class="px-6 py-3">Timestamp</th>
+                        <th class="px-6 py-3">Movement Type</th>
+                        <th class="px-6 py-3">Origin</th>
+                        <th class="px-6 py-3">Destination</th>
+                        <th class="px-6 py-3 text-right">Quantity</th>
+                        <th class="px-6 py-3">Notes / Ref</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for m in movements %}
+                    <tr class="hover:bg-gray-50/50">
+                        <td class="px-6 py-3 text-gray-600 whitespace-nowrap">{{ m.created_at|date:"d M Y, H:i" }}</td>
+                        <td class="px-6 py-3 font-medium text-gray-900">{{ m.get_movement_type_display }}</td>
+                        <td class="px-6 py-3 text-gray-600">{{ m.from_stage|default:"—" }}</td>
+                        <td class="px-6 py-3 text-gray-600">{{ m.to_stage|default:"—" }}</td>
+                        <td class="px-6 py-3 text-right font-medium text-gray-900">{{ m.quantity|floatformat:2 }} kg</td>
+                        <td class="px-6 py-3 text-gray-500 text-xs">{{ m.notes|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">No stock movement entries recorded for this batch yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
 </div>
-
-<!-- PROCESSING ACTION -->
-<div class="bg-white rounded-lg shadow-sm border p-6">
-  <p class="eyebrow text-clay">Processing</p>
-  <h2 class="font-display text-xl mt-1 mb-4">Record a processing step</h2>
-
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
-    <div class="bg-paper rounded-md p-3"><span class="block text-xs text-clay">Green</span><span class="font-medium">{{ available_green|floatformat:2 }} kg</span></div>
-    <div class="bg-paper rounded-md p-3"><span class="block text-xs text-clay">Roasted</span><span class="font-medium">{{ available_roasted|floatformat:2 }} kg</span></div>
-    <div class="bg-paper rounded-md p-3"><span class="block text-xs text-clay">Ground</span><span class="font-medium">{{ available_ground|floatformat:2 }} kg</span></div>
-    <div class="bg-paper rounded-md p-3"><span class="block text-xs text-clay">Available</span><span class="font-medium">{{ stock.quantity_available|floatformat:2 }} kg</span></div>
-  </div>
-
-  <form method="post" action="{% url 'stock_process' stock.pk %}" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-    {% csrf_token %}
-    <div>
-      <label class="field-label block mb-2 text-xs">Step</label>
-      {{ processing_form.step }}
-    </div>
-    <div>
-      <label class="field-label block mb-2 text-xs">Input (kg)</label>
-      {{ processing_form.input_quantity }}
-    </div>
-    <div>
-      <label class="field-label block mb-2 text-xs">Output (kg)</label>
-      {{ processing_form.output_quantity }}
-    </div>]
-    <button type="submit" class="px-4 py-2.5 text-sm font-semibold rounded-md bg-olive text-white hover:opacity-90">Process</button>
-    {{ processing_form.notes.as_hidden }}
-  </form>
-  <p class="mt-3 text-xs text-clay">Loss is posted to the ledger automatically so every kilogram is traceable.</p>
-</div>
-
-<!-- MOVEMENT HISTORY -->
-<div class="bg-white rounded-lg shadow-sm border overflow-hidden">
-  <div class="p-4 border-b"><h2 class="font-semibold text-lg">Stock Ledger</h2></div>
-  <div class="overflow-x-auto">
-    <table class="w-full">
-      <thead class="bg-gray-50">
-        <tr class="text-left text-xs uppercase tracking-wider text-gray-500">
-          <th class="px-4 py-3">When</th>
-          <th class="px-4 py-3">Type</th>
-          <th class="px-4 py-3">From</th>
-          <th class="px-4 py-3">To</th>
-          <th class="px-4 py-3 text-right">Quantity</th>
-          <th class="px-4 py-3">Notes</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for m in movements %}
-        <tr class="border-t hover:bg-gray-50">
-          <td class="px-4 py-3 text-sm">{{ m.created_at|date:"d M Y, H:i" }}</td>
-          <td class="px-4 py-3 text-sm">{{ m.get_movement_type_display }}</td>
-          <td class="px-4 py-3 text-sm">{{ m.from_stage|default_if_none:"—" }}</td>
-          <td class="px-4 py-3 text-sm">{{ m.to_stage|default_if_none:"—" }}</td>
-          <td class="px-4 py-3 text-sm text-right">{{ m.quantity|floatformat:2 }} kg</td>
-          <td class="px-4 py-3 text-sm text-clay">{{ m.notes|default_if_none:"" }}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="6" class="text-center py-8 text-gray-500">No movements recorded yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
 {% endblock %}

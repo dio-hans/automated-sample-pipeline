@@ -4,6 +4,39 @@ from django import forms
 
 from .models import Company, CoffeeStock, Sample, Contract
 from .services.intake import generate_batch_number, resolve_variety
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+# Registration Form
+User = get_user_model()
+
+class UserRegistrationForm(UserCreationForm):
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'contact', 'employee_id', 'role')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.update({
+                'class': 'w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500'
+            })
+
+
+# Login Form
+class UserLoginForm(AuthenticationForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['username'].widget.attrs.update({
+            'placeholder': 'Enter your username',
+            'class': 'w-full px-3 py-2 border border-slate-300 rounded-xl text-xs'
+        })
+        self.fields['password'].widget.attrs.update({
+            'placeholder': 'Enter your password',
+            'class': 'w-full px-3 py-2 border border-slate-300 rounded-xl text-xs'
+        })
 
 
 class CompanyForm(forms.ModelForm):
@@ -121,6 +154,7 @@ class CoffeeStockForm(forms.ModelForm):
             "source",
             "grade",
             "moisture_content",
+            "fermentation_type",
             "process",
             "season_of_harvest",
             "foreign_smell",
@@ -166,6 +200,11 @@ class CoffeeStockForm(forms.ModelForm):
                 "min": "0",
             }),
 
+            "fermentation_type": forms.TextInput(attrs={
+                "class": FIELD_CLASS,
+                "placeholder": "e.g. Aerobic fermentation",
+            }),
+
             "process": forms.TextInput(attrs={
                 "class": FIELD_CLASS,
                 "placeholder": "e.g. Natural process",
@@ -206,6 +245,7 @@ class CoffeeStockForm(forms.ModelForm):
                 "class": FIELD_CLASS,
                 "step": "0.01",
                 "min": "0",
+                "readonly": "readonly",
             }),
 
             "checked_by": forms.TextInput(attrs={
@@ -324,35 +364,80 @@ class SampleForm(forms.ModelForm):
 
 
 class ProcessingForm(forms.Form):
-    """Record one processing step (roast / grind / package) with its loss."""
+    """
+    Record a coffee processing step.
+
+    Packaging is deliberately excluded here.
+    Packaging is handled by the dedicated PackagingRun workflow
+    because packaged coffee is a sellable SKU.
+    """
 
     STEP_CHOICES = (
         ("roast", "Roasting"),
         ("grind", "Grinding"),
-        ("package", "Packaging"),
     )
 
-    step = forms.ChoiceField(choices=STEP_CHOICES, widget=forms.Select(attrs={"class": FIELD_CLASS}))
+    step = forms.ChoiceField(
+        choices=STEP_CHOICES,
+        widget=forms.Select(
+            attrs={"class": FIELD_CLASS}
+        )
+    )
+
     input_quantity = forms.DecimalField(
-        max_digits=10, decimal_places=2, min_value=Decimal("0.01"),
-        widget=forms.NumberInput(attrs={"class": FIELD_CLASS, "step": "0.01", "min": "0"}),
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        widget=forms.NumberInput(
+            attrs={
+                "class": FIELD_CLASS,
+                "step": "0.01",
+                "min": "0",
+            }
+        ),
         label="Quantity into process (kg)",
     )
+
     output_quantity = forms.DecimalField(
-        max_digits=10, decimal_places=2, min_value=Decimal("0.01"),
-        widget=forms.NumberInput(attrs={"class": FIELD_CLASS, "step": "0.01", "min": "0"}),
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        widget=forms.NumberInput(
+            attrs={
+                "class": FIELD_CLASS,
+                "step": "0.01",
+                "min": "0",
+            }
+        ),
         label="Quantity out of process (kg)",
     )
-    notes = forms.CharField(required=False, widget=forms.Textarea(attrs={
-        "class": FIELD_CLASS, "rows": 2, "placeholder": "Optional notes",
-    }))
+
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": FIELD_CLASS,
+                "rows": 2,
+                "placeholder": "Optional notes",
+            }
+        )
+    )
 
     def clean(self):
         cleaned = super().clean()
-        inp = cleaned.get("input_quantity")
-        out = cleaned.get("output_quantity")
-        if inp and out and out > inp:
-            raise forms.ValidationError("Output cannot exceed input.")
+
+        input_quantity = cleaned.get("input_quantity")
+        output_quantity = cleaned.get("output_quantity")
+
+        if (
+            input_quantity is not None
+            and output_quantity is not None
+            and output_quantity > input_quantity
+        ):
+            raise forms.ValidationError(
+                "Output quantity cannot exceed input quantity."
+            )
+
         return cleaned
 
 

@@ -19,6 +19,7 @@
           rel="stylesheet">
 
     <!-- Tailwind -->
+    <link rel="stylesheet" href="/css/global_styles.css"> 
     <script src="https://cdn.tailwindcss.com"></script>
 
     <script>
@@ -68,6 +69,8 @@
 </head>
 
 <body class="bg-paper text-ink font-sans min-h-screen flex flex-col">
+
+{% block navigation %}
 
     
     <!-- === NAVBAR === -->
@@ -198,6 +201,8 @@
 
         </div>
 
+{% endblock %}
+
     </header>
 
     <!-- ================= PAGE HEADER ================= -->
@@ -250,6 +255,7 @@
         {% endblock %}
 
     </main>
+
 
     <!-- ================= FOOTER ================= -->
 

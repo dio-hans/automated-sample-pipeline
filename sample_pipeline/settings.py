@@ -29,13 +29,16 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 # Application definition
 
 INSTALLED_APPS = [
+    'web',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'web',
+    'crispy_forms',
+    'crispy_tailwind',
+    
 ]
 
 MIDDLEWARE = [
@@ -114,6 +117,11 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+# Set your active template pack
+CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"  # or "bootstrap5"
+CRISPY_TEMPLATE_PACK = "tailwind"
 
 import os
 STATICFILES_DIR = [ os.path.join(BASE_DIR, 'static') ]
+# Replace 'web' with the actual app name where your custom User model lives
+AUTH_USER_MODEL = 'web.User'

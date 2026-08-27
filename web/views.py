@@ -6,7 +6,7 @@ from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import ListView, TemplateView, CreateView, UpdateView, DeleteView, DetailView, View
 
-from .models import Company, CoffeeStock, CoffeeVariety, Sample, StockMovement, Followup, Contract
+from .models import Company, CoffeeStock, CoffeeVariety, Sample, StockMovement, Followup, Contract, User
 from .forms import (
     CompanyForm, CoffeeStockForm, CoffeeStockIntakeForm, SampleForm,
     ProcessingForm, ContractForm,
@@ -15,11 +15,12 @@ from .services.intake import record_intake
 from django.db.models import F, DecimalField, ExpressionWrapper, Case, When, Value, IntegerField
 from django.shortcuts import render
 from .services.inventory import get_stage_inventory
-from .services.processing import process_stock, PROCESS_STEPS
+from .services.processing import process_stock
 from .services.followup import (
     create_followup_for_sample, mark_guide_sent, mark_contract_sent, convert_to_contract,
 )
 from .utils.util import apply_date_filters
+from .forms import UserRegistrationForm, UserLoginForm
 
 
 def current_user(request):
@@ -79,14 +80,13 @@ class CoffeeStockListViews(ListView):
     context_object_name = "stocks"
 
     def get_queryset(self):
-        qs = (CoffeeStock.objects
-              .select_related("variety")
-              .prefetch_related("movements")
-              .order_by("-received_date", "-created_at"))
-        qs, preset, today, start, end = apply_date_filters(self.request, qs, "received_date")
-        self._preset = preset
-        return qs
-
+        return (
+            CoffeeStock.objects
+            .select_related("variety")
+            .prefetch_related("movements")
+            .order_by("-received_date", "-created_at")
+        )
+    
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["preset"] = getattr(self, "_preset", "this_month")
@@ -383,27 +383,12 @@ class StockMovementListView(ListView):
     paginate_by = 50
 
     def get_queryset(self):
-        qs = (
-            StockMovement.objects
-            .select_related(
-                "stock",
-                "stock__variety",
-                "created_by",
-            )
-            .order_by("-created_at")
+        return (
+            CoffeeStock.objects
+            .select_related("variety")
+            .prefetch_related("movements")
+            .order_by("-received_date", "-created_at")
         )
-
-        qs, preset, today, start, end = apply_date_filters(
-            self.request,
-            qs,
-            "created_at",
-        )
-
-        self._preset = preset
-        self._start = start
-        self._end = end
-
-        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -506,3 +491,97 @@ def low_stock_list(request):
         "low_stocks": low_stocks,
         "low_stock_count": len(low_stocks),
     })
+
+# login and registration
+
+def redirect_user_by_role(user):
+    """
+    Explicit traffic controller based on user roles.
+    Returns the redirect response to their specific dashboard landing gate.
+    """
+    if user.role == 'ADMIN':
+        return redirect('admin_dashboard')
+    elif user.role == 'MANAGER':
+        return redirect('inventory_dashboard')
+    elif user.role == 'SALES':
+        return redirect('record_sale')
+    elif user.role == 'CASHIER':
+        return redirect('order_queue')
+    else:
+        # Fallback security route if role attributes are corrupted
+        return redirect('login')
+
+
+def user_login(request):
+    if request.method == 'POST':
+        form = UserLoginForm(request, data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+
+            if not user.is_active:
+                messages.error(request, "Access Denied: Your account has been suspended.")
+                return redirect('login')
+
+            login(request, user)
+            messages.success(request, f"Welcome back, {user.username}!")
+            return redirect_user_by_role(user)
+    else:
+        form = UserLoginForm()
+
+    return render(request, 'pipeline/login.html', {'form': form})
+
+def user_logout(request):
+    logout(request)
+    messages.info(request, "Session terminated successfully.")
+    return redirect('login')
+
+
+# Staff Profiling and Administrative Actions
+
+def register_user(request):
+    """
+    Unified User Control Gateway: Manages real-time 
+    staff account listing alongside provisioning forms.
+    """
+    if request.method == 'POST':
+        form = UserRegistrationForm(request.POST)
+        if form.is_valid():
+            new_user = form.save()
+            messages.success(request, f"Terminal credentials generated successfully for {new_user.username}!")
+            return redirect('login') # Keeps Admin on page to view updated table
+        else:
+            messages.error(request, "Account registration failed. Verify database constraints.")
+    else:
+        form = UserRegistrationForm()
+
+    # Query active system users to populate the integrated dashboard table
+    system_users = User.objects.all().order_by('role', 'username')
+    
+    return render(request, 'users/user_control.html', {
+        'form': form,
+        'users': system_users
+    })
+
+def toggle_user_status(request, user_id):
+    """
+    Soft deactivation feature to handle account locks safely.
+    Protected explicitly against arbitrary privilege escalations.
+    """
+    employee = get_object_or_404(User, id=user_id)
+    
+    if employee == request.user:
+        messages.error(request, "Security Violation Protection: You cannot lock out your own administrative account.")
+        return redirect('register_user')
+
+    # Atomic inversion of status state
+    employee.is_active = not employee.is_active
+    employee.save()
+
+    status = "activated" if employee.is_active else "suspended"
+    
+    if employee.is_active:
+        messages.success(request, f"Access clearance for {employee.username} successfully restored.")
+    else:
+        messages.warning(request, f"Terminal operational rights for {employee.username} have been suspended.")
+        
+    return redirect('register_user')

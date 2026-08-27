@@ -46,8 +46,7 @@
             <!-- Coffee Identity -->
             <div class="mb-8">
                 <div class="mb-5">
-                    <p class="eyebrow text-clay">Coffee Identity</p>
-                    <h2 class="font-display text-xl mt-1">Variety Details</h2>
+                    <h2 class="font-display text-xl mt-1">Coffee Details</h2>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -184,6 +183,16 @@
                         {% if form.process.errors %}
                             <div class="mt-1 text-sm text-rust-dark">
                                 {% for error in form.process.errors %}<p>{{ error }}</p>{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.fermentation_type.id_for_label }}" class="field-label block mb-2">Fermentation Type</label>
+                        {{ form.fermentation_type }}
+                        {% if form.fermentation_type.errors %}
+                            <div class="mt-1 text-sm text-rust-dark">
+                                {% for error in form.fermentation_type.errors %}<p>{{ error }}</p>{% endfor %}
                             </div>
                         {% endif %}
                     </div>
@@ -380,6 +389,35 @@ document.addEventListener('DOMContentLoaded', function () {
     varietyInput.addEventListener('change', applyVarietyDefaults);
 
     applyVarietyDefaults();
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+    // 1. Grab input references
+    const qtyReceivedInput = document.getElementById('{{ form.quantity_received.id_for_label }}');
+    const defectsInput = document.getElementById('{{ form.defects.id_for_label }}');
+    const qtyAfterSortingInput = document.getElementById('{{ form.quantity_after_sorting.id_for_label }}');
+
+    function calculateAfterSorting() {
+        if (!qtyAfterSortingInput) return;
+
+        // Parse current numeric values (default to 0 if empty or invalid)
+        const qtyReceived = parseFloat(qtyReceivedInput ? qtyReceivedInput.value : 0) || 0;
+        const defects = parseFloat(defectsInput ? defectsInput.value : 0) || 0;
+
+        // Compute net quantity (prevent negative numbers)
+        const netAfterSorting = Math.max(0, qtyReceived - defects);
+
+        // Update the target input field formatted to 2 decimal places
+        qtyAfterSortingInput.value = netAfterSorting.toFixed(2);
+    }
+
+    // 2. Attach event listeners for real-time input updates
+    if (qtyReceivedInput) {
+        qtyReceivedInput.addEventListener('input', calculateAfterSorting);
+    }
+    if (defectsInput) {
+        defectsInput.addEventListener('input', calculateAfterSorting);
+    }
 });
 </script>
 {% endblock %}

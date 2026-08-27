@@ -46,21 +46,32 @@ Coffee Stock
 
                 <tr class="text-left text-xs uppercase tracking-wider text-gray-500">
 
-                    <th class="px-4 py-3">Company Name</th>
+                   <th class="px-4 py-3">Date Received</th>
+                    <th class="px-4 py-3">Supplier Name</th>
                     <th class="px-4 py-3">Source</th>
-                    <th class="px-4 py-3">Name of material</th>
-                    <th class="px-4 py-3 text-right">Quantity Received</th>
-                    <th class="px-4 py-3 text-right">Grade</th>
+                    <th class="px-4 py-3">Variety Type</th>
                     <th class="px-4 py-3 text-center">Status</th>
-                    <th class="px-4 py-3">Moisture content</th>
                     <th class="px-4 py-3">Process</th>
+                    
+                    <th class="px-4 py-3">Fermentation process</th>
+                    
+                     <th class="px-4 py-3">Grade</th>
+                    
+                    
+                    
+                    <th class="px-4 py-3 text-right">Quantity Received(Kg)</th>
                     <th class="px-4 py-3">Season of harvest</th>
+                    <th class="px-4 py-3">Moisture content</th>                    
+                    
+                    
                     <th class="px-4 py-3 text-center">Foreign Matter</th>
+                    <th class="px-4 py-3 text-center">Foreign Smell</th>
+                    <th class="px-4 py-3 text-center">Defects</th>
                     <th class="px-4 py-3">Quantity after Sorting</th>
                     <th class="px-4 py-3 text-center">Verified by</th>
                     <th class="px-4 py-3 text-center">Delivered By</th>
                     <th class="px-4 py-3 text-center">Received By</th>
-                    <th class="px-4 py-3">Date Received</th>
+                  
 
                 </tr>
 
@@ -71,6 +82,12 @@ Coffee Stock
 {% for stock in stocks %}
 
 <tr class="border-t hover:bg-gray-50">
+
+     <td class="px-4 py-3 text-sm">
+
+        {{ stock.received_date|date:"d M Y" }}
+
+    </td>
 
     <td class="px-4 py-3 font-medium">
 
@@ -83,11 +100,9 @@ Coffee Stock
 
     </td>
 
-
     <td class="px-4 py-3 text-sm">
         {{ stock.source }}
     </td>
-
 
     <td class="px-4 py-3 text-sm">
 
@@ -95,24 +110,44 @@ Coffee Stock
 
     </td>
 
-
     <td class="px-4 py-3 text-sm">
 
         {{ stock.coffee_type }}
 
     </td>
 
-
     <td class="px-4 py-3 text-sm">
 
-        {{ stock.grade }}
+        {{ stock.process }}
 
     </td>
 
+     
+
+    <td class="px-4 py-3 text-sm">
+
+        {{ stock.fermentation_type }}
+    </td>
+
+    <td class="px-4 py-3 text-sm">
+        {{ stock.grade }}
+    </td>   
+
+    
+
+    
+   
+
+    
 
     <td class="px-4 py-3 text-sm">
 
         {{ stock.quantity_received|floatformat:2 }} kg
+    </td>
+
+    <td class="px-4 py-3 text-sm">
+
+        {{ stock.season_of_harvest }}
 
     </td>
 
@@ -124,23 +159,26 @@ Coffee Stock
     </td>
 
 
-    <td class="px-4 py-3 text-sm">
-
-        {{ stock.process }}
-
-    </td>
+    
 
 
-    <td class="px-4 py-3 text-sm">
-
-        {{ stock.season_of_harvest }}
-
-    </td>
+    
 
 
     <td class="px-4 py-3 text-sm">
 
         {{ stock.foreign_matter }}
+
+    </td>
+
+    <td class="px-4 py-3 text-sm">
+
+        {{ stock.foreign_smell }}
+    </td>
+
+    <td class="px-4 py-3 text-sm">
+
+        {{ stock.defects }}
 
     </td>
 
@@ -173,11 +211,7 @@ Coffee Stock
     </td>
 
 
-    <td class="px-4 py-3 text-sm">
-
-        {{ stock.received_date|date:"d M Y" }}
-
-    </td>
+   
 
 
     <td class="px-4 py-3">

@@ -9,6 +9,7 @@ exist yet auto-generates a new variety definition.
 
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone
@@ -141,10 +142,6 @@ def find_open_batch(variety, batch_data):
 
 @transaction.atomic
 def record_intake(variety_name, batch_data, quantity_received, user=None):
-    """
-    Receive coffee against a typed variety name and return an IntakeResult.
-    """
-
     batch_data = dict(batch_data)
     received_date = batch_data.get("received_date")
 
@@ -152,6 +149,16 @@ def record_intake(variety_name, batch_data, quantity_received, user=None):
         batch_number_date = received_date
     else:
         batch_number_date = None
+
+    # 1. Parse received and defect amounts
+    qty_rec = Decimal(str(quantity_received or "0.00"))
+    defects_val = Decimal(str(batch_data.get("defects") or "0.00"))
+    net_after_sorting = max(Decimal("0.00"), qty_rec - defects_val)
+
+    # 2. Assign keys explicitly for model creation
+    batch_data["defects"] = defects_val
+    batch_data["quantity_sorted_out"] = defects_val
+    batch_data["quantity_after_sorting"] = net_after_sorting
 
     variety, variety_created = resolve_variety(variety_name, batch_data)
 
@@ -165,18 +172,30 @@ def record_intake(variety_name, batch_data, quantity_received, user=None):
             **batch_data,
         )
     else:
-        stock.reorder_level = batch_data.get(
-            "reorder_level",
-            stock.reorder_level,
-        )
-        stock.save(update_fields=["reorder_level", "updated_at"])
+        existing_sorted_out = stock.quantity_sorted_out or stock.defects or Decimal("0.00")
+        new_sorted_out = existing_sorted_out + defects_val
 
+        stock.defects = new_sorted_out
+        stock.quantity_sorted_out = new_sorted_out
+        stock.quantity_after_sorting = max(
+            Decimal("0.00"), 
+            (stock.quantity_after_sorting or Decimal("0.00")) + net_after_sorting
+        )
+        stock.reorder_level = batch_data.get("reorder_level", stock.reorder_level)
+        stock.save(update_fields=["defects", "quantity_sorted_out", "quantity_after_sorting", "reorder_level", "updated_at"])
+
+    # Register movement entry
     record_receipt(
         stock,
         quantity_received,
         user=user,
         reference=stock.batch_number,
     )
+
+    # 3. Explicitly persist quantity_after_sorting AFTER stock movement exists
+    if batch_created:
+        stock.quantity_after_sorting = net_after_sorting
+        stock.save(update_fields=["quantity_after_sorting"])
 
     return IntakeResult(
         stock=stock,

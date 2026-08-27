@@ -1,89 +1,171 @@
 from dataclasses import dataclass
 from decimal import Decimal
-from django.db import transaction
-from django.utils import timezone
 
-from ..models import StockMovement
+from django.db import transaction
+
+from ..models import CoffeeStock, StockMovement
 from .inventory import get_stage_inventory
 
 
-# Each processing step: (movement_type, from_stage, to_stage, loss_reference)
 PROCESS_STEPS = {
-    "roast":   ("roast_output",   "green_received", "roasted",  "roasting"),
-    "grind":   ("grind_output",   "roasted",        "ground",   "grinding"),
-    "package": ("package_output", "ground",         "packaged", "packaging"),
+    "roast": (
+        "roast_output",
+        "green_received",
+        "roasted",
+        "roasting",
+    ),
+
+    "grind": (
+        "grind_output",
+        "roasted",
+        "ground",
+        "grinding",
+    ),
 }
 
 
 @dataclass
 class ProcessResult:
     movement: StockMovement
-    loss_movement: StockMovement
+    loss_movement: StockMovement | None
     input_quantity: Decimal
     output_quantity: Decimal
     loss_quantity: Decimal
 
 
 @transaction.atomic
-def process_stock(*, stock, step, input_quantity, output_quantity, user=None, notes=""):
+def process_stock(
+    *,
+    stock,
+    step,
+    input_quantity,
+    output_quantity,
+    user=None,
+    notes="",
+):
     """
-    Move coffee through one processing step, recording the loss explicitly.
+    Process coffee through roasting or grinding.
 
-    Two movements are posted:
-      - output: from_stage -> to_stage, qty = output (what survived the step)
-      - loss:   from_stage -> None,     qty = input - output (what was lost)
+    Inventory rule:
 
-    Both draw from the source stage, so stage_quantity(source) drops by the
-    full input weight and stage_quantity(target) rises by the output weight.
-    Every gram is traceable in the ledger.
+        source quantity
+              ↓
+        ┌─────┴─────┐
+        ↓           ↓
+      output       loss
+
+    Example:
+
+        300 kg green
+              ↓
+        roasting
+              ↓
+        270 kg roasted
+         30 kg loss
+
+    The ledger records both the output and the loss.
     """
+
     if step not in PROCESS_STEPS:
-        raise ValueError(f"Unknown processing step '{step}'.")
+        raise ValueError(
+            f"Unknown processing step '{step}'. "
+            f"Allowed steps: {', '.join(PROCESS_STEPS.keys())}."
+        )
 
-    movement_type, from_stage, to_stage, loss_ref = PROCESS_STEPS[step]
+    movement_type, from_stage, to_stage, loss_reference = (
+        PROCESS_STEPS[step]
+    )
 
     input_quantity = Decimal(input_quantity)
     output_quantity = Decimal(output_quantity)
 
-    if output_quantity <= 0:
-        raise ValueError("Output quantity must be greater than zero.")
-    if output_quantity > input_quantity:
-        raise ValueError("Output cannot be greater than input.")
-
-    available = get_stage_inventory(stock, from_stage)
-    if input_quantity > available:
+    if input_quantity <= 0:
         raise ValueError(
-            f"Insufficient stock at {from_stage}. Only {available} kg available."
+            "Input quantity must be greater than zero."
         )
 
-    loss_quantity = input_quantity - output_quantity
+    if output_quantity <= 0:
+        raise ValueError(
+            "Output quantity must be greater than zero."
+        )
+
+    if output_quantity > input_quantity:
+        raise ValueError(
+            "Output quantity cannot exceed input quantity."
+        )
+
+    # Lock the batch for the duration of this transaction.
+    locked_stock = (
+        CoffeeStock.objects
+        .select_for_update()
+        .get(pk=stock.pk)
+    )
+
+    available = get_stage_inventory(
+        locked_stock,
+        from_stage,
+    )
+
+    if input_quantity > available:
+        raise ValueError(
+            f"Insufficient stock at {from_stage}. "
+            f"Only {available} kg is available."
+        )
+
+    loss_quantity = (
+        input_quantity - output_quantity
+    )
+
+    reference = (
+        f"{loss_reference.title()} - "
+        f"{locked_stock.batch_number}"
+    )
+
+    # --------------------------------------------------
+    # 1. OUTPUT
+    # --------------------------------------------------
 
     output_movement = StockMovement.objects.create(
-        stock=stock,
+        stock=locked_stock,
         movement_type=movement_type,
         from_stage=from_stage,
         to_stage=to_stage,
         quantity=output_quantity,
+        reference=reference,
         notes=notes,
         created_by=user,
     )
 
+    # --------------------------------------------------
+    # 2. LOSS
+    # --------------------------------------------------
+
     loss_movement = None
+
     if loss_quantity > 0:
         loss_movement = StockMovement.objects.create(
-            stock=stock,
+            stock=locked_stock,
             movement_type="loss",
             from_stage=from_stage,
             to_stage=None,
             quantity=loss_quantity,
-            reference=loss_ref,
-            notes=f"Loss during {loss_ref}",
+            reference=f"{loss_reference.title()} loss",
+            notes=(
+                f"Loss recorded during {loss_reference}. "
+                f"Input: {input_quantity} kg. "
+                f"Output: {output_quantity} kg."
+            ),
             created_by=user,
         )
 
-    # Advance the batch's current stage pointer
-    stock.stage = to_stage
-    stock.save(update_fields=["stage", "updated_at"])
+    # IMPORTANT:
+    #
+    # Do NOT update locked_stock.stage.
+    #
+    # The ledger is the source of truth.
+    #
+    # A batch may have green, roasted and ground
+    # quantities simultaneously.
 
     return ProcessResult(
         movement=output_movement,
