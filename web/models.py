@@ -1,4 +1,6 @@
+from django.core.exceptions import ValidationError
 from decimal import Decimal
+from django.utils import timezone
 import uuid
 from django.db import models
 from django.conf import settings
@@ -6,6 +8,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Sum
 from django.contrib.auth.models import AbstractUser
+
 
 
 # --- 1. COMPANY DETAILS ---
@@ -70,195 +73,309 @@ class CoffeeVariety(models.Model):
     def __str__(self):
         return self.name
 
+class StockStage(models.TextChoices):
+        GREEN = "green_received", "Green Coffee"
+        ROASTED = "roasted", "Roasted Coffee"
+        GROUND = "ground", "Ground Coffee"
+        QUAKERS = "quakers", "Quakers"
+
+class FermentationType(models.TextChoices):
+    AEROBIC = "aerobic_fermentation", "Aerobic Fermentation"
+    ANAEROBIC = "anaerobic_fermentation", "Anaerobic Fermentation"    
+    NATURAL = "natural", "Natural"
+    OTHER = "other", "Other"
+
     
 class CoffeeStock(models.Model):
-    STAGE_CHOICES = (
-        ('green_received', 'Green Bean Received'),
-        ('stored', 'Stored'),
-        ('roasted', 'Roasted'),
-        ('ground', 'Ground'),
-        ('packaged', 'Packaged'),
-    )
 
     batch_number = models.CharField(
         max_length=50,
         unique=True,
-        blank=True
+        blank=True,
     )
+
     variety = models.ForeignKey(
         CoffeeVariety,
         on_delete=models.PROTECT,
-        related_name="stock_batches"
+        related_name="stock_batches",
     )
+
     coffee_type = models.CharField(
         max_length=20,
-        choices=Coffee_type.choices
+        choices=Coffee_type.choices,
     )
-    received_date = models.DateField(null=True, blank=True)
-    supplier = models.CharField(max_length=250, blank=True)
-    source = models.CharField(max_length=250, blank=True)
-    grade = models.CharField(max_length=50, blank=True)
+
+    
+
+    received_date = models.DateField(
+        null=True,
+        blank=True,
+    )
+
+    supplier = models.CharField(
+        max_length=250,
+        blank=True,
+    )
+
+    source = models.CharField(
+        max_length=250,
+        blank=True,
+    )
+
+    grade = models.CharField(
+        max_length=50,
+        blank=True,
+    )
+
     moisture_content = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         null=True,
-        blank=True
+        blank=True,
     )
-    process = models.CharField(max_length=50, blank=True)
-    season_of_harvest = models.CharField(max_length=100, blank=True)
+
+    process = models.CharField(
+        max_length=50,
+        blank=True,
+    )
+
+    season_of_harvest = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+
     quantity_sorted_out = models.DecimalField(
-        max_digits=8,
+        max_digits=10,
         decimal_places=2,
         null=True,
+        blank=True,
+    )
+
+    foreign_smell = models.CharField(
+        max_length=50,
+        blank=True,
+    )
+
+    foreign_matter = models.CharField(
+        max_length=50,
+        blank=True,
+    )
+
+    prints = models.CharField(
+        max_length=50,
+        blank=True,
+    )
+
+    physical_damages = models.CharField(
+        max_length=50,
+        blank=True,
+    )
+
+    fermentation_type = models.CharField(
+        max_length=50,
+        choices=FermentationType.choices,
+        default=FermentationType.AEROBIC,
         blank=True
     )
-    foreign_smell = models.CharField(max_length=50, blank=True)
-    foreign_matter = models.CharField(max_length=50, blank=True)
-    prints = models.CharField(max_length=50, blank=True)
-    physical_damages = models.CharField(max_length=10, blank=True)
+
     defects = models.DecimalField(
-        max_digits=8,
+        max_digits=10,
         decimal_places=2,
         null=True,
-        blank=True
+        blank=True,
     )
-    fermentation_type = models.CharField(max_length=50, blank=True)
+
     quantity_after_sorting = models.DecimalField(
-        max_digits=8,
+        max_digits=10,
         decimal_places=2,
         null=True,
-        blank=True
+        blank=True,
     )
 
-    checked_by = models.CharField(max_length=150, blank=True)
-    verified_by = models.CharField(max_length=250, blank=True)
-    delivered_by = models.CharField(max_length=150, blank=True)
-    car_number = models.CharField(max_length=50, blank=True)
-    received_by = models.CharField(max_length=150, blank=True)
-
-    stage = models.CharField(
-        max_length=30,
-        choices=STAGE_CHOICES,
-        default='green_received'
+    checked_by = models.CharField(
+        max_length=150,
+        blank=True,
     )
+
+    verified_by = models.CharField(
+        max_length=250,
+        blank=True,
+    )
+
+    delivered_by = models.CharField(
+        max_length=150,
+        blank=True,
+    )
+
+    car_number = models.CharField(
+        max_length=50,
+        blank=True,
+    )
+
+    received_by = models.CharField(
+        max_length=150,
+        blank=True,
+    )
+
     reorder_level = models.DecimalField(
-        max_digits=8,
+        max_digits=10,
         decimal_places=2,
-        default=50
+        default=50,
     )
 
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    # --------------------------------------------------
+    # INVENTORY CALCULATIONS
+    # --------------------------------------------------
 
     @property
     def quantity_received(self):
-        return self.movements.filter(
-            movement_type='receipt'
-        ).aggregate(
-            total=Sum('quantity')
-        )['total'] or Decimal('0.00')
+        return (
+            self.movements
+            .filter(movement_type="receipt")
+            .aggregate(total=Sum("quantity"))["total"]
+            or Decimal("0.00")
+        )
 
     @property
     def variety_name(self):
         return self.variety.name
 
     def stage_quantity(self, stage):
-        incoming = self.movements.filter(
-            to_stage=stage
-        ).aggregate(total=Sum('quantity'))['total'] or Decimal('0.00')
+        incoming = (
+            self.movements
+            .filter(to_stage=stage)
+            .aggregate(total=Sum("quantity"))["total"]
+            or Decimal("0.00")
+        )
 
-        outgoing = self.movements.filter(
-            from_stage=stage
-        ).aggregate(total=Sum('quantity'))['total'] or Decimal('0.00')
-
-        return incoming - outgoing
-
-    @property
-    def quantity_available(self):
-        incoming = self.movements.exclude(
-            to_stage=None
-        ).aggregate(total=Sum('quantity'))['total'] or Decimal('0.00')
-
-        outgoing = self.movements.exclude(
-            from_stage=None
-        ).aggregate(total=Sum('quantity'))['total'] or Decimal('0.00')
+        outgoing = (
+            self.movements
+            .filter(from_stage=stage)
+            .aggregate(total=Sum("quantity"))["total"]
+            or Decimal("0.00")
+        )
 
         return incoming - outgoing
 
     @property
     def quantity_green(self):
-        return self.stage_quantity('green_received')
+        return self.stage_quantity(
+            StockStage.GREEN
+        )
 
     @property
     def quantity_roasted(self):
-        return self.stage_quantity('roasted')
+        return self.stage_quantity(
+            StockStage.ROASTED
+        )
 
     @property
     def quantity_ground(self):
-        return self.stage_quantity('ground')
+        return self.stage_quantity(
+            StockStage.GROUND
+        )
 
     @property
-    def quantity_packaged(self):
-        return self.stage_quantity('packaged')
+    def quantity_quakers(self):
+        return self.stage_quantity(
+            StockStage.QUAKERS
+        )
 
     @property
-    def roast_date(self):
-        movement = self.movements.filter(
-            to_stage='roasted'
-        ).order_by('created_at').first()
-        return movement.created_at if movement else None
+    def quantity_available(self):
+        """
+        Total kg currently inside the kg-based inventory.
+
+        This intentionally excludes packaged coffee because
+        packaged coffee is tracked in PACKS.
+        """
+
+        return (
+            self.quantity_green
+            + self.quantity_roasted
+            + self.quantity_ground
+            + self.quantity_quakers
+        )
 
     @property
     def is_low_stock(self):
-        return 0 < self.quantity_available <= self.reorder_level
-
+        return (
+            0 < self.quantity_available <= self.reorder_level
+        )
 
     def __str__(self):
         return f"{self.batch_number} - {self.variety.name}"
 
 
 class StockMovement(models.Model):
+
     MOVEMENT_TYPES = (
-        ("receipt", "Stock Received"),
-        ("sample", "Sample Taken"),
-        ("roast_input", "Sent for Roasting"),
-        ("roast_output", "Roasted Output"),
-        ("grind_input", "Sent for Grinding"),
-        ("grind_output", "Ground Output"),
-        ("dispatch", "Dispatched"),
-        ("loss", "Loss / Waste"),
-        ("adjustment", "Inventory Adjustment"),
-    )
+    ("receipt", "Stock Received"),
+    ("sample", "Sample Taken"),
 
-    STAGE_CHOICES = CoffeeStock.STAGE_CHOICES
+    ("roast_issue", "Issued for Roasting"),
+    ("roast_return", "Roasted Coffee Received"),
 
+    ("sort_input", "Issued for Sorting"),
+    ("sort_good_output", "Good Coffee Received"),
+    ("quaker_output", "Quakers Received"),
+
+    ("grind_input", "Issued for Grinding"),
+    ("grind_return", "Ground Coffee Received"),
+
+    ("packaging_issue", "Issued for Packaging"),
+
+    ("dispatch", "Dispatched"),
+    ("loss", "Processing Loss"),
+    ("adjustment", "Inventory Adjustment"),
+)
     stock = models.ForeignKey(
         CoffeeStock,
         on_delete=models.PROTECT,
         related_name="movements",
     )
+
     movement_type = models.CharField(
         max_length=30,
         choices=MOVEMENT_TYPES,
     )
+
     from_stage = models.CharField(
         max_length=30,
-        choices=STAGE_CHOICES,
+        choices=StockStage.choices,
         null=True,
         blank=True,
     )
+
     to_stage = models.CharField(
         max_length=30,
-        choices=STAGE_CHOICES,
+        choices=StockStage.choices,
         null=True,
         blank=True,
     )
+
     quantity = models.DecimalField(
         max_digits=10,
         decimal_places=2,
     )
-    reference = models.CharField(max_length=100, blank=True)
-    notes = models.TextField(blank=True)
+
+    reference = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+
+    notes = models.TextField(
+        blank=True,
+    )
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -266,15 +383,145 @@ class StockMovement(models.Model):
         blank=True,
         related_name="stock_movements",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
 
     class Meta:
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.stock.batch_number} - {self.get_movement_type_display()} - {self.quantity} kg"
+        return (
+            f"{self.stock.batch_number} - "
+            f"{self.get_movement_type_display()} - "
+            f"{self.quantity} kg"
+        )
 
+class ProcessingRun(models.Model):
 
+    PROCESS_TYPES = (
+        ("roasting", "Roasting"),
+        ("sorting", "Sorting"),
+        ("grinding", "Grinding"),
+    )
+
+    STATUS_CHOICES = (
+        ("open", "In Progress"),
+        ("completed", "Completed"),
+        ("cancelled", "Cancelled"),
+    )
+
+    stock = models.ForeignKey(
+        CoffeeStock,
+        on_delete=models.PROTECT,
+        related_name="processing_runs",
+    )
+
+    process_type = models.CharField(
+        max_length=20,
+        choices=PROCESS_TYPES,
+    )
+
+    input_stage = models.CharField(
+        max_length=30,
+        choices=StockStage.choices,
+    )
+
+    output_stage = models.CharField(
+        max_length=30,
+        choices=StockStage.choices,
+        null=True,
+        blank=True,
+    )
+
+    input_quantity = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+    )
+
+    output_quantity = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+
+    secondary_output_stage = models.CharField(
+        max_length=30,
+        choices=StockStage.choices,
+        null=True,
+        blank=True,
+    )
+
+    secondary_output_quantity = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
+
+    loss_quantity = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="open",
+    )
+
+    issued_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    issued_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="processing_runs_issued",
+    )
+
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="processing_runs_completed",
+    )
+
+    notes = models.TextField(
+        blank=True,
+    )
+
+    class Meta:
+        ordering = ["-issued_at"]
+
+    def __str__(self):
+        return (
+            f"{self.stock.batch_number} - "
+            f"{self.get_process_type_display()} - "
+            f"{self.input_quantity} kg"
+        )
+
+    @property
+    def accounted_quantity(self):
+        return (
+            (self.output_quantity or Decimal("0.00"))
+            + self.secondary_output_quantity
+            + self.loss_quantity
+        )
+
+    @property
+    def is_accounted_for(self):
+        return self.accounted_quantity == self.input_quantity
 # --- 3. SAMPLES & CRM ---
 
 delivery_status_choices = [
@@ -536,166 +783,364 @@ class ProductForm(models.TextChoices):
 # 4. PACKAGED PRODUCT  (blend × pack_size × form)
 #    This is the sellable SKU.
 class PackagedProduct(models.Model):
-    blend = models.ForeignKey(Blend, on_delete=models.PROTECT, related_name="products")
-    pack_size = models.ForeignKey(PackSize, on_delete=models.PROTECT, related_name="products")
-    form = models.CharField(max_length=10, choices=ProductForm.choices)
 
-    # Auto-calculated: how many kg of roasted coffee one pack consumes
-    # (pack_size.grams / 1000). Set on save for quick reference.
-    kg_per_pack = models.DecimalField(max_digits=8, decimal_places=4, default=0)
+    blend = models.ForeignKey(
+        Blend,
+        on_delete=models.PROTECT,
+        related_name="products",
+    )
 
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    pack_size = models.ForeignKey(
+        PackSize,
+        on_delete=models.PROTECT,
+        related_name="products",
+    )
+
+    form = models.CharField(
+        max_length=10,
+        choices=ProductForm.choices,
+    )
+
+    kg_per_pack = models.DecimalField(
+        max_digits=8,
+        decimal_places=4,
+        default=0,
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
 
     class Meta:
-        unique_together = ("blend", "pack_size", "form")
-        ordering = ["blend__name", "pack_size__grams", "form"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("blend", "pack_size", "form"),
+                name="unique_packaged_product",
+            )
+        ]
 
-    def __str__(self):
-        return f"{self.blend.name} {self.pack_size.label} ({self.form})"
+        ordering = [
+            "blend__name",
+            "pack_size__grams",
+            "form",
+        ]
+
+    def clean(self):
+
+        if self.pack_size.is_sachet:
+            if self.form != ProductForm.BEANS:
+                raise ValidationError(
+                    "Sachets can only contain whole beans."
+                )
 
     def save(self, *args, **kwargs):
-        self.kg_per_pack = Decimal(self.pack_size.grams) / Decimal(1000)
+
+        self.full_clean()
+
+        self.kg_per_pack = (
+            Decimal(self.pack_size.grams)
+            / Decimal("1000")
+        )
+
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.blend.name} "
+            f"{self.pack_size.label} "
+            f"({self.form})"
+        )
 
 
 # 5. PACKAGING RUN
-#    Converts roasted (or ground) kg → packs.
-#    Draws from the CoffeeStock ledger's roasted/ground stage.
 class PackagingRun(models.Model):
+
+    STATUS_CHOICES = (
+        ("open", "In Progress"),
+        ("completed", "Completed"),
+        ("cancelled", "Cancelled"),
+    )
+
     stock = models.ForeignKey(
-        "CoffeeStock",
+        CoffeeStock,
         on_delete=models.PROTECT,
         related_name="packaging_runs",
     )
+
     product = models.ForeignKey(
         PackagedProduct,
         on_delete=models.PROTECT,
         related_name="packaging_runs",
     )
 
-    # How many kg of roasted/ground coffee went IN
-    input_kg = models.DecimalField(max_digits=10, decimal_places=2)
-    # How many packs came OUT
-    packs_produced = models.PositiveIntegerField()
-    # Loss / waste (input_kg - packs_produced × kg_per_pack)
-    loss_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    source_stage = models.CharField(
+        max_length=30,
+        choices=(
+            (StockStage.ROASTED, "Roasted Coffee"),
+            (StockStage.GROUND, "Ground Coffee"),
+        ),
+    )
 
-    # Source stage: 'roasted' for beans, 'ground' for ground coffee
-    source_stage = models.CharField(max_length=20, default="roasted")
+    # KG issued to the packing operation
+    input_kg = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+    )
 
-    run_date = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(
+    # Actual number of packs received back
+    packs_produced = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+    )
+
+    # Actual coffee represented by those packs
+    coffee_used_kg = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
+
+    # Difference between input and coffee in completed packs
+    loss_kg = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="open",
+    )
+
+    issued_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    issued_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name="packaging_runs",
+        null=True,
+        blank=True,
+        related_name="packaging_runs_issued",
     )
-    notes = models.TextField(blank=True)
+
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="packaging_runs_completed",
+    )
+
+    notes = models.TextField(
+        blank=True,
+    )
 
     class Meta:
-        ordering = ["-run_date"]
+        ordering = ["-issued_at"]
 
     def __str__(self):
-        return f"{self.product} × {self.packs_produced} packs ({self.run_date:%d %b %Y})"
+        return (
+            f"{self.product} — "
+            f"{self.input_kg} kg"
+        )
 
+    @property
+    def accounted_kg(self):
+        return (
+            self.coffee_used_kg
+            + self.loss_kg
+        )
 
+    @property
+    def is_accounted_for(self):
+        return (
+            self.status == "completed"
+            and self.accounted_kg == self.input_kg
+        )
+
+    @property
+    def expected_packs(self):
+        if not self.product_id:
+            return 0
+
+        if not self.product.kg_per_pack:
+            return 0
+
+        return int(
+            self.input_kg /
+            self.product.kg_per_pack
+        )
+    
 # 6. PACKAGED INVENTORY  (live stock per product)
 #    packs_in - packs_released + packs_returned
 class PackagedInventory(models.Model):
-    product = models.ForeignKey(
+
+    product = models.OneToOneField(
         PackagedProduct,
         on_delete=models.PROTECT,
         related_name="inventory",
     )
-    packs_in_stock = models.PositiveIntegerField(default=0)
-    packs_released = models.PositiveIntegerField(default=0)
-    packs_returned = models.PositiveIntegerField(default=0)
-    updated_at = models.DateTimeField(auto_now=True)
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
 
     class Meta:
-        unique_together = ("product",)
+        ordering = ["product__blend__name"]
 
     def __str__(self):
         return f"{self.product}: {self.available} packs available"
 
     @property
-    def available(self):
-        return self.packs_in_stock - self.packs_released + self.packs_returned
+    def packs_produced(self):
+        return sum(
+            run.packs_produced
+            for run in self.product.packaging_runs.all()
+        )
 
+    @property
+    def packs_released(self):
+        return sum(
+            release.packs_out
+            for release in self.product.releases.all()
+        )
+
+    @property
+    def packs_returned(self):
+        return sum(
+            ret.packs_returned
+            for release in self.product.releases.all()
+            for ret in release.returns.all()
+        )
+
+    @property
+    def available(self):
+        return (
+            self.packs_produced
+            - self.packs_released
+            + self.packs_returned
+        )
 
 # 7. PACK RELEASE  (store keeper → salesperson)
 class PackRelease(models.Model):
-    STATUS_CHOICES = [
+
+    STATUS_CHOICES = (
         ("released", "Released"),
         ("partially_returned", "Partially Returned"),
         ("fully_returned", "Fully Returned"),
-        ("sold", "Sold"),
-    ]
+    )
 
     product = models.ForeignKey(
         PackagedProduct,
         on_delete=models.PROTECT,
         related_name="releases",
     )
-    # Who requested / received the packs (salesperson)
+
     released_to = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        null=True, blank=True,
+        null=True,
+        blank=True,
         related_name="pack_releases",
     )
-    packs_out = models.PositiveIntegerField()
-    packs_returned = models.PositiveIntegerField(default=0)
-    packs_sold = models.PositiveIntegerField(default=0)  # confirmed sold
 
-    # Money: packs_sold × price_per_pack
+    packs_out = models.PositiveIntegerField()
+
     price_per_pack = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0,
-    )
+        max_digits=10, 
+        decimal_places=2,
+        default=Decimal('0.00'),)
 
     status = models.CharField(
-        max_length=25, choices=STATUS_CHOICES, default="released",
+        max_length=30,
+        choices=STATUS_CHOICES,
+        default="released",
     )
-    released_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+
+    released_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        null=True, blank=True,
+        null=True,
+        blank=True,
         related_name="pack_releases_created",
     )
-    notes = models.TextField(blank=True)
+
+    notes = models.TextField(
+        blank=True,
+        default=''
+
+    )
 
     class Meta:
         ordering = ["-released_at"]
 
     def __str__(self):
-        return f"{self.product} × {self.packs_out} → {self.released_to}"
+        return (
+            f"{self.product} × "
+            f"{self.packs_out} → "
+            f"{self.released_to}"
+        )
+
+    @property
+    def packs_returned(self):
+        return sum(
+            ret.packs_returned
+            for ret in self.returns.all()
+        )
 
     @property
     def packs_outstanding(self):
-        return self.packs_out - self.packs_returned - self.packs_sold
-
-    @property
-    def amount_due(self):
-        return self.packs_sold * self.price_per_pack
-
+        return (
+            self.packs_out
+            - self.packs_returned
+        )
 
 # 8. PACK RETURN  (salesperson → store)
 class PackReturn(models.Model):
+
     release = models.ForeignKey(
         PackRelease,
         on_delete=models.PROTECT,
         related_name="returns",
     )
+
     packs_returned = models.PositiveIntegerField()
-    reason = models.CharField(max_length=200, blank=True)
-    returned_at = models.DateTimeField(auto_now_add=True)
+
+    reason = models.CharField(
+        max_length=200,
+        blank=True,
+    )
+
+    returned_at = models.DateTimeField(
+        default=timezone.now
+    )
+
+    notes = models.TextField(max_length=150)
+
     received_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        null=True, blank=True,
+        null=True,
+        blank=True,
         related_name="pack_returns_received",
     )
 
@@ -703,8 +1148,10 @@ class PackReturn(models.Model):
         ordering = ["-returned_at"]
 
     def __str__(self):
-        return f"{self.packs_returned} packs returned from {self.release}"
-
+        return (
+            f"{self.packs_returned} packs returned "
+            f"from {self.release}"
+        )
 
 # 9. ROASTED SACK SALE  (occasional bulk roasted sale)
 class RoastedSackSale(models.Model):

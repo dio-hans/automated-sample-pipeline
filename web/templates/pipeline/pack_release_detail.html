@@ -1,0 +1,250 @@
+```html
+{% extends "pipeline/base.html" %}
+
+{% block title %}Release — {{ release.product }}{% endblock %}
+
+{% block breadcrumb %}
+Inventory / Releases / {{ release.pk }}
+{% endblock %}
+
+{% block page_title %}
+Coffee Release
+{% endblock %}
+
+{% block header_action %}
+<a href="{% url 'pack_release_list' %}"
+   class="px-4 py-2 text-sm font-medium border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50">
+    ← Releases
+</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="space-y-6 max-w-5xl">
+
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+
+        <p class="text-xs uppercase tracking-wide font-semibold text-gray-500">
+            Released Coffee
+        </p>
+
+        <h2 class="text-2xl font-bold text-gray-900 mt-1">
+            {{ release.product.blend.name }}
+        </h2>
+
+        <p class="text-sm text-gray-500 mt-1">
+            {{ release.product.pack_size.label }}
+            ·
+            {{ release.product.get_form_display }}
+        </p>
+
+    </div>
+
+
+    <!-- ACCOUNTABILITY -->
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+
+        <h3 class="font-semibold text-gray-900">
+            Release Accountability
+        </h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mt-5">
+
+            <div class="p-5 bg-gray-50 rounded-xl border">
+
+                <p class="text-xs uppercase font-semibold text-gray-500">
+                    Released
+                </p>
+
+                <p class="text-3xl font-bold text-gray-900 mt-2">
+                    {{ release.packs_out }}
+                </p>
+
+                <p class="text-xs text-gray-500">
+                    packs
+                </p>
+
+            </div>
+
+
+            <div class="p-5 bg-emerald-50 rounded-xl border border-emerald-100">
+
+                <p class="text-xs uppercase font-semibold text-emerald-700">
+                    Sold
+                </p>
+
+                <p class="text-3xl font-bold text-emerald-800 mt-2">
+                    {{ release.packs_sold }}
+                </p>
+
+                <p class="text-xs text-emerald-700">
+                    packs
+                </p>
+
+            </div>
+
+
+            <div class="p-5 bg-gray-50 rounded-xl border">
+
+                <p class="text-xs uppercase font-semibold text-gray-500">
+                    Returned
+                </p>
+
+                <p class="text-3xl font-bold text-gray-900 mt-2">
+                    {{ release.packs_returned }}
+                </p>
+
+                <p class="text-xs text-gray-500">
+                    packs
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <div class="mt-6 p-5 rounded-xl bg-emerald-50 border border-emerald-100">
+
+            <div class="flex justify-between items-center">
+
+                <div>
+
+                    <p class="font-semibold text-emerald-900">
+                        Accounted
+                    </p>
+
+                    <p class="text-xs text-emerald-700 mt-1">
+                        Sold + returned
+                    </p>
+
+                </div>
+
+                <p class="text-2xl font-bold text-emerald-900">
+                    {{ accounted_packs|default:"0" }}
+                    / {{ release.packs_out }}
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- FINANCIAL -->
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+
+        <h3 class="font-semibold text-gray-900">
+            Sales Value
+        </h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-5">
+
+            <div>
+                <p class="text-xs text-gray-500">
+                    Price per Pack
+                </p>
+
+                <p class="text-xl font-bold text-gray-900 mt-1">
+                    {{ release.price_per_pack }}
+                </p>
+            </div>
+
+            <div>
+                <p class="text-xs text-gray-500">
+                    Amount Due
+                </p>
+
+                <p class="text-xl font-bold text-gray-900 mt-1">
+                    {{ release.amount_due }}
+                </p>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- RETURNS -->
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+
+        <div class="px-6 py-5 border-b">
+
+            <h3 class="font-semibold text-gray-900">
+                Returns
+            </h3>
+
+        </div>
+
+        <div class="overflow-x-auto">
+
+            <table class="w-full text-sm text-left">
+
+                <thead class="bg-gray-50">
+
+                    <tr>
+                        <th class="px-6 py-3 text-xs uppercase text-gray-500">
+                            Date
+                        </th>
+
+                        <th class="px-6 py-3 text-xs uppercase text-gray-500">
+                            Quantity
+                        </th>
+
+                        <th class="px-6 py-3 text-xs uppercase text-gray-500">
+                            Reason
+                        </th>
+
+                        <th class="px-6 py-3 text-xs uppercase text-gray-500">
+                            Received By
+                        </th>
+                    </tr>
+
+                </thead>
+
+                <tbody class="divide-y divide-gray-100">
+
+                    {% for item in returns %}
+
+                    <tr>
+
+                        <td class="px-6 py-4">
+                            {{ item.returned_at|date:"d M Y, H:i" }}
+                        </td>
+
+                        <td class="px-6 py-4 font-semibold">
+                            {{ item.packs_returned }}
+                        </td>
+
+                        <td class="px-6 py-4 text-gray-600">
+                            {{ item.reason|default:"—" }}
+                        </td>
+
+                        <td class="px-6 py-4">
+                            {{ item.received_by|default:"—" }}
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                            No returns recorded.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+```

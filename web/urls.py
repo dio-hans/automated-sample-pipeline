@@ -46,4 +46,29 @@ urlpatterns = [
     path('', views.user_login, name='login'),
     path('register/', views.register_user, name='register'),
 
+# more inventory urls
+    # --- Auth ---
+    path('logout/', views.user_logout, name='logout'),
+
+    # --- Processing ---
+    path('stock/<int:pk>/process/', views.ProcessStockView.as_view(), name='process_stock'),
+
+    # --- Packaged Inventory & Products ---
+    path('packaged-inventory/', views.PackagedInventoryListView.as_view(), name='packaged_inventory_list'),
+    path('packaged-product/add/', views.PackagedProductCreateView.as_view(), name='packaged_product_form'),
+    path('packaged-product/<int:pk>/', views.PackagedProductDetailView.as_view(), name='packaged_product_detail'),
+
+    # --- Packaging Runs ---
+    path('packaging-runs/', views.PackagingRunListView.as_view(), name='packaging_run_list'),
+    path('packaging-runs/add/', views.PackagingRunCreateView.as_view(), name='packaging_run_create'),
+    path('packaging-runs/<int:pk>/', views.PackagingRunDetailView.as_view(), name='packaging_run_detail'),
+
+    # --- Pack Releases ---
+    path('pack-releases/', views.PackReleaseListView.as_view(), name='pack_release_list'),
+    path('pack-releases/add/', views.PackReleaseCreateView.as_view(), name='pack_release_create'),
+    path('pack-releases/<int:pk>/', views.PackReleaseDetailView.as_view(), name='pack_release_detail'),
+
+    # --- Pack Returns ---
+    path('pack-returns/', views.PackReturnListView.as_view(), name='pack_return_list'),
+    path('pack-returns/add/', views.PackReturnCreateView.as_view(), name='pack_return_create'),
 ]

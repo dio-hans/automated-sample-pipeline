@@ -1,0 +1,96 @@
+```html
+{% extends "pipeline/base.html" %}
+
+{% block title %}Add Packaged Product{% endblock %}
+
+{% block breadcrumb %}
+Inventory / Packaged Coffee / New Product
+{% endblock %}
+
+{% block page_title %}
+Add Packaged Product
+{% endblock %}
+
+{% block header_action %}
+<a href="{% url 'packaged_inventory_list' %}"
+   class="px-4 py-2 text-sm font-medium border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50">
+    Cancel
+</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="max-w-2xl">
+
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm">
+
+        <div class="px-6 py-5 border-b">
+
+            <h3 class="font-semibold text-gray-900">
+                Product Definition
+            </h3>
+
+            <p class="text-sm text-gray-500 mt-1">
+                Define the packaged coffee product before recording packaging.
+            </p>
+
+        </div>
+
+        <form method="post" class="p-6 space-y-6">
+
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            {% for field in form %}
+
+            <div>
+
+                <label for="{{ field.id_for_label }}"
+                       class="block text-sm font-semibold text-gray-700 mb-1">
+                    {{ field.label }}
+                </label>
+
+                {{ field }}
+
+                {% if field.help_text %}
+                    <p class="text-xs text-gray-500 mt-1">
+                        {{ field.help_text }}
+                    </p>
+                {% endif %}
+
+                {% for error in field.errors %}
+                    <p class="text-xs text-red-600 mt-1">
+                        {{ error }}
+                    </p>
+                {% endfor %}
+
+            </div>
+
+            {% endfor %}
+
+            <div class="pt-4 border-t flex justify-end gap-3">
+
+                <a href="{% url 'packaged_inventory_list' %}"
+                   class="px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg bg-white text-gray-700">
+                    Cancel
+                </a>
+
+                <button type="submit"
+                        class="px-5 py-2 text-sm font-semibold text-white bg-rust rounded-lg hover:bg-rust/90">
+                    Save Product
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+{% endblock %}

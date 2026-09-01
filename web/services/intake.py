@@ -143,59 +143,59 @@ def find_open_batch(variety, batch_data):
 @transaction.atomic
 def record_intake(variety_name, batch_data, quantity_received, user=None):
     batch_data = dict(batch_data)
+
     received_date = batch_data.get("received_date")
 
-    if isinstance(received_date, date):
-        batch_number_date = received_date
-    else:
-        batch_number_date = None
+    batch_number_date = (
+        received_date
+        if isinstance(received_date, date)
+        else None
+    )
 
-    # 1. Parse received and defect amounts
-    qty_rec = Decimal(str(quantity_received or "0.00"))
-    defects_val = Decimal(str(batch_data.get("defects") or "0.00"))
-    net_after_sorting = max(Decimal("0.00"), qty_rec - defects_val)
+    variety, variety_created = resolve_variety(
+        variety_name,
+        batch_data,
+    )
 
-    # 2. Assign keys explicitly for model creation
-    batch_data["defects"] = defects_val
-    batch_data["quantity_sorted_out"] = defects_val
-    batch_data["quantity_after_sorting"] = net_after_sorting
+    stock = (
+        None
+        if variety_created
+        else find_open_batch(variety, batch_data)
+    )
 
-    variety, variety_created = resolve_variety(variety_name, batch_data)
-
-    stock = None if variety_created else find_open_batch(variety, batch_data)
     batch_created = stock is None
 
     if batch_created:
         stock = CoffeeStock.objects.create(
             variety=variety,
-            batch_number=generate_batch_number(variety, batch_number_date),
+            batch_number=generate_batch_number(
+                variety,
+                batch_number_date,
+            ),
             **batch_data,
         )
+
     else:
-        existing_sorted_out = stock.quantity_sorted_out or stock.defects or Decimal("0.00")
-        new_sorted_out = existing_sorted_out + defects_val
+        # We are receiving more coffee into the same physical batch.
+        # Do NOT calculate sorting here.
+        #
+        # Sorting happens later as a separate transaction.
 
-        stock.defects = new_sorted_out
-        stock.quantity_sorted_out = new_sorted_out
-        stock.quantity_after_sorting = max(
-            Decimal("0.00"), 
-            (stock.quantity_after_sorting or Decimal("0.00")) + net_after_sorting
-        )
-        stock.reorder_level = batch_data.get("reorder_level", stock.reorder_level)
-        stock.save(update_fields=["defects", "quantity_sorted_out", "quantity_after_sorting", "reorder_level", "updated_at"])
+        if "reorder_level" in batch_data:
+            stock.reorder_level = batch_data["reorder_level"]
+            stock.save(
+                update_fields=[
+                    "reorder_level",
+                    "updated_at",
+                ]
+            )
 
-    # Register movement entry
     record_receipt(
         stock,
         quantity_received,
         user=user,
         reference=stock.batch_number,
     )
-
-    # 3. Explicitly persist quantity_after_sorting AFTER stock movement exists
-    if batch_created:
-        stock.quantity_after_sorting = net_after_sorting
-        stock.save(update_fields=["quantity_after_sorting"])
 
     return IntakeResult(
         stock=stock,

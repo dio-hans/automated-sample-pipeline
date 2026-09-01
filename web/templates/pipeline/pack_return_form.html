@@ -1,0 +1,241 @@
+
+{% extends "pipeline/base.html" %}
+
+{% block breadcrumb %}
+Inventory / Releases / Return
+{% endblock %}
+
+{% block page_title %}
+Record Return
+{% endblock %}
+
+{% block header_action %}
+
+<a href="{% url 'pack_return_list' %}"
+   class="inline-flex items-center px-4 py-2.5
+          border border-[#E4DECB]
+          bg-white rounded-md
+          text-sm font-medium text-ink
+          hover:bg-paper transition">
+    Back to Release
+</a>
+
+{% endblock %}
+
+
+{% block content %}
+
+<div class="max-w-xl">
+
+
+    <!-- RELEASE SUMMARY -->
+
+    <div class="bg-white border border-[#E4DECB]
+                rounded-xl shadow-sm p-6 mb-6">
+
+        <p class="eyebrow text-clay">
+            Returning packaged coffee
+        </p>
+
+        <h2 class="font-display text-2xl text-ink mt-1">
+            {{ release.product.blend.name }}
+        </h2>
+
+        <p class="text-sm text-clay mt-1">
+
+            {{ release.product.pack_size.label }}
+
+            ·
+
+            {{ release.product.get_form_display }}
+
+        </p>
+
+
+        <div class="grid grid-cols-3 gap-4 mt-6 pt-5 border-t border-[#E4DECB]">
+
+
+            <div>
+
+                <p class="text-xs uppercase tracking-wide
+                          font-semibold text-clay">
+
+                    Released
+
+                </p>
+
+                <p class="text-2xl font-bold text-ink mt-1">
+
+                    {{ release.packs_out }}
+
+                </p>
+
+            </div>
+
+
+            <div>
+
+                <p class="text-xs uppercase tracking-wide
+                          font-semibold text-clay">
+
+                    Returned
+
+                </p>
+
+                <p class="text-2xl font-bold text-ink mt-1">
+
+                    {{ release.packs_returned }}
+
+                </p>
+
+            </div>
+
+
+            <div>
+
+                <p class="text-xs uppercase tracking-wide
+                          font-semibold text-clay">
+
+                    Outstanding
+
+                </p>
+
+                <p class="text-2xl font-bold text-rust mt-1">
+
+                    {{ release.packs_outstanding }}
+
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <div class="mt-5 rounded-lg bg-paper
+                    border border-[#E4DECB]
+                    p-4">
+
+            <p class="text-xs text-clay">
+                Released to
+            </p>
+
+            <p class="font-semibold text-ink mt-1">
+                {{ release.released_to }}
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <!-- RETURN FORM -->
+
+    <div class="bg-white border border-[#E4DECB]
+                rounded-xl shadow-sm overflow-hidden">
+
+        <div class="px-6 py-5 border-b border-[#E4DECB]">
+
+            <h3 class="font-display text-xl text-ink">
+                Return Details
+            </h3>
+
+            <p class="text-sm text-clay mt-1">
+                Record the packs physically returned to the store.
+            </p>
+
+        </div>
+
+
+        <form method="post" class="p-6 space-y-5">
+
+            {% csrf_token %}
+
+
+            {% if form.non_field_errors %}
+
+                <div class="rounded-lg
+                            bg-rust/5
+                            border border-rust/20
+                            px-4 py-3
+                            text-sm text-rust">
+
+                    {{ form.non_field_errors }}
+
+                </div>
+
+            {% endif %}
+
+
+            {% for field in form %}
+
+                <div>
+
+                    <label for="{{ field.id_for_label }}"
+                           class="block text-sm font-semibold
+                                  text-ink mb-1">
+
+                        {{ field.label }}
+
+                    </label>
+
+
+                    {{ field }}
+
+
+                    {% if field.help_text %}
+
+                        <p class="text-xs text-clay mt-1">
+                            {{ field.help_text }}
+                        </p>
+
+                    {% endif %}
+
+
+                    {% for error in field.errors %}
+
+                        <p class="text-xs text-rust mt-1">
+                            {{ error }}
+                        </p>
+
+                    {% endfor %}
+
+                </div>
+
+            {% endfor %}
+
+
+            <div class="pt-5 border-t border-[#E4DECB]
+                        flex justify-end gap-3">
+
+                <a href="{% url 'pack_return_list' %}"
+                   class="px-4 py-2.5
+                          border border-[#E4DECB]
+                          rounded-md
+                          bg-white text-sm font-medium text-ink
+                          hover:bg-paper transition">
+
+                    Cancel
+
+                </a>
+
+
+                <button type="submit"
+                        class="px-5 py-2.5
+                               bg-rust text-white
+                               rounded-md
+                               text-sm font-semibold
+                               hover:bg-rust-dark transition">
+
+                    Record Return
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,134 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}Pack Returns{% endblock %}
+
+{% block breadcrumb %}
+Inventory / Pack Returns
+{% endblock %}
+
+{% block page_title %}
+Pack Returns
+{% endblock %}
+
+{% block header_action %}
+<a href="{% url 'pack_return_create' %}"
+   class="px-4 py-2 text-sm font-semibold text-white bg-rust rounded-lg hover:bg-rust/90 transition">
+    Record Return
+</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="space-y-6 max-w-7xl">
+
+    <div>
+        <p class="text-sm text-gray-500">
+            Coffee returned to store after being released to sales or events.
+        </p>
+    </div>
+
+
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+
+        <div class="overflow-x-auto">
+
+            <table class="w-full text-sm text-left">
+
+                <thead class="bg-gray-50 border-b">
+
+                    <tr>
+
+                        <th class="px-6 py-3 text-xs uppercase text-gray-500">
+                            Date
+                        </th>
+
+                        <th class="px-6 py-3 text-xs uppercase text-gray-500">
+                            Product
+                        </th>
+
+                        <th class="px-6 py-3 text-xs uppercase text-gray-500">
+                            Release
+                        </th>
+
+                        <th class="px-6 py-3 text-xs uppercase text-gray-500 text-right">
+                            Returned
+                        </th>
+
+                        <th class="px-6 py-3 text-xs uppercase text-gray-500">
+                            Reason
+                        </th>
+
+                        <th class="px-6 py-3 text-xs uppercase text-gray-500">
+                            Received By
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody class="divide-y divide-gray-100">
+
+                    {% for item in returns %}
+
+                    <tr class="hover:bg-gray-50">
+
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {{ item.returned_at|date:"d M Y, H:i" }}
+                        </td>
+
+                        <td class="px-6 py-4">
+
+                            <p class="font-semibold text-gray-900">
+                                {{ item.release.product.blend.name }}
+                            </p>
+
+                            <p class="text-xs text-gray-500">
+                                {{ item.release.product.pack_size.label }}
+                                ·
+                                {{ item.release.product.get_form_display }}
+                            </p>
+
+                        </td>
+
+                        <td class="px-6 py-4 text-gray-600">
+                            {{ item.release.pk }}
+                        </td>
+
+                        <td class="px-6 py-4 text-right font-bold text-gray-900">
+                            {{ item.packs_returned }}
+                        </td>
+
+                        <td class="px-6 py-4 text-gray-600">
+                            {{ item.reason|default:"—" }}
+                        </td>
+
+                        <td class="px-6 py-4">
+                            {{ item.received_by|default:"—" }}
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+
+                        <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                            No returns recorded yet.
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+

@@ -1,336 +1,216 @@
 {% extends "pipeline/base.html" %}
 {% load pipeline_tags %}
 
+{% block title %}Movement Ledger | Nonda{% endblock %}
+
+{% block breadcrumb %}
+Inventory / Movement Ledger
+{% endblock %}
+
+{% block page_title %}
+Movement Ledger
+{% endblock %}
+
+{% block header_action %} <a href="{% url 'stock_list' %}"
+class="inline-flex items-center gap-2 px-4 py-2.5
+       rounded-md border border-[#E4DECB]
+       bg-white text-ink text-sm font-medium
+       hover:bg-paper transition">
+← Coffee Stock </a>
+{% endblock %}
+
 {% block content %}
 
-<div class="p-6">
+<div class="space-y-6">
 
-    <!-- HEADER -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+```
+<div>
+    <p class="eyebrow text-clay">
+        Inventory history
+    </p>
 
-        <div>
-            <h1 class="text-2xl font-semibold text-slate-900">
-                Inventory Ledger
-            </h1>
+    <p class="mt-2 text-sm text-clay max-w-3xl">
+        A complete record of coffee movements through the inventory.
+        Use this page when you need to know what happened, when it happened,
+        how much moved and who recorded it.
+    </p>
+</div>
 
-            <p class="text-sm text-slate-500 mt-1">
-                Complete history of inventory movements and stock changes.
-            </p>
-        </div>
 
-        <a
-            href="{% url 'stock_list' %}"
-            class="inline-flex items-center justify-center px-4 py-2
-                   rounded-lg bg-slate-900 text-white text-sm font-medium
-                   hover:bg-slate-800 transition"
-        >
-            View Current Stock
+<!-- NAVIGATION -->
+<div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm p-2">
+
+    <div class="flex flex-wrap gap-1">
+
+        <a href="{% url 'stock_list' %}"
+           class="px-4 py-2 rounded-lg text-sm font-medium
+                  text-clay hover:bg-paper transition">
+            Coffee Stock
+        </a>
+
+        <a href="{% url 'stock_ledger' %}"
+           class="px-4 py-2 rounded-lg bg-olive text-white
+                  text-sm font-medium">
+            Movement Ledger
+        </a>
+
+        <a href="{% url 'stock_low' %}"
+           class="px-4 py-2 rounded-lg text-sm font-medium
+                  text-clay hover:bg-paper transition">
+            Low Stock
         </a>
 
     </div>
 
+</div>
 
-    <!-- SUMMARY CARDS -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
 
-        <div class="bg-white border border-slate-200 rounded-xl p-4">
-            <p class="text-xs uppercase tracking-wider text-slate-500">
-                Total Movements
-            </p>
+<!-- LEDGER -->
+<div class="bg-white border border-[#E4DECB]
+            rounded-xl shadow-sm overflow-hidden">
 
-            <p class="text-2xl font-semibold text-slate-900 mt-1">
-                {{ movements|length }}
-            </p>
-        </div>
+    <div class="px-6 py-5 border-b border-[#E4DECB]">
 
-        <div class="bg-white border border-slate-200 rounded-xl p-4">
-            <p class="text-xs uppercase tracking-wider text-slate-500">
-                Period
-            </p>
-
-            <p class="text-sm font-medium text-slate-900 mt-2">
-                {% if start_date and end_date %}
-                    {{ start_date|date:"d M Y" }}
-                    —
-                    {{ end_date|date:"d M Y" }}
-                {% else %}
-                    All Time
-                {% endif %}
-            </p>
-        </div>
-
-        <div class="bg-white border border-slate-200 rounded-xl p-4">
-            <p class="text-xs uppercase tracking-wider text-slate-500">
-                Filter
-            </p>
-
-            <p class="text-sm font-medium text-slate-900 mt-2">
-                {{ preset|default:"All" }}
-            </p>
-        </div>
+        <h2 class="font-display text-xl text-ink">
+            Inventory Movements
+        </h2>
 
     </div>
 
 
-    <!-- DATE FILTERS -->
-{% preset_bar %}
+    <div class="overflow-x-auto">
+
+        <table class="w-full text-sm">
+
+            <thead class="bg-paper border-b border-[#E4DECB]">
+
+                <tr class="text-left text-xs uppercase
+                           tracking-wider text-clay">
+
+                    <th class="px-6 py-3">
+                        Date
+                    </th>
+
+                    <th class="px-6 py-3">
+                        Batch
+                    </th>
+
+                    <th class="px-6 py-3">
+                        Movement
+                    </th>
+
+                    <th class="px-6 py-3">
+                        From
+                    </th>
+
+                    <th class="px-6 py-3">
+                        To
+                    </th>
+
+                    <th class="px-6 py-3 text-right">
+                        Quantity
+                    </th>
+
+                    <th class="px-6 py-3">
+                        Recorded by
+                    </th>
+
+                    <th class="px-6 py-3">
+                        Reference
+                    </th>
+
+                </tr>
+
+            </thead>
 
 
-    <!-- LEDGER -->
+            <tbody class="divide-y divide-[#EEE9DB]">
 
-    <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                {% for movement in movements %}
 
-        <div class="px-5 py-4 border-b border-slate-200">
-            <h2 class="font-semibold text-slate-900">
-                Stock Movement History
-            </h2>
+                <tr class="hover:bg-paper/50">
 
-            <p class="text-xs text-slate-500 mt-1">
-                Every recorded movement of coffee inventory.
-            </p>
-        </div>
+                    <td class="px-6 py-4 whitespace-nowrap text-clay">
+                        {{ movement.created_at|date:"d M Y, H:i" }}
+                    </td>
 
-
-        
-        <div class="overflow-x-auto">
-
-            <table class="min-w-full text-sm">
-
-                <thead class="bg-slate-50 border-b border-slate-200">
-
-                    <tr class="text-left">
-
-                        <th class="px-5 py-3 font-medium text-slate-600">
-                            Date
-                        </th>
-
-                        <th class="px-5 py-3 font-medium text-slate-600">
-                            Batch
-                        </th>
-
-                        <th class="px-5 py-3 font-medium text-slate-600">
-                            Coffee
-                        </th>
-
-                        <th class="px-5 py-3 font-medium text-slate-600">
-                            Movement
-                        </th>
-
-                        <th class="px-5 py-3 font-medium text-slate-600">
-                            From
-                        </th>
-
-                        <th class="px-5 py-3 font-medium text-slate-600">
-                            To
-                        </th>
-
-                        <th class="px-5 py-3 font-medium text-slate-600">
-                            Quantity
-                        </th>
-
-                        <th class="px-5 py-3 font-medium text-slate-600">
-                            Reference
-                        </th>
-
-                        <th class="px-5 py-3 font-medium text-slate-600">
-                            Recorded By
-                        </th>
-
-                    </tr>
-
-                </thead>
-
-
-                <tbody class="divide-y divide-slate-100">
-
-                    {% for movement in movements %}
-
-                    <tr class="hover:bg-slate-50 transition">
-
-                        <!-- DATE -->
-
-                        <td class="px-5 py-4 whitespace-nowrap">
-
-                            <div class="font-medium text-slate-800">
-                                {{ movement.created_at|date:"d M Y" }}
-                            </div>
-
-                            <div class="text-xs text-slate-400">
-                                {{ movement.created_at|date:"H:i" }}
-                            </div>
-
-                        </td>
-
-
-                        <!-- BATCH -->
-
-                        <td class="px-5 py-4">
-
-                            <a
-                                href="{% url 'stock_detail' movement.stock.pk %}"
-                                class="font-medium text-blue-600 hover:text-blue-800"
-                            >
+                    <td class="px-6 py-4">
+                        {% if movement.stock %}
+                            <a href="{% url 'stock_detail' movement.stock.pk %}"
+                            class="font-mono text-xs font-semibold text-rust hover:underline">
                                 {{ movement.stock.batch_number }}
                             </a>
+                            <p class="text-xs text-clay mt-0.5">
+                                {{ movement.stock.variety_name }}
+                            </p>
+                        {% else %}
+                            <span class="font-mono text-xs text-clay italic">No linked stock</span>
+                        {% endif %}
+                    </td>
 
-                        </td>
+                    <td class="px-6 py-4 font-medium text-ink">
+                        {{ movement.get_movement_type_display }}
+                    </td>
 
+                    <td class="px-6 py-4 text-clay capitalize">
+                        {{ movement.from_stage|default:"—" }}
+                    </td>
 
-                        <!-- COFFEE -->
+                    <td class="px-6 py-4 text-clay capitalize">
+                        {{ movement.to_stage|default:"—" }}
+                    </td>
 
-                        <td class="px-5 py-4">
+                    <td class="px-6 py-4 text-right font-semibold tabular-nums">
 
-                            <div class="font-medium text-slate-800">
-                                {{ movement.stock.variety.name }}
-                            </div>
+                        {{ movement.quantity|floatformat:2 }}
 
-                            <div class="text-xs text-slate-400">
-                                {{ movement.stock.get_coffee_type_display }}
-                            </div>
+                        <span class="text-xs font-normal text-clay">
+                            kg
+                        </span>
 
-                        </td>
+                    </td>
 
+                    <td class="px-6 py-4 text-clay">
 
-                        <!-- MOVEMENT -->
+                        {% if movement.created_by %}
+                            {{ movement.created_by.username }}
+                        {% else %}
+                            System
+                        {% endif %}
 
-                        <td class="px-5 py-4">
+                    </td>
 
-                            <span class="inline-flex px-2.5 py-1 rounded-full
-                                         bg-slate-100 text-slate-700
-                                         text-xs font-medium">
+                    <td class="px-6 py-4 text-xs text-clay">
 
-                                {{ movement.get_movement_type_display }}
+                        {{ movement.reference|default:"—" }}
 
-                            </span>
+                    </td>
 
-                        </td>
+                </tr>
 
+                {% empty %}
 
-                        <!-- FROM STAGE -->
+                <tr>
 
-                        <td class="px-5 py-4 text-slate-600">
+                    <td colspan="8"
+                        class="px-6 py-16 text-center text-clay">
 
-                            {% if movement.from_stage %}
+                        No inventory movements recorded yet.
 
-                                {{ movement.get_from_stage_display }}
+                    </td>
 
-                            {% else %}
+                </tr>
 
-                                <span class="text-slate-400">
-                                    —
-                                </span>
+                {% endfor %}
 
-                            {% endif %}
+            </tbody>
 
-                        </td>
-
-
-                        <!-- TO STAGE -->
-
-                        <td class="px-5 py-4 text-slate-600">
-
-                            {% if movement.to_stage %}
-
-                                {{ movement.get_to_stage_display }}
-
-                            {% else %}
-
-                                <span class="text-slate-400">
-                                    —
-                                </span>
-
-                            {% endif %}
-
-                        </td>
-
-
-                        <!-- QUANTITY -->
-
-                        <td class="px-5 py-4">
-
-                            <span class="font-semibold text-slate-900">
-                                {{ movement.quantity }}
-                            </span>
-
-                            <span class="text-xs text-slate-400">
-                                kg
-                            </span>
-
-                        </td>
-
-
-                        <!-- REFERENCE -->
-
-                        <td class="px-5 py-4 text-slate-600">
-
-                            {% if movement.reference %}
-
-                                {{ movement.reference }}
-
-                            {% else %}
-
-                                <span class="text-slate-400">
-                                    —
-                                </span>
-
-                            {% endif %}
-
-                        </td>
-
-
-                        <!-- USER -->
-
-                        <td class="px-5 py-4">
-
-                            {% if movement.created_by %}
-
-                                <div class="font-medium text-slate-800">
-                                    {{ movement.created_by.get_full_name|default:movement.created_by.username }}
-                                </div>
-
-                            {% else %}
-
-                                <span class="text-slate-400">
-                                    System
-                                </span>
-
-                            {% endif %}
-
-                        </td>
-
-                    </tr>
-
-
-                    {% empty %}
-
-                    <tr>
-
-                        <td
-                            colspan="9"
-                            class="px-5 py-12 text-center"
-                        >
-
-                            <div class="text-slate-400">
-                                No inventory movements found.
-                            </div>
-
-                            <div class="text-xs text-slate-400 mt-1">
-                                Try changing the date filter.
-                            </div>
-
-                        </td>
-
-                    </tr>
-
-                    {% endfor %}
-
-                </tbody>
-
-            </table>
-
-        </div>
+        </table>
 
     </div>
+
+</div>
+```
 
 </div>
 

@@ -1,9 +1,13 @@
 {% load static %}
+
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
 
     <title>
         {% block title %}
@@ -11,15 +15,25 @@
         {% endblock %}
     </title>
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- =========================================================
+         FONTS
+         ========================================================= -->
+
+    <link rel="preconnect"
+          href="https://fonts.googleapis.com">
+
+    <link rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossorigin>
 
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap"
           rel="stylesheet">
 
-    <!-- Tailwind -->
-    <link rel="stylesheet" href="/css/global_styles.css"> 
+
+    <!-- =========================================================
+         TAILWIND
+         ========================================================= -->
+
     <script src="https://cdn.tailwindcss.com"></script>
 
     <script>
@@ -32,8 +46,10 @@
                         rust: '#A8432F',
                         olive: '#5C7A5A',
                         gold: '#C08A3E',
-                        clay: '#8A6F63'
+                        clay: '#8A6F63',
+                        line: '#E4DECB'
                     },
+
                     fontFamily: {
                         display: ['Fraunces', 'serif'],
                         sans: ['Inter', 'sans-serif']
@@ -43,157 +59,262 @@
         }
     </script>
 
-    <style>
-        .dropdown:hover .dropdown-menu{
-            display:block;
-        }
-        .dropdown-menu {
-    top: 100%; /* Align directly beneath the trigger */
-}
 
-        .header{
-            background-color: #3A5333;
-            height: 80px;
+    <!-- =========================================================
+         GLOBAL STYLES
+         ========================================================= -->
+
+    <link rel="stylesheet"
+          href="{% static 'css/output.css' %}">
+
+
+    <style>
+
+        /* ---------------------------------------------------------
+           SIDEBAR NAVIGATION
+           --------------------------------------------------------- */
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+
+            width: 100%;
+
+            padding: 0.65rem 0.75rem;
+
+            border-radius: 0.55rem;
+
+            color: rgba(255, 255, 255, 0.72);
+
+            font-size: 0.875rem;
+
+            font-weight: 500;
+
+            transition:
+                background-color 150ms ease,
+                color 150ms ease;
+        }
+
+
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+        }
+
+
+        .nav-link.active {
+            background: rgba(255, 255, 255, 0.13);
+            color: #ffffff;
+        }
+
+
+        .nav-icon {
+            width: 1.25rem;
+
+            display: inline-flex;
+
+            justify-content: center;
+
+            flex-shrink: 0;
+
+            opacity: 0.85;
+        }
+
+
+        /* ---------------------------------------------------------
+           SIDEBAR SECTION LABELS
+           --------------------------------------------------------- */
+
+        .nav-section-title {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+
+            margin-bottom: 0.5rem;
+
+            font-size: 0.65rem;
+
+            font-weight: 700;
+
+            text-transform: uppercase;
+
+            letter-spacing: 0.16em;
+
+            color: rgba(255, 255, 255, 0.42);
+        }
+
+
+        /* ---------------------------------------------------------
+           SCROLLBAR
+           --------------------------------------------------------- */
+
+        #mainSidebar nav::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        #mainSidebar nav::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #mainSidebar nav::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.15);
+
+            border-radius: 999px;
+        }
+
+
+             
+        #mainSidebar {
+            transition:
+                transform 200ms ease;
+        }
+
+
+        /* ---------------------------------------------------------
+           PAGE ANIMATION
+           --------------------------------------------------------- */
+
+        .page-content {
+            animation: pageEnter 180ms ease-out;
+        }
+
+
+        @keyframes pageEnter {
+
+            from {
+                opacity: 0;
+                transform: translateY(4px);
             }
 
-        img {
-            height: 90px;
-            width: 90px;
-            border-radius: 50%;
-            border-bottom: -2px solid;
-        }    
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+        }
+
     </style>
+
 
     {% block extra_head %}
     {% endblock %}
+
 </head>
 
-<body class="bg-paper text-ink font-sans min-h-screen flex flex-col">
 
-{% block navigation %}
+<div class="min-h-screen flex">
+
+
+    <!-- =========================================================
+         SIDEBAR
+         ========================================================= -->
 
     
-    <!-- === NAVBAR === -->
 
-    <header id="main-header" class=" header text-paper sticky top-0 z-50 shadow">
+    <aside id="mainSidebar"
+           class="fixed inset-y-0 left-0 z-50
+                  w-64
+                  bg-olive
+                  text-white
+                  transform -translate-x-full
+                  lg:translate-x-0
+                  flex flex-col">
 
-        <div class="max-w-7xl mx-auto px-6">
 
-            <div class="flex justify-between items-center h-16">
+        <!-- =====================================================
+             BRAND
+             ===================================================== -->
 
-    <!-- Logo -->
-     <a href="{% url 'company_list' %}"
-   class="flex items-center">
+        <div class="px-6 py-5
+                    border-b border-white/10
+                    flex-shrink-0">
 
-    <img
-        id="logo-dark"
-        src="{% static 'images/nonda-logo-green.jpg' %}"
-        alt="Nonda Commodities"
-        class="logo-image"
-    >
+            <a href="{% url 'dashboard' %}"
+               class="block">
 
-    <img
-        id="logo-light"
-        src="{% static 'images/nonda-logo-cream.jpg' %}"
-        alt="Nonda Commodities"
-        class="logo-image hidden"
-    >
+                <div class="flex items-center gap-3">
 
-</a>
+                    <div class="w-10 h-10
+                                rounded-full
+                                bg-white/10
+                                flex items-center justify-center">
 
-                <!-- Right Navigation -->
-
-                <div class="flex items-center gap-4">
-
-                    <!-- Pipeline Dropdown -->
-
-                    <div class="relative dropdown">
-
-                        <button
-                            class="px-4 py-2 rounded-md hover:bg-white/10 transition">
-
-                            Pipeline
-
-                        </button>
-
-                        <div
-                            class="dropdown-menu hidden absolute right-0 w-56 bg-white text-ink rounded-md shadow-lg overflow-hidden">
-
-                            <a href="{% url 'dashboard' %}"
-                               class="block px-4 py-2 hover:bg-gray-100">
-                                Dashboard
-                            </a>
-
-                            <a href="{% url 'company_list' %}"
-                               class="block px-4 py-2 hover:bg-gray-100">
-                                Companies
-                            </a>
-
-                            <a href="{% url 'stock_list' %}"
-                               class="block px-4 py-2 hover:bg-gray-100">
-                                Coffee Stock
-                            </a>
-
-                            <a href="{% url 'sample_list' %}"
-                               class="block px-4 py-2 hover:bg-gray-100">
-                                Samples
-                            </a>
-
-                            <a href="#"
-                               class="block px-4 py-2 hover:bg-gray-100">
-                                Followups
-                            </a>
-
-                            <a href="#"
-                               class="block px-4 py-2 hover:bg-gray-100">
-                                Contracts
-                            </a>
-
-                            <a href="#"
-                               class="block px-4 py-2 hover:bg-gray-100">
-                                Reports
-                            </a>
-
-                        </div>
+                        <span class="font-display text-lg">
+                            N
+                        </span>
 
                     </div>
 
-                    <!-- User Dropdown -->
+                    <div>
 
-                    <div class="relative dropdown py-2">
+                        <p class="font-display text-xl leading-none">
+                            Nonda
+                        </p>
 
-                        <button
-                            class="px-4 py-2 rounded-md hover:bg-white/10 transition">
+                        <p class="text-[10px]
+                                  uppercase
+                                  tracking-[0.18em]
+                                  text-white/55
+                                  mt-1">
 
-                            {% if request.user.is_authenticated %}
-                                {{ request.user.username }}
-                            {% else %}
-                                Guest
-                            {% endif %}
+                            Commodities
 
-                        </button>
-
-                        <div
-                            class="dropdown-menu top-full hidden absolute right-0 mt-2 w-48 bg-white text-ink rounded-md shadow-lg overflow-hidden">
-
-                            <a href="#"
-                               class="block px-4 py-2 hover:bg-gray-100">
-                                Profile
-                            </a>
-
-                            <a href="#"
-                               class="block px-4 py-2 hover:bg-gray-100">
-                                Settings
-                            </a>
-
-                            <a href="#"
-                               class="block px-4 py-2 hover:bg-gray-100">
-                                Logout
-                            </a>
-
-                        </div>
+                        </p>
 
                     </div>
+
+                </div>
+
+            </a>
+
+        </div>
+
+
+        <!-- =====================================================
+             USER
+             ===================================================== -->
+
+        <div class="px-5 py-4
+                    border-b border-white/10
+                    flex-shrink-0">
+
+            <div class="flex items-center gap-3">
+
+
+                <!-- Avatar -->
+
+                <div class="w-9 h-9
+                            rounded-full
+                            bg-white/10
+                            flex items-center justify-center
+                            text-sm
+                            font-semibold
+                            flex-shrink-0">
+
+                    {{ request.user.username|first|upper }}
+
+                </div>
+
+
+                <!-- User information -->
+
+                <div class="min-w-0">
+
+                    <p class="text-sm
+                              font-semibold
+                              truncate">
+
+                        {{ request.user.username }}
+
+                    </p>
+
+                    <p class="text-xs
+                              text-white/55
+                              truncate">
+
+                        
+
+                    </p>
 
                 </div>
 
@@ -201,72 +322,740 @@
 
         </div>
 
-{% endblock %}
 
-    </header>
+        <!-- =====================================================
+             NAVIGATION
+             ===================================================== -->
 
-    <!-- ================= PAGE HEADER ================= -->
+        <nav class="flex-1
+                    overflow-y-auto
+                    px-3
+                    py-5
+                    space-y-6">
 
-    <section class="max-w-7xl mx-auto w-full px-6 pt-8">
 
-        <p class="text-sm text-clay uppercase tracking-widest">
-            {% block breadcrumb %}
-                Pipeline
-            {% endblock %}
-        </p>
+            <!-- =================================================
+                 MANAGER / ADMIN
+                 ================================================= -->
 
-        <div class="flex justify-between items-center mt-2">
+           
 
-            <h1 class="font-display text-3xl">
-                {% block page_title %}
-                {% endblock %}
-            </h1>
+
+            <!-- OVERVIEW -->
 
             <div>
-                {% block header_action %}
-                {% endblock %}
+
+                <p class="nav-section-title">
+                    Overview
+                </p>
+
+                <div class="space-y-1">
+
+
+                    <a href="{% url 'dashboard' %}"
+                       class="nav-link">
+
+                        <span class="nav-icon">⌂</span>
+
+                        <span>
+                            Dashboard
+                        </span>
+
+                    </a>
+
+                </div>
+
             </div>
+
+
+            <!-- =
+              INVENTORY= -->
+
+            <div>
+
+                <p class="nav-section-title">
+                    Inventory
+                </p>
+
+
+                <div class="space-y-1">
+
+
+                    <!-- Coffee stock -->
+
+                    <a href="{% url 'stock_list' %}"
+                       class="nav-link">
+
+                        <span class="nav-icon">▣</span>
+
+                        <span>
+                            Coffee Stock
+                        </span>
+
+                    </a>
+
+
+                    <!-- Packaged products -->
+
+                    <a href="{% url 'packaged_inventory_list' %}"
+                       class="nav-link">
+
+                        <span class="nav-icon">▤</span>
+
+                        <span>
+                            Packaged Coffee
+                        </span>
+
+                    </a>
+
+
+                    <!-- Low stock -->
+
+                    <a href="{% url 'stock_low' %}"
+                       class="nav-link">
+
+                        <span class="nav-icon">!</span>
+
+                        <span>
+                            Low Stock
+                        </span>
+
+                    </a>
+
+
+                    <!-- Ledger -->
+
+                    <a href="{% url 'stock_ledger' %}"
+                       class="nav-link">
+
+                        <span class="nav-icon">≡</span>
+
+                        <span>
+                            Movement Ledger
+                        </span>
+
+                    </a>
+
+                </div>
+
+            </div>
+
+
+
+    # PROCESSING
+    
+            <div>
+
+                <p class="nav-section-title">
+                    Processing
+                </p>
+
+
+                <div class="space-y-1">
+
+
+                    <a href="#"
+                       class="nav-link">
+
+                        <span class="nav-icon">◌</span>
+
+                        <span>
+                            Processing
+                        </span>
+
+                    </a>
+
+
+                    <a href="{% url 'packaging_run_list' %}"
+                       class="nav-link">
+
+                        <span class="nav-icon">□</span>
+
+                        <span>
+                            Packaging
+                        </span>
+
+                    </a>
+
+                </div>
+
+            </div>
+
+
+          
+    STOCK MOVEMENT
+                
+
+            <div>
+
+                <p class="nav-section-title">
+                    Stock Movement
+                </p>
+
+
+                <div class="space-y-1">
+
+
+                    <a href="{% url 'pack_release_list' %}"
+                       class="nav-link">
+
+                        <span class="nav-icon">→</span>
+
+                        <span>
+                            Releases
+                        </span>
+
+                    </a>
+
+
+                    <a href="{% url 'pack_return_list' %}"
+                       class="nav-link">
+
+                        <span class="nav-icon">←</span>
+
+                        <span>
+                            Returns
+                        </span>
+
+                    </a>
+
+                </div>
+
+            </div>
+
+
+           
+
+    SALES
+               
+
+            <div>
+
+                <p class="nav-section-title">
+                    Sales
+                </p>
+
+
+                <div class="space-y-1">
+
+                    <a href="{% url 'pack_release_list' %}"
+                       class="nav-link">
+
+                        <span class="nav-icon">＋</span>
+
+                        <span>
+                            Record Sale
+                        </span>
+
+                    </a>
+
+                </div>
+
+            </div>
+
+
+            <!-- =================================================
+                 COMMERCIAL / CRM
+                 ================================================= -->
+
+            
+            <div>
+
+                <p class="nav-section-title">
+                    Commercial
+                </p>
+
+
+                <div class="space-y-1">
+
+
+                    <a href="{% url 'company_list' %}"
+                       class="nav-link">
+
+                        <span class="nav-icon">○</span>
+
+                        <span>
+                            Companies
+                        </span>
+
+                    </a>
+
+
+                    <a href="{% url 'sample_list' %}"
+                       class="nav-link">
+
+                        <span class="nav-icon">□</span>
+
+                        <span>
+                            Samples
+                        </span>
+
+                    </a>
+
+
+                    <a href="{% url 'followup_list' %}"
+                       class="nav-link">
+
+                        <span class="nav-icon">↻</span>
+
+                        <span>
+                            Follow-ups
+                        </span>
+
+                    </a>
+
+
+                    <a href="{% url 'contract_list' %}"
+                       class="nav-link">
+
+                        <span class="nav-icon">▱</span>
+
+                        <span>
+                            Contracts
+                        </span>
+
+                    </a>
+
+                </div>
+
+            </div>
+
+                        <!-- =================================================
+                 ADMINISTRATION
+                 ================================================= -->
+
+                        <div>
+
+                <p class="nav-section-title">
+                    Administration
+                </p>
+
+
+                <div class="space-y-1">
+
+
+                    <a href="{% url 'register' %}"
+                       class="nav-link">
+
+                        <span class="nav-icon">+</span>
+
+                        <span>
+                            User Management
+                        </span>
+
+                    </a>
+
+                </div>
+
+            </div>
+
+        </nav>
+
+
+        <!--=SIDEBAR FOOTER= -->
+
+        <div class="px-3 py-4
+                    border-t border-white/10
+                    flex-shrink-0">
+
+
+            <!-- Account -->
+
+            <a href="#"
+               class="nav-link">
+
+                <span class="nav-icon">
+                    ⚙
+                </span>
+
+                <span>
+                    Account
+                </span>
+
+            </a>
+
+
+            <!-- Logout -->
+
+            <form method="post"
+                  action="{% url 'logout' %}"
+                  class="mt-1">
+
+                {% csrf_token %}
+
+                <button type="submit"
+                        class="nav-link text-left">
+
+                    <span class="nav-icon">
+                        ↪
+                    </span>
+
+                    <span>
+                        Logout
+                    </span>
+
+                </button>
+
+            </form>
 
         </div>
 
-    </section>
+    </aside>
 
-    <!-- ================= MESSAGES ================= -->
+    <div id="sidebarOverlay"
+         class="fixed inset-0
+                z-40
+                bg-black/40
+                hidden
+                lg:hidden">
+    </div>
 
-    <main class="flex-1 max-w-7xl mx-auto w-full px-6 py-6">
+    <!-- =========================================================
+         MAIN APPLICATION AREA
+         ========================================================= -->
 
-        {% if messages %}
-            <div class="mb-6 space-y-2">
+    <div class="flex-1
+                min-w-0
+                lg:ml-64
+                flex
+                flex-col
+                min-h-screen">
+
+
+        <!-- =====================================================
+             TOP BAR
+             ===================================================== -->
+
+        <header class="h-16
+                       flex-shrink-0
+                       bg-paper
+                       border-b border-line
+                       flex items-center
+                       justify-between
+                       px-4 sm:px-6 lg:px-8
+                       sticky top-0
+                       z-30">
+
+
+            <!-- LEFT -->
+
+            <div class="flex items-center gap-3">
+
+
+           <!-- Mobile menu -->
+
+                <button type="button"
+                        id="sidebarToggle"
+                        aria-label="Open navigation"
+                        class="lg:hidden
+                               w-9 h-9
+                               rounded-lg
+                               border border-line
+                               bg-white
+                               flex items-center
+                               justify-center
+                               text-ink
+                               hover:bg-gray-50">
+
+                    ☰
+
+                </button>
+
+          <!-- Breadcrumb -->
+
+                <div>
+
+                    <p class="text-xs
+                              uppercase
+                              tracking-[0.14em]
+                              text-clay">
+
+                        {% block breadcrumb %}
+                            Nonda Commodities
+                        {% endblock %}
+
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <!-- RIGHT -->
+
+            <div class="flex items-center gap-3">
+
+                {% block header_action %}
+                {% endblock %}
+
+            </div>
+
+        </header>
+
+
+        <!-- =====================================================
+             PAGE CONTENT
+             ===================================================== -->
+        <main class="flex-1
+                     px-4 sm:px-6 lg:px-8
+                     py-6
+                     page-content">
+
+
+            <!-- =================================================
+                 PAGE HEADER
+                 ================================================= -->
+
+            {% block page_header %}
+            {% endblock %}
+
+            <div class="mb-6
+                        flex flex-col
+                        sm:flex-row
+                        sm:items-center
+                        sm:justify-between
+                        gap-4">
+
+
+                <div>
+
+                    <h1 class="font-display
+                               text-2xl
+                               sm:text-3xl
+                               text-ink">
+
+                        {% block page_title %}
+                        {% endblock %}
+
+                    </h1>
+
+
+                    {% block page_subtitle %}
+                    {% endblock %}
+
+                </div>
+
+
+                <div>
+
+                    {% block page_action %}
+                    {% endblock %}
+
+                </div>
+
+            </div>
+
+            <!-- =================================================
+                 SYSTEM MESSAGES
+                 ================================================= -->
+
+            {% if messages %}
+
+            <div class="mb-6
+                        space-y-2">
 
                 {% for message in messages %}
 
-                    <div class="bg-white border rounded-md px-4 py-3 shadow-sm">
+                <div class="rounded-lg
+                            border
+                            px-4 py-3
+                            text-sm
 
-                        {{ message }}
+                            {% if message.tags == 'success' %}
 
-                    </div>
+                                bg-olive/5
+                                border-olive/20
+                                text-olive
+
+                            {% elif message.tags == 'error' %}
+
+                                bg-rust/5
+                                border-rust/20
+                                text-rust
+
+                            {% elif message.tags == 'warning' %}
+
+                                bg-amber-50
+                                border-amber-200
+                                text-amber-800
+
+                            {% else %}
+
+                                bg-white
+                                border-line
+                                text-ink
+
+                            {% endif %}
+                        ">
+
+                    {{ message }}
+
+                </div>
 
                 {% endfor %}
 
             </div>
-        {% endif %}
 
-        {% block content %}
-        {% endblock %}
-
-    </main>
+            {% endif %}
 
 
-    <!-- ================= FOOTER ================= -->
+            <!-- =PAGE BODY= -->
 
-    <footer class="border-t border-gray-200 py-4 text-center text-sm text-clay">
+            {% block content %}
+            {% endblock %}
 
-        Nonda Commodities © {% now "Y" %}
+        </main>
 
-    </footer>
 
-    {% block extra_scripts %}
-    {% endblock %}
+        <!-- =====================================================
+             FOOTER
+             ===================================================== -->
+
+        <footer class="border-t
+                       border-line
+                       px-4 sm:px-6 lg:px-8
+                       py-4
+                       text-center
+                       text-xs
+                       text-clay
+                       flex-shrink-0">
+
+            Nonda Commodities
+            <span class="mx-1">•</span>
+            {% now "Y" %}
+
+        </footer>
+
+    </div>
+
+</div>
+
+
+<!-- MOBILE SIDEBAR SCRIPT-->
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const sidebar =
+        document.getElementById("mainSidebar");
+
+    const toggle =
+        document.getElementById("sidebarToggle");
+
+    const overlay =
+        document.getElementById("sidebarOverlay");
+
+
+    if (!sidebar || !toggle || !overlay) {
+        return;
+    }
+
+
+    function openSidebar() {
+
+        sidebar.classList.remove(
+            "-translate-x-full"
+        );
+
+        overlay.classList.remove(
+            "hidden"
+        );
+
+        document.body.classList.add(
+            "overflow-hidden"
+        );
+    }
+
+
+    function closeSidebar() {
+
+        sidebar.classList.add(
+            "-translate-x-full"
+        );
+
+        overlay.classList.add(
+            "hidden"
+        );
+
+        document.body.classList.remove(
+            "overflow-hidden"
+        );
+    }
+
+
+    toggle.addEventListener(
+        "click",
+        openSidebar
+    );
+
+
+    overlay.addEventListener(
+        "click",
+        closeSidebar
+    );
+
+
+    /*
+     * Close mobile navigation after
+     * clicking a navigation link.
+     */
+
+    sidebar.querySelectorAll("a").forEach(
+        function (link) {
+
+            link.addEventListener(
+                "click",
+                function () {
+
+                    if (
+                        window.innerWidth < 1024
+                    ) {
+
+                        closeSidebar();
+
+                    }
+
+                }
+            );
+
+        }
+    );
+
+
+    /*
+     * Restore desktop state if the
+     * browser is resized.
+     */
+
+    window.addEventListener(
+        "resize",
+        function () {
+
+            if (
+                window.innerWidth >= 1024
+            ) {
+
+                overlay.classList.add(
+                    "hidden"
+                );
+
+                document.body.classList.remove(
+                    "overflow-hidden"
+                );
+
+            }
+
+        }
+    );
+
+});
+
+</script>
+
+
+{% block extra_scripts %}
+{% endblock %}
 
 </body>
 </html>

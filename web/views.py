@@ -8,26 +8,35 @@ from django.views.generic import ListView, TemplateView, CreateView, UpdateView,
 
 from .models import Company, CoffeeStock, CoffeeVariety, Sample, StockMovement, Followup, Contract, User
 from .forms import (
-    CompanyForm, CoffeeStockForm, CoffeeStockIntakeForm, SampleForm,
-    ProcessingForm, ContractForm,
+    CompanyForm, CoffeeStockForm, CoffeeStockIntakeForm, SampleForm, ContractForm,
 )
 from .services.intake import record_intake
-from django.db.models import F, DecimalField, ExpressionWrapper, Case, When, Value, IntegerField
 from django.shortcuts import render
 from .services.inventory import get_stage_inventory
-from .services.processing import process_stock
 from .services.followup import (
     create_followup_for_sample, mark_guide_sent, mark_contract_sent, convert_to_contract,
 )
 from .utils.util import apply_date_filters
 from .forms import UserRegistrationForm, UserLoginForm
+from django.contrib.auth import login, logout
+from django.core.exceptions import ValidationError
+
+from .models import ( PackagedProduct, PackagingRun, 
+    PackagedInventory, PackRelease, PackReturn
+)
+from .forms import ( ProcessingForm,
+    PackagedProductForm, PackagingRunForm, PackReleaseForm, PackReturnForm
+)
+from .services.packaging import (
+    execute_packaging_run, execute_pack_release, execute_pack_return
+)
 
 
 def current_user(request):
     return request.user if request.user.is_authenticated else None
 
 
-# ===================== COMPANIES =====================
+# COMPANIES
 
 class CompanyListView(ListView):
     model = Company
@@ -72,7 +81,7 @@ class CompanyDeleteView(DeleteView):
     success_url = reverse_lazy("company_list")
 
 
-# ===================== COFFEE STOCK =====================
+# COFFEE STOCK
 
 class CoffeeStockListViews(ListView):
     model = CoffeeStock
@@ -104,7 +113,6 @@ class CoffeeStockDetailView(DetailView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["movements"] = self.object.movements.select_related("created_by").order_by("-created_at")
-        ctx["processing_form"] = ProcessingForm()
         ctx["available_green"] = get_stage_inventory(self.object, "green_received")
         ctx["available_roasted"] = get_stage_inventory(self.object, "roasted")
         ctx["available_ground"] = get_stage_inventory(self.object, "ground")
@@ -141,39 +149,6 @@ class CoffeeStockUpdateView(VarietyDatalistMixin, UpdateView):
     form_class = CoffeeStockForm
     template_name = "pipeline/stock_form.html"
     success_url = reverse_lazy("stock_list")
-
-
-# ===================== PROCESSING (roast / grind / package) =====================
-
-class ProcessStockView(View):
-    """Post a processing step with loss accounting from the stock detail page."""
-
-    def post(self, request, pk):
-        stock = get_object_or_404(CoffeeStock, pk=pk)
-        form = ProcessingForm(request.POST)
-        if form.is_valid():
-            try:
-                result = process_stock(
-                    stock=stock,
-                    step=form.cleaned_data["step"],
-                    input_quantity=form.cleaned_data["input_quantity"],
-                    output_quantity=form.cleaned_data["output_quantity"],
-                    user=current_user(request),
-                    notes=form.cleaned_data["notes"],
-                )
-                messages.success(
-                    request,
-                    f"Processed {result.input_quantity} kg → {result.output_quantity} kg "
-                    f"(loss {result.loss_quantity} kg).",
-                )
-            except ValueError as e:
-                messages.error(request, str(e))
-        else:
-            for errors in form.errors.values():
-                for err in errors:
-                    messages.error(request, err)
-        return redirect("stock_detail", pk=stock.pk)
-
 
 # ===================== SAMPLES =====================
 
@@ -585,3 +560,223 @@ def toggle_user_status(request, user_id):
         messages.warning(request, f"Terminal operational rights for {employee.username} have been suspended.")
         
     return redirect('register_user')
+
+# AUTH & USER CONTROL
+
+# PROCESS STOCK VIEW
+
+class ProcessStockView(View):
+    """Post a processing step with loss accounting from the stock detail page."""
+
+    def post(self, request, pk):
+        stock = get_object_or_404(CoffeeStock, pk=pk)
+        form = ProcessingForm(request.POST)
+        
+        if form.is_valid():
+            try:
+                # Keep the clean service layer abstraction
+                result = process_stock(
+                    stock=stock,
+                    step=form.cleaned_data["step"],
+                    input_quantity=form.cleaned_data["input_quantity"],
+                    output_quantity=form.cleaned_data["output_quantity"],
+                    user=current_user(request),
+                    notes=form.cleaned_data["notes"],
+                )
+                messages.success(
+                    request,
+                    f"Processed {result.input_quantity} kg → {result.output_quantity} kg "
+                    f"(loss {result.loss_quantity} kg).",
+                )
+            except (ValueError, ValidationError) as e:  # Restored ValidationError tracking
+                messages.error(request, str(e))
+        else:
+            # Restored user-friendly field contexts for form validation failures
+            for field, errors in form.errors.items():
+                for err in errors:
+                    label = field.replace('_', ' ').title()
+                    messages.error(request, f"{label}: {err}")
+                    
+        return redirect("stock_detail", pk=stock.pk)
+# ===================== PACKAGED INVENTORY VIEWS =====================
+
+class PackagedInventoryListView(ListView):
+    model = PackagedInventory
+    template_name = "pipeline/packaged_inventory_list.html"
+    context_object_name = "inventory"
+
+    def get_queryset(self):
+        return PackagedInventory.objects.select_related(
+            "product__blend", "product__pack_size"
+        ).all()
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        inv = list(ctx["inventory"])
+        ctx["products"] = [item.product for item in inv]
+        ctx["total_available"] = sum(i.available for i in inv)
+        ctx["total_released"] = sum(i.packs_released for i in inv)
+        ctx["total_returned"] = sum(i.packs_returned for i in inv)
+        return ctx
+
+
+class PackagedProductDetailView(DetailView):
+    model = PackagedProduct
+    template_name = "pipeline/packaged_product_detail.html"
+    context_object_name = "product"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        product = self.object
+        
+        inventory, _ = PackagedInventory.objects.get_or_create(product=product)
+        ctx["inventory"] = inventory
+        
+        ctx["packaging_runs"] = PackagingRun.objects.filter(
+            product=product
+        ).select_related("stock", "stock__variety").order_by("-run_date")
+        
+        ctx["releases"] = PackRelease.objects.filter(
+            product=product
+        ).order_by("-released_at")
+        
+        return ctx
+
+
+class PackagedProductCreateView(CreateView):
+    model = PackagedProduct
+    form_class = PackagedProductForm
+    template_name = "pipeline/packaged_product_form.html"
+    success_url = reverse_lazy("packaged_inventory_list")
+
+
+# ===================== PACKAGING RUN VIEWS =====================
+
+class PackagingRunListView(ListView):
+    model = PackagingRun
+    template_name = "pipeline/packaging_run_list.html"
+    context_object_name = "packaging_runs"
+
+    def get_queryset(self):
+        return PackagingRun.objects.select_related(
+            "product__blend", "product__pack_size", "stock"
+        ).order_by("-run_date")
+
+
+class PackagingRunDetailView(DetailView):
+    model = PackagingRun
+    template_name = "pipeline/packaging_run_detail.html"
+    context_object_name = "run"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        run = self.object
+        kg_per_pack = Decimal(str(run.product.pack_size.weight_kg))
+        ctx["represented_kg"] = Decimal(run.packs_produced) * kg_per_pack
+        return ctx
+
+
+class PackagingRunCreateView(CreateView):
+    model = PackagingRun
+    form_class = PackagingRunForm
+    template_name = "pipeline/packaging_run_form.html"
+    success_url = reverse_lazy("packaging_run_list")
+
+    def form_valid(self, form):
+        try:
+            execute_packaging_run(
+                stock=form.cleaned_data["stock"],
+                product=form.cleaned_data["product"],
+                source_stage=form.cleaned_data["source_stage"],
+                input_kg=form.cleaned_data["input_kg"],
+                packs_produced=form.cleaned_data["packs_produced"],
+                user=current_user(self.request),
+                notes=form.cleaned_data.get("notes", "")
+            )
+            messages.success(self.request, "Packaging run recorded successfully.")
+            return redirect(self.success_url)
+        except ValidationError as e:
+            form.add_error(None, e.message)
+            return self.form_invalid(form)
+
+
+# ===================== PACK RELEASE & RETURN VIEWS =====================
+
+class PackReleaseListView(ListView):
+    model = PackRelease
+    template_name = "pipeline/pack_release_list.html"
+    context_object_name = "releases"
+
+    def get_queryset(self):
+        return PackRelease.objects.select_related(
+            "product__blend", "product__pack_size"
+        ).order_by("-released_at")
+
+
+class PackReleaseDetailView(DetailView):
+    model = PackRelease
+    template_name = "pipeline/pack_release_detail.html"
+    context_object_name = "release"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        release = self.object
+        ctx["accounted_packs"] = release.packs_sold + release.packs_returned
+        ctx["returns"] = PackReturn.objects.filter(release=release).order_by("-returned_at")
+        return ctx
+
+
+class PackReleaseCreateView(CreateView):
+    model = PackRelease
+    form_class = PackReleaseForm
+    template_name = "pipeline/pack_release_form.html"
+    success_url = reverse_lazy("pack_release_list")
+
+    def form_valid(self, form):
+        try:
+            execute_pack_release(
+                product=form.cleaned_data["product"],
+                released_to=form.cleaned_data["released_to"],
+                packs_out=form.cleaned_data["packs_out"],
+                price_per_pack=form.cleaned_data["price_per_pack"],
+                user=current_user(self.request),
+                notes=form.cleaned_data.get("notes", "")
+            )
+            messages.success(self.request, "Stock release executed successfully.")
+            return redirect(self.success_url)
+        except ValidationError as e:
+            form.add_error(None, e.message)
+            return self.form_invalid(form)
+
+
+class PackReturnListView(ListView):
+    model = PackReturn
+    template_name = "pipeline/pack_return_list.html"
+    context_object_name = "returns"
+
+    def get_queryset(self):
+        return PackReturn.objects.select_related(
+            "release__product__blend", "release__product__pack_size"
+        ).order_by("-returned_at")
+
+
+class PackReturnCreateView(CreateView):
+    model = PackReturn
+    form_class = PackReturnForm
+    template_name = "pipeline/pack_return_form.html"
+    success_url = reverse_lazy("pack_return_list")
+
+    def form_valid(self, form):
+        try:
+            execute_pack_return(
+                release=form.cleaned_data["release"],
+                packs_returned=form.cleaned_data["packs_returned"],
+                reason=form.cleaned_data.get("reason", ""),
+                user=current_user(self.request),
+                notes=form.cleaned_data.get("notes", "")
+            )
+            messages.success(self.request, "Pack return recorded successfully.")
+            return redirect(self.success_url)
+        except ValidationError as e:
+            form.add_error(None, e.message)
+            return self.form_invalid(form)

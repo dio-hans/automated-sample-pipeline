@@ -1,0 +1,333 @@
+```html
+{% extends "pipeline/base.html" %}
+
+{% block title %}
+{{ product.blend.name }} {{ product.pack_size.label }} — Packaged Coffee
+{% endblock %}
+
+{% block breadcrumb %}
+Inventory / Packaged Coffee / {{ product.blend.name }} {{ product.pack_size.label }}
+{% endblock %}
+
+{% block page_title %}
+{{ product.blend.name }} {{ product.pack_size.label }}
+{% endblock %}
+
+{% block header_action %}
+<div class="flex items-center gap-2">
+
+    <a href="{% url 'packaging_run_create' %}"
+       class="px-4 py-2 text-sm font-semibold text-white bg-rust rounded-lg hover:bg-rust/90 transition">
+        + Record Packaging
+    </a>
+
+    <a href="{% url 'packaged_inventory_list' %}"
+       class="px-4 py-2 text-sm font-medium border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition">
+        ← Packaged Coffee
+    </a>
+
+</div>
+{% endblock %}
+
+{% block content %}
+
+<div class="space-y-6 max-w-7xl">
+
+    <!-- PRODUCT HEADER -->
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+
+            <div>
+
+                <div class="flex items-center gap-2 mb-2">
+
+                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold
+                        {% if product.form == 'beans' %}
+                            bg-amber-50 text-amber-700 border border-amber-100
+                        {% else %}
+                            bg-stone-100 text-stone-700 border border-stone-200
+                        {% endif %}
+                    ">
+                        {{ product.get_form_display }}
+                    </span>
+
+                    <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border">
+                        {{ product.pack_size.label }}
+                    </span>
+
+                </div>
+
+                <h2 class="text-2xl font-bold text-gray-900">
+                    {{ product.blend.name }}
+                </h2>
+
+                {% if product.blend.description %}
+                    <p class="text-sm text-gray-500 mt-1">
+                        {{ product.blend.description }}
+                    </p>
+                {% endif %}
+
+            </div>
+
+            <div class="text-left lg:text-right">
+
+                <p class="text-xs uppercase tracking-wide font-semibold text-gray-500">
+                    Available
+                </p>
+
+                <p class="text-4xl font-bold mt-1
+                    {% if inventory.available <= 10 %}
+                        text-amber-600
+                    {% else %}
+                        text-gray-900
+                    {% endif %}
+                ">
+                    {{ inventory.available }}
+                </p>
+
+                <p class="text-xs text-gray-500">
+                    packs in stock
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- STOCK SUMMARY -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <div class="bg-white border border-gray-200 rounded-xl p-5">
+            <p class="text-xs uppercase tracking-wide font-semibold text-gray-500">
+                Available
+            </p>
+            <p class="text-2xl font-bold text-gray-900 mt-2">
+                {{ inventory.available }}
+            </p>
+        </div>
+
+        <div class="bg-white border border-gray-200 rounded-xl p-5">
+            <p class="text-xs uppercase tracking-wide font-semibold text-gray-500">
+                Released
+            </p>
+            <p class="text-2xl font-bold text-gray-900 mt-2">
+                {{ inventory.packs_released }}
+            </p>
+        </div>
+
+        <div class="bg-white border border-gray-200 rounded-xl p-5">
+            <p class="text-xs uppercase tracking-wide font-semibold text-gray-500">
+                Returned
+            </p>
+            <p class="text-2xl font-bold text-gray-900 mt-2">
+                {{ inventory.packs_returned }}
+            </p>
+        </div>
+
+        <div class="bg-white border border-gray-200 rounded-xl p-5">
+            <p class="text-xs uppercase tracking-wide font-semibold text-gray-500">
+                Pack Weight
+            </p>
+            <p class="text-2xl font-bold text-gray-900 mt-2">
+                {{ product.kg_per_pack }}
+                <span class="text-sm font-normal text-gray-500">kg</span>
+            </p>
+        </div>
+
+    </div>
+
+
+    <!-- PACKAGING ACCOUNTABILITY -->
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+
+        <div class="px-6 py-5 border-b border-gray-200">
+
+            <h3 class="font-semibold text-gray-900">
+                Packaging Accountability
+            </h3>
+
+            <p class="text-xs text-gray-500 mt-1">
+                How roasted or ground coffee was converted into packaged products.
+            </p>
+
+        </div>
+
+        <div class="p-6">
+
+            {% if packaging_runs %}
+
+            <div class="space-y-4">
+
+                {% for run in packaging_runs %}
+
+                <div class="border border-gray-200 rounded-xl p-5 hover:border-gray-300 transition">
+
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
+                        <div>
+                            <p class="font-semibold text-gray-900">
+                                Packaging Run
+                            </p>
+
+                            <p class="text-xs text-gray-500 mt-1">
+                                {{ run.run_date|date:"d M Y, H:i" }}
+                            </p>
+                        </div>
+
+                        <a href="{% url 'packaging_run_detail' run.pk %}"
+                           class="text-sm font-semibold text-rust hover:underline">
+                            View run →
+                        </a>
+
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
+
+                        <div>
+                            <p class="text-xs text-gray-500">Input</p>
+                            <p class="font-bold text-gray-900 mt-1">
+                                {{ run.input_kg }} kg
+                            </p>
+                        </div>
+
+                        <div>
+                            <p class="text-xs text-gray-500">Packs Produced</p>
+                            <p class="font-bold text-gray-900 mt-1">
+                                {{ run.packs_produced }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <p class="text-xs text-gray-500">Represented</p>
+                            <p class="font-bold text-gray-900 mt-1">
+                                {{ run.packs_produced|default:"0" }} × {{ product.kg_per_pack }} kg
+                            </p>
+                        </div>
+
+                        <div>
+                            <p class="text-xs text-gray-500">Packaging Loss</p>
+                            <p class="font-bold text-amber-600 mt-1">
+                                {{ run.loss_kg }} kg
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t border-gray-100 flex justify-between">
+
+                        <span class="text-sm text-gray-500">
+                            Accounted
+                        </span>
+
+                        <span class="font-bold text-emerald-700">
+                            {{ run.input_kg }} kg
+                        </span>
+
+                    </div>
+
+                </div>
+
+                {% endfor %}
+
+            </div>
+
+            {% else %}
+
+            <div class="py-10 text-center text-gray-500">
+                No packaging runs recorded for this product yet.
+            </div>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+
+    <!-- RELEASE HISTORY -->
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+
+        <div class="px-6 py-5 border-b border-gray-200">
+            <h3 class="font-semibold text-gray-900">
+                Release History
+            </h3>
+
+            <p class="text-xs text-gray-500 mt-1">
+                Coffee released to sales, events or other authorized users.
+            </p>
+        </div>
+
+        <div class="overflow-x-auto">
+
+            <table class="w-full text-sm text-left">
+
+                <thead class="bg-gray-50 border-b">
+                    <tr>
+                        <th class="px-6 py-3 text-xs uppercase text-gray-500">Date</th>
+                        <th class="px-6 py-3 text-xs uppercase text-gray-500">Released To</th>
+                        <th class="px-6 py-3 text-xs uppercase text-gray-500 text-right">Out</th>
+                        <th class="px-6 py-3 text-xs uppercase text-gray-500 text-right">Sold</th>
+                        <th class="px-6 py-3 text-xs uppercase text-gray-500 text-right">Returned</th>
+                        <th class="px-6 py-3 text-xs uppercase text-gray-500">Status</th>
+                    </tr>
+                </thead>
+
+                <tbody class="divide-y divide-gray-100">
+
+                    {% for release in releases %}
+
+                    <tr class="hover:bg-gray-50">
+
+                        <td class="px-6 py-4">
+                            {{ release.released_at|date:"d M Y, H:i" }}
+                        </td>
+
+                        <td class="px-6 py-4 font-medium text-gray-900">
+                            {{ release.released_to|default:"—" }}
+                        </td>
+
+                        <td class="px-6 py-4 text-right">
+                            {{ release.packs_out }}
+                        </td>
+
+                        <td class="px-6 py-4 text-right">
+                            {{ release.packs_sold }}
+                        </td>
+
+                        <td class="px-6 py-4 text-right">
+                            {{ release.packs_returned }}
+                        </td>
+
+                        <td class="px-6 py-4">
+                            <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                                {{ release.get_status_display }}
+                            </span>
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                            No releases recorded.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+```

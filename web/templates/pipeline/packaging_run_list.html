@@ -1,0 +1,144 @@
+```html
+{% extends "pipeline/base.html" %}
+
+{% block title %}Packaging Runs{% endblock %}
+
+{% block breadcrumb %}
+Inventory / Packaging Runs
+{% endblock %}
+
+{% block page_title %}
+Packaging Runs
+{% endblock %}
+
+{% block header_action %}
+<a href="{% url 'packaging_run_create' %}"
+   class="px-4 py-2 text-sm font-semibold text-white bg-rust rounded-lg hover:bg-rust/90 transition">
+    + Record Packaging
+</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="space-y-6 max-w-7xl">
+
+    <div>
+        <p class="text-sm text-gray-500">
+            History of coffee converted from roasted or ground kilograms into packaged products.
+        </p>
+    </div>
+
+
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+
+        <div class="overflow-x-auto">
+
+            <table class="w-full text-sm text-left">
+
+                <thead class="bg-gray-50 border-b border-gray-200">
+
+                    <tr>
+
+                        <th class="px-6 py-3 text-xs uppercase tracking-wide text-gray-500">
+                            Date
+                        </th>
+
+                        <th class="px-6 py-3 text-xs uppercase tracking-wide text-gray-500">
+                            Product
+                        </th>
+
+                        <th class="px-6 py-3 text-xs uppercase tracking-wide text-gray-500">
+                            Source
+                        </th>
+
+                        <th class="px-6 py-3 text-xs uppercase tracking-wide text-gray-500 text-right">
+                            Input
+                        </th>
+
+                        <th class="px-6 py-3 text-xs uppercase tracking-wide text-gray-500 text-right">
+                            Packs
+                        </th>
+
+                        <th class="px-6 py-3 text-xs uppercase tracking-wide text-gray-500 text-right">
+                            Loss
+                        </th>
+
+                        <th class="px-6 py-3"></th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody class="divide-y divide-gray-100">
+
+                    {% for run in packaging_runs %}
+
+                    <tr class="hover:bg-gray-50 transition">
+
+                        <td class="px-6 py-4 text-gray-600 whitespace-nowrap">
+                            {{ run.run_date|date:"d M Y, H:i" }}
+                        </td>
+
+                        <td class="px-6 py-4">
+
+                            <div class="font-semibold text-gray-900">
+                                {{ run.product.blend.name }}
+                            </div>
+
+                            <div class="text-xs text-gray-500">
+                                {{ run.product.pack_size.label }} · {{ run.product.get_form_display }}
+                            </div>
+
+                        </td>
+
+                        <td class="px-6 py-4">
+                            <span class="px-2.5 py-1 rounded-full bg-gray-100 text-xs text-gray-700">
+                                {{ run.source_stage|title }}
+                            </span>
+                        </td>
+
+                        <td class="px-6 py-4 text-right font-medium">
+                            {{ run.input_kg }} kg
+                        </td>
+
+                        <td class="px-6 py-4 text-right font-bold">
+                            {{ run.packs_produced }}
+                        </td>
+
+                        <td class="px-6 py-4 text-right text-amber-700">
+                            {{ run.loss_kg }} kg
+                        </td>
+
+                        <td class="px-6 py-4 text-right">
+
+                            <a href="{% url 'packaging_run_detail' run.pk %}"
+                               class="font-semibold text-rust hover:underline">
+                                View →
+                            </a>
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+                            No packaging runs recorded yet.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+```

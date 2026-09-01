@@ -1,8 +1,11 @@
 from decimal import Decimal
-
 from django import forms
+from .models import (
+    CoffeeStock, PackagedProduct, PackagingRun, 
+    PackRelease, PackReturn, Blend, PackSize
+)
 
-from .models import Company, CoffeeStock, Sample, Contract
+from .models import Company, Sample, Contract
 from .services.intake import generate_batch_number, resolve_variety
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import get_user_model
@@ -37,7 +40,6 @@ class UserLoginForm(AuthenticationForm):
             'placeholder': 'Enter your password',
             'class': 'w-full px-3 py-2 border border-slate-300 rounded-xl text-xs'
         })
-
 
 class CompanyForm(forms.ModelForm):
 
@@ -363,84 +365,6 @@ class SampleForm(forms.ModelForm):
 # (keep them as-is)
 
 
-class ProcessingForm(forms.Form):
-    """
-    Record a coffee processing step.
-
-    Packaging is deliberately excluded here.
-    Packaging is handled by the dedicated PackagingRun workflow
-    because packaged coffee is a sellable SKU.
-    """
-
-    STEP_CHOICES = (
-        ("roast", "Roasting"),
-        ("grind", "Grinding"),
-    )
-
-    step = forms.ChoiceField(
-        choices=STEP_CHOICES,
-        widget=forms.Select(
-            attrs={"class": FIELD_CLASS}
-        )
-    )
-
-    input_quantity = forms.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        min_value=Decimal("0.01"),
-        widget=forms.NumberInput(
-            attrs={
-                "class": FIELD_CLASS,
-                "step": "0.01",
-                "min": "0",
-            }
-        ),
-        label="Quantity into process (kg)",
-    )
-
-    output_quantity = forms.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        min_value=Decimal("0.01"),
-        widget=forms.NumberInput(
-            attrs={
-                "class": FIELD_CLASS,
-                "step": "0.01",
-                "min": "0",
-            }
-        ),
-        label="Quantity out of process (kg)",
-    )
-
-    notes = forms.CharField(
-        required=False,
-        widget=forms.Textarea(
-            attrs={
-                "class": FIELD_CLASS,
-                "rows": 2,
-                "placeholder": "Optional notes",
-            }
-        )
-    )
-
-    def clean(self):
-        cleaned = super().clean()
-
-        input_quantity = cleaned.get("input_quantity")
-        output_quantity = cleaned.get("output_quantity")
-
-        if (
-            input_quantity is not None
-            and output_quantity is not None
-            and output_quantity > input_quantity
-        ):
-            raise forms.ValidationError(
-                "Output quantity cannot exceed input quantity."
-            )
-
-        return cleaned
-
-
 class ContractForm(forms.ModelForm):
     class Meta:
         model = Contract
@@ -450,4 +374,69 @@ class ContractForm(forms.ModelForm):
             "price_per_kg": forms.NumberInput(attrs={"class": FIELD_CLASS, "step": "0.01"}),
             "delivery_frequency": forms.Select(attrs={"class": FIELD_CLASS}),
             "signed_name": forms.TextInput(attrs={"class": FIELD_CLASS}),
+        }
+
+
+
+class ProcessingForm(forms.Form):
+    STEP_CHOICES = [
+        ('roast', 'Roast'),
+        ('grind', 'Grind'),
+    ]
+    step = forms.ChoiceField(choices=STEP_CHOICES, widget=forms.Select(attrs={'class': 'form-select'}))
+    input_quantity = forms.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
+    output_quantity = forms.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.00'))
+    notes = forms.CharField(widget=forms.Textarea(attrs={'rows': 2}), required=False)
+
+
+class PackagedProductForm(forms.ModelForm):
+    class Meta:
+        model = PackagedProduct
+        fields = ['blend', 'form', 'pack_size', 'is_active']
+        widgets = {
+            'blend': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-rust/20'}),
+            'form': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-rust/20'}),
+            'pack_size': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-rust/20'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'rounded text-rust focus:ring-rust'}),
+        }
+
+
+class PackagingRunForm(forms.ModelForm):
+    class Meta:
+        model = PackagingRun
+        fields = ['stock', 'product', 'source_stage', 'input_kg', 'packs_produced', 'notes']
+        widgets = {
+            'stock': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
+            'product': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
+            'source_stage': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
+            'input_kg': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'step': '0.01'}),
+            'packs_produced': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'min': '0'}),
+            'notes': forms.Textarea(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'rows': 3}),
+        }
+
+
+class PackReleaseForm(forms.ModelForm):
+    class Meta:
+        model = PackRelease
+        fields = ['product', 'released_to', 'packs_out', 'price_per_pack', 'notes']
+        widgets = {
+            'product': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
+            'released_to': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
+            'packs_out': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'min': '1'}),
+            'price_per_pack': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'step': '0.01'}),
+            'notes': forms.Textarea(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'rows': 3}),
+        }
+
+
+class PackReturnForm(forms.ModelForm):
+    class Meta:
+        model = PackReturn
+        fields = ['release', 'packs_returned', 'reason', 'notes', 'returned_at', 'received_by']
+        widgets = {
+            'release': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
+            'packs_returned': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'min': '1'}),
+            'reason': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
+            'notes': forms.Textarea(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'rows': 3}),
+            'returned_at': forms.DateTimeInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg',            'type': 'datetime-local'
+                }),
         }

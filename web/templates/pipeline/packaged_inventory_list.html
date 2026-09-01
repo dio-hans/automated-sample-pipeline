@@ -1,0 +1,271 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}Packaged Coffee{% endblock %}
+
+{% block breadcrumb %}
+Inventory / Packaged Coffee
+{% endblock %}
+
+{% block page_title %}
+Packaged Coffee
+{% endblock %}
+
+{% block header_action %}
+<div class="flex items-center gap-2">
+    <a href="{% url 'packaged_product_form' %}"
+       class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-rust rounded-lg hover:bg-rust/90 transition shadow-sm">
+        <span class="text-lg leading-none">+</span>
+        Record Packaging
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<div class="space-y-6 max-w-7xl">
+
+    <!-- INTRO -->
+    <div>
+        <p class="text-sm text-gray-500">
+            Current packaged coffee available for release, sales and events.
+        </p>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Products
+            </p>
+            <p class="mt-2 text-2xl font-bold text-gray-900">
+                {{ products|length }}
+            </p>
+            <p class="mt-1 text-xs text-gray-500">
+                Active packaged SKUs
+            </p>
+        </div>
+
+        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Available Packs
+            </p>
+            <p class="mt-2 text-2xl font-bold text-gray-900">
+                {{ total_available|default:"0" }}
+            </p>
+            <p class="mt-1 text-xs text-gray-500">
+                Ready for release
+            </p>
+        </div>
+
+        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Released
+            </p>
+            <p class="mt-2 text-2xl font-bold text-gray-900">
+                {{ total_released|default:"0" }}
+            </p>
+            <p class="mt-1 text-xs text-gray-500">
+                Packs currently out
+            </p>
+        </div>
+
+        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Returned
+            </p>
+            <p class="mt-2 text-2xl font-bold text-gray-900">
+                {{ total_returned|default:"0" }}
+            </p>
+            <p class="mt-1 text-xs text-gray-500">
+                Packs returned
+            </p>
+        </div>
+
+    </div>
+
+
+    <!-- FILTER / SEARCH -->
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+
+            <div>
+                <h3 class="text-sm font-semibold text-gray-900">
+                    Packaged Products
+                </h3>
+                <p class="text-xs text-gray-500 mt-1">
+                    Select a product to view its packaging and movement history.
+                </p>
+            </div>
+
+            <div class="relative">
+                <input
+                    type="text"
+                    id="productSearch"
+                    placeholder="Search product..."
+                    class="w-full md:w-64 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rust/20 focus:border-rust">
+            </div>
+
+        </div>
+    </div>
+
+
+    <!-- PRODUCT TABLE -->
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+
+        <div class="overflow-x-auto">
+
+            <table class="w-full text-sm text-left">
+
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            Product
+                        </th>
+
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            Form
+                        </th>
+
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            Pack Size
+                        </th>
+
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 text-right">
+                            Available
+                        </th>
+
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 text-right">
+                            Released
+                        </th>
+
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 text-right">
+                            Returned
+                        </th>
+
+                        <th class="px-6 py-3"></th>
+                    </tr>
+                </thead>
+
+                <tbody id="productTable" class="divide-y divide-gray-100">
+
+                    {% for item in inventory %}
+
+                    <tr class="hover:bg-gray-50 transition">
+
+                        <td class="px-6 py-4">
+                            <div class="font-semibold text-gray-900">
+                                {{ item.product.blend.name }}
+                            </div>
+
+                            <div class="text-xs text-gray-500 mt-0.5">
+                                {{ item.product }}
+                            </div>
+                        </td>
+
+                        <td class="px-6 py-4">
+                            {% if item.product.form == "beans" %}
+                                <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">
+                                    Beans
+                                </span>
+                            {% else %}
+                                <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-stone-100 text-stone-700 border border-stone-200">
+                                    Ground
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td class="px-6 py-4 font-medium text-gray-700">
+                            {{ item.product.pack_size.label }}
+                        </td>
+
+                        <td class="px-6 py-4 text-right">
+                            <span class="font-bold
+                                {% if item.available <= 0 %}
+                                    text-red-600
+                                {% elif item.available <= 10 %}
+                                    text-amber-600
+                                {% else %}
+                                    text-gray-900
+                                {% endif %}
+                            ">
+                                {{ item.available }}
+                            </span>
+
+                            {% if item.available <= 10 %}
+                                <div class="text-[11px] text-amber-600 mt-1">
+                                    Low stock
+                                </div>
+                            {% endif %}
+                        </td>
+
+                        <td class="px-6 py-4 text-right text-gray-700">
+                            {{ item.packs_released }}
+                        </td>
+
+                        <td class="px-6 py-4 text-right text-gray-700">
+                            {{ item.packs_returned }}
+                        </td>
+
+                        <td class="px-6 py-4 text-right">
+                            <a href="{% url 'packaged_product_detail' item.product.pk %}"
+                               class="text-sm font-semibold text-rust hover:underline">
+                                View 
+                            </a>
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="7" class="px-6 py-14 text-center">
+
+                            <div class="text-gray-400 text-3xl mb-3">
+                                📦
+                            </div>
+
+                            <p class="font-semibold text-gray-700">
+                                No packaged coffee yet
+                            </p>
+
+                            <p class="text-sm text-gray-500 mt-1">
+                                Packaged products will appear here after packaging is recorded.
+                            </p>
+
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+const searchInput = document.getElementById("productSearch");
+const rows = document.querySelectorAll("#productTable tr");
+
+searchInput?.addEventListener("input", function () {
+
+    const query = this.value.toLowerCase().trim();
+
+    rows.forEach(row => {
+        row.style.display =
+            row.innerText.toLowerCase().includes(query)
+                ? ""
+                : "none";
+    });
+
+});
+</script>
+
+{% endblock %}
+```
