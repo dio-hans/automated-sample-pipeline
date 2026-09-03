@@ -627,7 +627,8 @@ class User(AbstractUser):
         ADMIN = 'ADMIN', 'System Admin'
         SALES = 'SALES', 'Sales Attendant'
         MANAGER = 'MANAGER', 'Store Manager'
-        ACCOUNTS = 'ACCOUNTS', 'Accounts'
+        CASHIER = 'CASHIER', 'Cashier'
+        ACCOUNTS = 'ACCOUNTS', 'Accounts (Legacy)'
 
     role = models.CharField(
         max_length=10,
@@ -664,6 +665,10 @@ class User(AbstractUser):
     @property
     def is_sales(self):
         return self.role == self.Role.SALES
+
+    @property
+    def is_cashier(self):
+        return self.role in {self.Role.CASHIER, self.Role.ACCOUNTS}
 
     @property
     def is_accounts(self):
@@ -711,20 +716,20 @@ class AuditLog(models.Model):
         return f"{username} - {self.action} - {self.content_type.model} - {self.timestamp}"
 
 """
-Packaged Inventory Models — Nonda Commodities
+Packaged Inventory Models â€” Nonda Commodities
 
 This module adds the packaged-product layer on top of the existing
-green → roasted kg-based ledger. The flow is:
+green â†’ roasted kg-based ledger. The flow is:
 
     Green beans (kg)
-        ↓ roast
+        â†“ roast
     Roasted beans (kg)
-        ↓ grind (optional)
+        â†“ grind (optional)
     Ground coffee (kg)          Roasted beans (kg)
-        ↓ package                   ↓ package
+        â†“ package                   â†“ package
     Packaged ground (packs)    Packaged beans (packs)
-        ↓                            ↓
-         Released to sales ← → Returns
+        â†“                            â†“
+         Released to sales â† â†’ Returns
 
 A PackagingRun converts roasted (or ground) kg into packs.
 A PackRelease sends packs to a salesperson.
@@ -780,7 +785,7 @@ class ProductForm(models.TextChoices):
     GROUND = "ground", "Ground"
 
 
-# 4. PACKAGED PRODUCT  (blend × pack_size × form)
+# 4. PACKAGED PRODUCT  (blend Ã— pack_size Ã— form)
 #    This is the sellable SKU.
 class PackagedProduct(models.Model):
 
@@ -951,7 +956,7 @@ class PackagingRun(models.Model):
 
     def __str__(self):
         return (
-            f"{self.product} — "
+            f"{self.product} â€” "
             f"{self.input_kg} kg"
         )
 
@@ -1005,8 +1010,8 @@ class PackagedInventory(models.Model):
     @property
     def packs_produced(self):
         return sum(
-            run.packs_produced
-            for run in self.product.packaging_runs.all()
+            (run.packs_produced or 0)
+            for run in self.product.packaging_runs.filter(status="completed")
         )
 
     @property
@@ -1032,7 +1037,7 @@ class PackagedInventory(models.Model):
             + self.packs_returned
         )
 
-# 7. PACK RELEASE  (store keeper → salesperson)
+# 7. PACK RELEASE  (store keeper â†’ salesperson)
 class PackRelease(models.Model):
 
     STATUS_CHOICES = (
@@ -1044,6 +1049,14 @@ class PackRelease(models.Model):
     product = models.ForeignKey(
         PackagedProduct,
         on_delete=models.PROTECT,
+        related_name="releases",
+    )
+
+    request_item = models.ForeignKey(
+        "StockRequestItem",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="releases",
     )
 
@@ -1095,8 +1108,8 @@ class PackRelease(models.Model):
 
     def __str__(self):
         return (
-            f"{self.product} × "
-            f"{self.packs_out} → "
+            f"{self.product} Ã— "
+            f"{self.packs_out} â†’ "
             f"{self.released_to}"
         )
 
@@ -1114,7 +1127,11 @@ class PackRelease(models.Model):
             - self.packs_returned
         )
 
-# 8. PACK RETURN  (salesperson → store)
+    @property
+    def stock_value(self):
+        return Decimal(self.packs_out) * self.price_per_pack
+
+# 8. PACK RETURN  (salesperson â†’ store)
 class PackReturn(models.Model):
 
     release = models.ForeignKey(
@@ -1153,6 +1170,141 @@ class PackReturn(models.Model):
             f"from {self.release}"
         )
 
+
+# 9. INTERNAL SALES STOCK REQUEST
+class StockRequest(models.Model):
+    PURPOSE_CHOICES = (
+        ("sale", "For Sale"),
+        ("display", "Display"),
+        ("sampling", "Sampling"),
+        ("event", "Event"),
+        ("other", "Other"),
+    )
+
+    STATUS_CHOICES = (
+        ("pending", "Pending"),
+        ("partially_fulfilled", "Partially Fulfilled"),
+        ("fulfilled", "Fulfilled"),
+        ("cancelled", "Cancelled"),
+    )
+
+    request_number = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="stock_requests",
+    )
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_requests",
+    )
+    purpose = models.CharField(max_length=20, choices=PURPOSE_CHOICES, default="sale")
+    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default="pending")
+    notes = models.TextField(blank=True)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    fulfilled_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-requested_at"]
+
+    def __str__(self):
+        return f"Request {str(self.request_number)[:8]} — {self.requested_by}"
+
+    @property
+    def short_number(self):
+        return str(self.request_number).split("-")[0].upper()
+
+    @property
+    def is_fully_issued(self):
+        items = list(self.items.all())
+        return bool(items) and all(item.outstanding_quantity == 0 for item in items)
+
+
+class StockRequestItem(models.Model):
+    request = models.ForeignKey(
+        StockRequest,
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    product = models.ForeignKey(
+        PackagedProduct,
+        on_delete=models.PROTECT,
+        related_name="stock_request_items",
+    )
+    quantity_requested = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("request", "product"),
+                name="unique_stock_request_product",
+            )
+        ]
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.product} × {self.quantity_requested}"
+
+    @property
+    def quantity_issued(self):
+        return sum(release.packs_out for release in self.releases.all())
+
+    @property
+    def outstanding_quantity(self):
+        return max(self.quantity_requested - self.quantity_issued, 0)
+
+
+class PackSettlement(models.Model):
+    PAYMENT_CHOICES = (
+        ("cash", "Cash"),
+        ("mobile_money", "Mobile Money"),
+        ("bank", "Bank Transfer"),
+        ("other", "Other"),
+    )
+
+    STATUS_CHOICES = (
+        ("partial", "Partially Paid"),
+        ("cleared", "Cleared"),
+    )
+
+    release = models.OneToOneField(
+        PackRelease,
+        on_delete=models.PROTECT,
+        related_name="settlement",
+    )
+    packs_sold = models.PositiveIntegerField(default=0)
+    amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_CHOICES, default="cash")
+    payment_reference = models.CharField(max_length=100, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="partial")
+    cleared_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="pack_settlements",
+    )
+    cleared_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-cleared_at"]
+
+    @property
+    def amount_due(self):
+        return Decimal(self.packs_sold) * self.release.price_per_pack
+
+    @property
+    def balance(self):
+        return max(self.amount_due - self.amount_paid, Decimal("0.00"))
+
+    @property
+    def is_cleared(self):
+        return self.status == "cleared" and self.balance == 0
+
+
 # 9. ROASTED SACK SALE  (occasional bulk roasted sale)
 class RoastedSackSale(models.Model):
     stock = models.ForeignKey(
@@ -1175,7 +1327,7 @@ class RoastedSackSale(models.Model):
         ordering = ["-sale_date"]
 
     def __str__(self):
-        return f"{self.kg_sold} kg roasted → {self.buyer_name}"
+        return f"{self.kg_sold} kg roasted â†’ {self.buyer_name}"
 
     @property
     def total_amount(self):

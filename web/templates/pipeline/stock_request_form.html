@@ -1,0 +1,26 @@
+{% extends "pipeline/base.html" %}
+{% block title %}Request Stock | Nonda{% endblock %}
+{% block breadcrumb %}Sales / Stock Request{% endblock %}
+{% block page_title %}Request Packaged Coffee{% endblock %}
+{% block header_action %}<a href="{% url 'record_sale' %}" class="px-4 py-2.5 border border-line rounded-lg bg-white text-sm font-medium">Cancel</a>{% endblock %}
+{% block content %}
+<form method="post" class="max-w-4xl space-y-6">
+{% csrf_token %}
+{% if form.non_field_errors or item_formset.non_form_errors %}<div class="rounded-lg border border-rust/20 bg-rust/5 px-4 py-3 text-sm text-rust">{{ form.non_field_errors }}{{ item_formset.non_form_errors }}</div>{% endif %}
+<section class="bg-white border border-line rounded-xl p-6">
+<h2 class="font-display text-xl">Request details</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
+{% for field in form %}<div class="{% if field.name == 'notes' %}md:col-span-2{% endif %}"><label class="block text-sm font-semibold mb-1" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<p class="text-xs text-rust mt-1">{{ error }}</p>{% endfor %}</div>{% endfor %}
+</div></section>
+<section class="bg-white border border-line rounded-xl overflow-hidden">
+<div class="px-6 py-5 border-b border-line flex justify-between items-center"><div><h2 class="font-display text-xl">Products needed</h2><p class="text-sm text-clay mt-1">Add each packaged product and the quantity you need.</p></div><button type="button" id="add-row" class="px-3 py-2 border border-line rounded-lg text-sm font-semibold hover:bg-paper">Add product</button></div>
+<div id="item-forms" class="p-6 space-y-4">
+{{ item_formset.management_form }}
+{% for item in item_formset %}<div class="request-row grid grid-cols-1 md:grid-cols-[1fr_180px_auto] gap-4 items-end"><div><label class="block text-sm font-semibold mb-1">Product</label>{{ item.product }}</div><div><label class="block text-sm font-semibold mb-1">Quantity</label>{{ item.quantity_requested }}</div><button type="button" class="remove-row px-3 py-2.5 border border-line rounded-lg text-sm">Remove</button></div>{% endfor %}
+</div></section>
+<div class="flex justify-end"><button class="px-5 py-2.5 rounded-lg bg-rust text-white text-sm font-semibold">Submit Request</button></div>
+</form>
+{% endblock %}
+{% block extra_scripts %}<script>
+(function(){const container=document.getElementById('item-forms');const total=document.getElementById('id_items-TOTAL_FORMS');const add=document.getElementById('add-row');function bind(row){row.querySelector('.remove-row').onclick=()=>{const rows=container.querySelectorAll('.request-row');if(rows.length>1){row.remove();Array.from(container.querySelectorAll('.request-row')).forEach((r,i)=>r.querySelectorAll('select,input').forEach(el=>{el.name=el.name.replace(/items-\d+-/,`items-${i}-`);el.id=el.id.replace(/items-\d+-/,`items-${i}-`)}));total.value=container.querySelectorAll('.request-row').length;}};}container.querySelectorAll('.request-row').forEach(bind);add.onclick=()=>{const index=container.querySelectorAll('.request-row').length;const template=container.querySelector('.request-row').cloneNode(true);template.querySelectorAll('select,input').forEach(el=>{el.name=el.name.replace(/items-\d+-/,`items-${index}-`);el.id=el.id.replace(/items-\d+-/,`items-${index}-`);if(el.tagName==='INPUT')el.value='';});container.appendChild(template);total.value=index+1;bind(template);};})();
+</script>{% endblock %}

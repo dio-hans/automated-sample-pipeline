@@ -1,7 +1,7 @@
 {% extends "pipeline/base.html" %}
 
 {% block title %}
-{{ stock.variety_name }} — {{ stock.batch_number }} | Nonda
+{{ stock.variety_name }} â€” {{ stock.batch_number }} | Nonda
 {% endblock %}
 
 {% block breadcrumb %}
@@ -97,7 +97,7 @@ Inventory / Coffee Stock / {{ stock.batch_number }}
     </div>
 
 
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
 
         <div class="bg-white border border-[#E4DECB]
@@ -204,28 +204,28 @@ Inventory / Coffee Stock / {{ stock.batch_number }}
             <div class="flex justify-between gap-6">
                 <span class="text-clay">Grade</span>
                 <span class="font-medium text-ink text-right">
-                    {{ stock.grade|default:"—" }}
+                    {{ stock.grade|default:"â€”" }}
                 </span>
             </div>
 
             <div class="flex justify-between gap-6">
                 <span class="text-clay">Process</span>
                 <span class="font-medium text-ink text-right">
-                    {{ stock.process|default:"—" }}
+                    {{ stock.process|default:"â€”" }}
                 </span>
             </div>
 
             <div class="flex justify-between gap-6">
                 <span class="text-clay">Fermentation</span>
                 <span class="font-medium text-ink text-right">
-                    {{ stock.fermentation_type|default:"—" }}
+                    {{ stock.fermentation_type|default:"â€”" }}
                 </span>
             </div>
 
             <div class="flex justify-between gap-6">
                 <span class="text-clay">Harvest season</span>
                 <span class="font-medium text-ink text-right">
-                    {{ stock.season_of_harvest|default:"—" }}
+                    {{ stock.season_of_harvest|default:"â€”" }}
                 </span>
             </div>
 
@@ -235,7 +235,7 @@ Inventory / Coffee Stock / {{ stock.batch_number }}
                     {% if stock.moisture_content %}
                         {{ stock.moisture_content|floatformat:2 }}%
                     {% else %}
-                        —
+                        â€”
                     {% endif %}
                 </span>
             </div>
@@ -267,49 +267,49 @@ Inventory / Coffee Stock / {{ stock.batch_number }}
             <div class="flex justify-between gap-6">
                 <span class="text-clay">Supplier</span>
                 <span class="font-medium text-ink text-right">
-                    {{ stock.supplier|default:"—" }}
+                    {{ stock.supplier|default:"â€”" }}
                 </span>
             </div>
 
             <div class="flex justify-between gap-6">
                 <span class="text-clay">Source</span>
                 <span class="font-medium text-ink text-right">
-                    {{ stock.source|default:"—" }}
+                    {{ stock.source|default:"â€”" }}
                 </span>
             </div>
 
             <div class="flex justify-between gap-6">
                 <span class="text-clay">Received</span>
                 <span class="font-medium text-ink text-right">
-                    {{ stock.received_date|date:"j F Y"|default:"—" }}
+                    {{ stock.received_date|date:"j F Y"|default:"â€”" }}
                 </span>
             </div>
 
             <div class="flex justify-between gap-6">
                 <span class="text-clay">Delivered by</span>
                 <span class="font-medium text-ink text-right">
-                    {{ stock.delivered_by|default:"—" }}
+                    {{ stock.delivered_by|default:"â€”" }}
                 </span>
             </div>
 
             <div class="flex justify-between gap-6">
                 <span class="text-clay">Received by</span>
                 <span class="font-medium text-ink text-right">
-                    {{ stock.received_by|default:"—" }}
+                    {{ stock.received_by|default:"â€”" }}
                 </span>
             </div>
 
             <div class="flex justify-between gap-6">
                 <span class="text-clay">Verified by</span>
                 <span class="font-medium text-ink text-right">
-                    {{ stock.verified_by|default:"—" }}
+                    {{ stock.verified_by|default:"â€”" }}
                 </span>
             </div>
 
             <div class="flex justify-between gap-6">
                 <span class="text-clay">Vehicle</span>
                 <span class="font-medium text-ink text-right">
-                    {{ stock.car_number|default:"—" }}
+                    {{ stock.car_number|default:"â€”" }}
                 </span>
             </div>
 
@@ -317,6 +317,90 @@ Inventory / Coffee Stock / {{ stock.batch_number }}
 
     </div>
 
+</div>
+
+
+<!-- PROCESSING CONTROL -->
+<div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
+    <div class="px-6 py-5 border-b border-[#E4DECB]">
+        <p class="eyebrow text-clay">Processing</p>
+        <h3 class="font-display text-xl text-ink mt-1">Move coffee through production</h3>
+        <p class="text-sm text-clay mt-1">
+            Start a roasting, sorting or grinding run. Source coffee leaves available inventory
+            until the run is completed.
+        </p>
+    </div>
+
+    <div class="p-6">
+        <form method="post" action="{% url 'process_stock' stock.pk %}" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-sm font-semibold mb-1" for="{{ processing_issue_form.process_type.id_for_label }}">Process</label>
+                {{ processing_issue_form.process_type }}
+            </div>
+            <div>
+                <label class="block text-sm font-semibold mb-1" for="{{ processing_issue_form.input_quantity.id_for_label }}">Input (kg)</label>
+                {{ processing_issue_form.input_quantity }}
+            </div>
+            <div>
+                <label class="block text-sm font-semibold mb-1" for="{{ processing_issue_form.notes.id_for_label }}">Note</label>
+                {{ processing_issue_form.notes }}
+            </div>
+            <div class="md:col-span-3 flex justify-end">
+                <button type="submit" class="px-5 py-2.5 rounded-md bg-rust text-white text-sm font-semibold hover:bg-rust-dark">
+                    Start Processing
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {% if open_processing_runs %}
+    <div class="border-t border-[#E4DECB]">
+        <div class="px-6 py-4 bg-paper">
+            <p class="text-sm font-semibold text-ink">Open processing runs</p>
+            <p class="text-xs text-clay mt-1">Complete each run when coffee is received back from production.</p>
+        </div>
+
+        <div class="divide-y divide-[#EEE9DB]">
+            {% for run in open_processing_runs %}
+            <div class="p-6">
+                <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+                    <div>
+                        <p class="font-semibold text-ink">
+                            Run #{{ run.pk }} - {{ run.get_process_type_display }}
+                        </p>
+                        <p class="text-sm text-clay mt-1">
+                            Issued {{ run.input_quantity|floatformat:2 }} kg
+                            from {{ run.get_input_stage_display }}
+                        </p>
+                    </div>
+
+                    <form method="post" action="{% url 'processing_complete' run.pk %}" class="grid grid-cols-1 md:grid-cols-3 gap-3 w-full lg:max-w-3xl">
+                        {% csrf_token %}
+                        <div>
+                            <label class="block text-xs font-semibold mb-1">Good / output (kg)</label>
+                            {{ processing_complete_form.output_quantity }}
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold mb-1">Quakers (kg)</label>
+                            {{ processing_complete_form.quaker_quantity }}
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold mb-1">Note</label>
+                            {{ processing_complete_form.notes }}
+                        </div>
+                        <div class="md:col-span-3 flex justify-end">
+                            <button type="submit" class="px-4 py-2 rounded-md bg-olive text-white text-sm font-semibold hover:opacity-90">
+                                Complete Run
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 
@@ -401,11 +485,11 @@ Inventory / Coffee Stock / {{ stock.batch_number }}
                     </td>
 
                     <td class="px-6 py-4 text-clay capitalize">
-                        {{ movement.from_stage|default:"—" }}
+                        {{ movement.from_stage|default:"â€”" }}
                     </td>
 
                     <td class="px-6 py-4 text-clay capitalize">
-                        {{ movement.to_stage|default:"—" }}
+                        {{ movement.to_stage|default:"â€”" }}
                     </td>
 
                     <td class="px-6 py-4 text-right

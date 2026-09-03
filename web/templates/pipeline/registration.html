@@ -1,0 +1,94 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}User Management | Nonda{% endblock %}
+{% block breadcrumb %}Administration / User Management{% endblock %}
+{% block page_title %}User Management{% endblock %}
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-clay">Create staff accounts, assign operational roles and suspend access when necessary.</p>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+    <section class="xl:col-span-1 bg-white border border-line rounded-xl shadow-sm p-6">
+        <p class="eyebrow text-clay">New account</p>
+        <h2 class="font-display text-xl mt-1">Create staff user</h2>
+
+        <form method="post" class="mt-6 space-y-4">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="rounded-lg bg-rust/5 border border-rust/20 text-rust text-sm p-3">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            {% for field in form %}
+            <div>
+                <label for="{{ field.id_for_label }}" class="block text-sm font-semibold mb-1">{{ field.label }}</label>
+                {{ field }}
+                {% for error in field.errors %}
+                    <p class="text-xs text-rust mt-1">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endfor %}
+
+            <button type="submit" class="w-full px-5 py-2.5 rounded-md bg-rust text-white text-sm font-semibold hover:bg-rust-dark">
+                Create Account
+            </button>
+        </form>
+    </section>
+
+    <section class="xl:col-span-2 bg-white border border-line rounded-xl shadow-sm overflow-hidden">
+        <div class="px-6 py-5 border-b border-line">
+            <p class="eyebrow text-clay">Access control</p>
+            <h2 class="font-display text-xl mt-1">System users</h2>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-paper border-b border-line">
+                    <tr class="text-left text-xs uppercase tracking-wider text-clay">
+                        <th class="px-6 py-3">User</th>
+                        <th class="px-6 py-3">Employee ID</th>
+                        <th class="px-6 py-3">Role</th>
+                        <th class="px-6 py-3">Status</th>
+                        <th class="px-6 py-3 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-line">
+                    {% for employee in users %}
+                    <tr class="hover:bg-paper/50">
+                        <td class="px-6 py-4">
+                            <p class="font-semibold">{{ employee.username }}</p>
+                            <p class="text-xs text-clay mt-1">{{ employee.email|default:"No email" }}</p>
+                        </td>
+                        <td class="px-6 py-4 text-clay">{{ employee.employee_id|default:"-" }}</td>
+                        <td class="px-6 py-4">{{ employee.get_role_display }}</td>
+                        <td class="px-6 py-4">
+                            {% if employee.is_active %}
+                                <span class="px-2.5 py-1 rounded-full bg-olive/10 text-olive text-xs font-semibold">Active</span>
+                            {% else %}
+                                <span class="px-2.5 py-1 rounded-full bg-rust/10 text-rust text-xs font-semibold">Suspended</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            {% if employee != request.user and not employee.is_superuser %}
+                            <form method="post" action="{% url 'toggle_user_status' employee.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="text-sm font-semibold {% if employee.is_active %}text-rust{% else %}text-olive{% endif %}">
+                                    {% if employee.is_active %}Suspend{% else %}Activate{% endif %}
+                                </button>
+                            </form>
+                            {% else %}
+                                <span class="text-xs text-clay">Protected</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="px-6 py-12 text-center text-clay">No staff accounts found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}

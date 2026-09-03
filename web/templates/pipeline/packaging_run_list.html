@@ -1,4 +1,4 @@
-```html
+
 {% extends "pipeline/base.html" %}
 
 {% block title %}Packaging Runs{% endblock %}
@@ -86,7 +86,7 @@ Packaging Runs
                             </div>
 
                             <div class="text-xs text-gray-500">
-                                {{ run.product.pack_size.label }} · {{ run.product.get_form_display }}
+                                {{ run.product.pack_size.label }} Â· {{ run.product.get_form_display }}
                             </div>
 
                         </td>
@@ -113,7 +113,7 @@ Packaging Runs
 
                             <a href="{% url 'packaging_run_detail' run.pk %}"
                                class="font-semibold text-rust hover:underline">
-                                View →
+                                View â†’
                             </a>
 
                         </td>
@@ -141,4 +141,3 @@ Packaging Runs
 </div>
 
 {% endblock %}
-```

@@ -1,4 +1,7 @@
+from .permissions import RoleRequiredMixin
+# Change '.utils' to match the file or path where your routing function lives
 from decimal import Decimal
+from .permissions import role_required, admin_required
 from django.contrib import messages
 from django.db import transaction
 from django.http import JsonResponse
@@ -6,7 +9,17 @@ from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import ListView, TemplateView, CreateView, UpdateView, DeleteView, DetailView, View
 
-from .models import Company, CoffeeStock, CoffeeVariety, Sample, StockMovement, Followup, Contract, User
+from .models import (
+    Company,
+    CoffeeStock,
+    CoffeeVariety,
+    Sample,
+    StockMovement,
+    Followup,
+    Contract,
+    User,
+    ProcessingRun,
+)
 from .forms import (
     CompanyForm, CoffeeStockForm, CoffeeStockIntakeForm, SampleForm, ContractForm,
 )
@@ -20,20 +33,44 @@ from .utils.util import apply_date_filters
 from .forms import UserRegistrationForm, UserLoginForm
 from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError
+from django.contrib.auth.decorators import login_required
 
 from .models import ( PackagedProduct, PackagingRun, 
     PackagedInventory, PackRelease, PackReturn
 )
-from .forms import ( ProcessingForm,
-    PackagedProductForm, PackagingRunForm, PackReleaseForm, PackReturnForm
+from .forms import (
+    ProcessingIssueForm,
+    ProcessingCompleteForm,
+    PackagedProductForm,
+    PackagingRunForm,
+    PackReleaseForm,
+    PackReturnForm,
 )
+
 from .services.packaging import (
     execute_packaging_run, execute_pack_release, execute_pack_return
 )
 
 
+def redirect_user_by_role(user):
+    """Send each authenticated user to the workspace for their role."""
+    if user.is_superuser or user.role == User.Role.ADMIN:
+        return redirect("admin_dashboard")
+    if user.role == User.Role.MANAGER:
+        return redirect("inventory_dashboard")
+    if user.role == User.Role.SALES:
+        return redirect("record_sale")
+    if user.role in {User.Role.CASHIER, User.Role.ACCOUNTS}:
+        return redirect("order_queue")
+    return redirect("login")
 def current_user(request):
     return request.user if request.user.is_authenticated else None
+
+
+def dashboard_router(request):
+    if not request.user.is_authenticated:
+        return redirect("login")
+    return redirect_user_by_role(request.user)
 
 
 # COMPANIES
@@ -83,7 +120,8 @@ class CompanyDeleteView(DeleteView):
 
 # COFFEE STOCK
 
-class CoffeeStockListViews(ListView):
+class CoffeeStockListViews(RoleRequiredMixin, ListView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     model = CoffeeStock
     template_name = "pipeline/coffee_stock_list.html"
     context_object_name = "stocks"
@@ -105,7 +143,8 @@ class CoffeeStockListViews(ListView):
         return ctx
 
 
-class CoffeeStockDetailView(DetailView):
+class CoffeeStockDetailView(RoleRequiredMixin, DetailView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     model = CoffeeStock
     template_name = "pipeline/stock_detail.html"
     context_object_name = "stock"
@@ -116,6 +155,15 @@ class CoffeeStockDetailView(DetailView):
         ctx["available_green"] = get_stage_inventory(self.object, "green_received")
         ctx["available_roasted"] = get_stage_inventory(self.object, "roasted")
         ctx["available_ground"] = get_stage_inventory(self.object, "ground")
+        ctx["available_quakers"] = get_stage_inventory(self.object, "quakers")
+        ctx["processing_issue_form"] = ProcessingIssueForm()
+        ctx["processing_complete_form"] = ProcessingCompleteForm()
+        ctx["open_processing_runs"] = (
+            self.object.processing_runs
+            .filter(status="open")
+            .select_related("issued_by")
+            .order_by("-issued_at")
+        )
         return ctx
 
 
@@ -126,7 +174,8 @@ class VarietyDatalistMixin:
         return context
 
 
-class CoffeeStockCreateView(VarietyDatalistMixin, CreateView):
+class CoffeeStockCreateView(RoleRequiredMixin, VarietyDatalistMixin, CreateView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     model = CoffeeStock
     form_class = CoffeeStockIntakeForm
     template_name = "pipeline/stock_form.html"
@@ -144,7 +193,8 @@ class CoffeeStockCreateView(VarietyDatalistMixin, CreateView):
         return redirect(self.get_success_url())
 
 
-class CoffeeStockUpdateView(VarietyDatalistMixin, UpdateView):
+class CoffeeStockUpdateView(RoleRequiredMixin, VarietyDatalistMixin, UpdateView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     model = CoffeeStock
     form_class = CoffeeStockForm
     template_name = "pipeline/stock_form.html"
@@ -317,6 +367,7 @@ class ContractDetailView(DetailView):
 
 # ===================== API ENDPOINTS =====================
 
+@role_required(User.Role.MANAGER, User.Role.ADMIN)
 def get_variety_details(request):
     varieties = CoffeeVariety.objects.filter(is_active=True)
     variety_id = request.GET.get("id")
@@ -340,8 +391,9 @@ def get_variety_details(request):
     })
 
 
+@role_required(User.Role.MANAGER, User.Role.ADMIN)
 def stock_stage_inventory_api(request, pk):
-    """JSON snapshot of a batch's quantity at every stage — powers the processing form."""
+    """JSON snapshot of a batch's quantity at every stage Ã¢â‚¬â€ powers the processing form."""
     stock = get_object_or_404(CoffeeStock, pk=pk)
     return JsonResponse({
         "green_received": float(get_stage_inventory(stock, "green_received")),
@@ -351,151 +403,132 @@ def stock_stage_inventory_api(request, pk):
         "available": float(stock.quantity_available),
     })
 
-class StockMovementListView(ListView):
+class StockMovementListView(RoleRequiredMixin, ListView):
     model = StockMovement
     template_name = "pipeline/stock_movement_list.html"
     context_object_name = "movements"
     paginate_by = 50
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
 
     def get_queryset(self):
-        return (
-            CoffeeStock.objects
-            .select_related("variety")
-            .prefetch_related("movements")
-            .order_by("-received_date", "-created_at")
+        qs = (
+            StockMovement.objects
+            .select_related("stock", "stock__variety", "created_by")
+            .order_by("-created_at")
         )
+        qs, preset, today, start, end = apply_date_filters(
+            self.request,
+            qs,
+            "created_at",
+        )
+        self._preset = preset
+        self._start = start
+        self._end = end
+        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
-        context["preset"] = getattr(
-            self,
-            "_preset",
-            "this_month",
-        )
-
-        context["start_date"] = getattr(
-            self,
-            "_start",
-            None,
-        )
-
-        context["end_date"] = getattr(
-            self,
-            "_end",
-            None,
-        )
-
+        context["preset"] = getattr(self, "_preset", "this_month")
+        context["start_date"] = getattr(self, "_start", None)
+        context["end_date"] = getattr(self, "_end", None)
         return context
 
-class DashboardView(TemplateView):
+
+class DashboardView(RoleRequiredMixin, TemplateView):
     template_name = "pipeline/dashboard.html"
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        stocks = (
+        stocks = list(
             CoffeeStock.objects
             .select_related("variety")
             .prefetch_related("movements")
         )
+        packaged = list(PackagedInventory.objects.select_related("product"))
 
         movements = (
             StockMovement.objects
-            .select_related(
-                "stock",
-                "stock__variety",
-                "created_by",
-            )
+            .select_related("stock", "stock__variety", "created_by")
+            .order_by("-created_at")
         )
 
         context["stocks"] = stocks
         context["recent_movements"] = movements[:10]
-
         context["total_stock"] = sum(
-            stock.quantity_available
-            for stock in stocks
+            stock.quantity_available for stock in stocks
         )
-
         context["green_stock"] = sum(
-            stock.quantity_green
-            for stock in stocks
+            stock.quantity_green for stock in stocks
         )
-
         context["roasted_stock"] = sum(
-            stock.quantity_roasted
-            for stock in stocks
+            stock.quantity_roasted for stock in stocks
         )
-
         context["ground_stock"] = sum(
-            stock.quantity_ground
-            for stock in stocks
+            stock.quantity_ground for stock in stocks
         )
-
         context["packaged_stock"] = sum(
-            stock.quantity_packaged
-            for stock in stocks
+            inventory.available for inventory in packaged
         )
-
         context["low_stock"] = [
-            stock
-            for stock in stocks
-            if stock.is_low_stock
+            stock for stock in stocks if stock.is_low_stock
         ]
-
         context["out_of_stock"] = [
-            stock
-            for stock in stocks
-            if stock.quantity_available <= 0
+            stock for stock in stocks if stock.quantity_available <= 0
         ]
-
         return context
 
 
+@role_required(User.Role.MANAGER, User.Role.ADMIN)
 def low_stock_list(request):
     stocks = (
         CoffeeStock.objects
         .select_related("variety")
         .prefetch_related("movements")
     )
-    low_stocks = [s for s in stocks if s.quantity_available <= s.reorder_level]
-    # Out-of-stock first, then by lowest available
-    low_stocks.sort(key=lambda s: (s.quantity_available > 0, s.quantity_available))
+    low_stocks = [
+        stock
+        for stock in stocks
+        if stock.quantity_available <= stock.reorder_level
+    ]
+    low_stocks.sort(
+        key=lambda stock: (
+            stock.quantity_available > 0,
+            stock.quantity_available,
+        )
+    )
 
-    return render(request, "pipeline/low_stock_list.html", {
-        "low_stocks": low_stocks,
-        "low_stock_count": len(low_stocks),
-    })
+    for stock in low_stocks:
+        stock.shortfall = max(
+            stock.reorder_level - stock.quantity_available,
+            Decimal("0.00"),
+        )
 
-# login and registration
+    return render(
+        request,
+        "pipeline/low_stock_list.html",
+        {
+            "low_stocks": low_stocks,
+            "low_stock_count": len(low_stocks),
+        },
+    )
 
-def redirect_user_by_role(user):
-    """
-    Explicit traffic controller based on user roles.
-    Returns the redirect response to their specific dashboard landing gate.
-    """
-    if user.role == 'ADMIN':
-        return redirect('admin_dashboard')
-    elif user.role == 'MANAGER':
-        return redirect('inventory_dashboard')
-    elif user.role == 'SALES':
-        return redirect('record_sale')
-    elif user.role == 'CASHIER':
-        return redirect('order_queue')
-    else:
-        # Fallback security route if role attributes are corrupted
-        return redirect('login')
+
+
 
 
 def user_login(request):
-    if request.method == 'POST':
+    if request.method == "POST":
         form = UserLoginForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
-
             if not user.is_active:
-                messages.error(request, "Access Denied: Your account has been suspended.")
-                return redirect('login')
+                messages.error(
+                    request,
+                    "Access denied: your account has been suspended.",
+                )
+                return redirect("login")
 
             login(request, user)
             messages.success(request, f"Welcome back, {user.username}!")
@@ -503,104 +536,181 @@ def user_login(request):
     else:
         form = UserLoginForm()
 
-    return render(request, 'pipeline/login.html', {'form': form})
+    return render(request, "pipeline/login.html", {"form": form})
 
+
+@login_required
 def user_logout(request):
     logout(request)
     messages.info(request, "Session terminated successfully.")
-    return redirect('login')
+    return redirect("login")
 
 
-# Staff Profiling and Administrative Actions
 
 def register_user(request):
-    """
-    Unified User Control Gateway: Manages real-time 
-    staff account listing alongside provisioning forms.
-    """
-    if request.method == 'POST':
+    if request.method == "POST":
         form = UserRegistrationForm(request.POST)
         if form.is_valid():
             new_user = form.save()
-            messages.success(request, f"Terminal credentials generated successfully for {new_user.username}!")
-            return redirect('login') # Keeps Admin on page to view updated table
-        else:
-            messages.error(request, "Account registration failed. Verify database constraints.")
+            messages.success(
+                request,
+                f"User account created for {new_user.username}.",
+            )
+            return redirect("login")
     else:
         form = UserRegistrationForm()
 
-    # Query active system users to populate the integrated dashboard table
-    system_users = User.objects.all().order_by('role', 'username')
-    
-    return render(request, 'users/user_control.html', {
-        'form': form,
-        'users': system_users
-    })
+    system_users = User.objects.all().order_by("role", "username")
 
+    return render(
+        request,
+        "pipeline/registration.html",
+        {
+            "form": form,
+            "users": system_users,
+        },
+    )
+
+
+@admin_required
 def toggle_user_status(request, user_id):
-    """
-    Soft deactivation feature to handle account locks safely.
-    Protected explicitly against arbitrary privilege escalations.
-    """
+    if request.method != "POST":
+        return redirect("register")
+
     employee = get_object_or_404(User, id=user_id)
-    
+
     if employee == request.user:
-        messages.error(request, "Security Violation Protection: You cannot lock out your own administrative account.")
-        return redirect('register_user')
+        messages.error(request, "You cannot deactivate your own account.")
+        return redirect("register")
 
-    # Atomic inversion of status state
+    if employee.is_superuser:
+        messages.error(request, "A superuser account cannot be deactivated here.")
+        return redirect("register")
+
+    if employee.role == User.Role.ADMIN and employee.is_active:
+        active_admins = User.objects.filter(
+            role=User.Role.ADMIN,
+            is_active=True,
+        ).count()
+        if active_admins <= 1:
+            messages.error(
+                request,
+                "The last active administrator cannot be deactivated.",
+            )
+            return redirect("register")
+
     employee.is_active = not employee.is_active
-    employee.save()
+    employee.save(update_fields=["is_active"])
 
-    status = "activated" if employee.is_active else "suspended"
-    
     if employee.is_active:
-        messages.success(request, f"Access clearance for {employee.username} successfully restored.")
+        messages.success(request, f"{employee.username} has been activated.")
     else:
-        messages.warning(request, f"Terminal operational rights for {employee.username} have been suspended.")
-        
-    return redirect('register_user')
+        messages.warning(request, f"{employee.username} has been suspended.")
 
-# AUTH & USER CONTROL
+    return redirect("register")
 
-# PROCESS STOCK VIEW
 
-class ProcessStockView(View):
-    """Post a processing step with loss accounting from the stock detail page."""
+# ===================== PROCESSING =====================
+
+class ProcessStockView(RoleRequiredMixin, View):
+    """
+    Start a processing run from the batch detail page.
+
+    The issue is recorded immediately, so the source-stage quantity leaves
+    available inventory while the coffee is physically at processing.
+    """
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
 
     def post(self, request, pk):
         stock = get_object_or_404(CoffeeStock, pk=pk)
-        form = ProcessingForm(request.POST)
-        
-        if form.is_valid():
-            try:
-                # Keep the clean service layer abstraction
-                result = process_stock(
-                    stock=stock,
-                    step=form.cleaned_data["step"],
-                    input_quantity=form.cleaned_data["input_quantity"],
-                    output_quantity=form.cleaned_data["output_quantity"],
-                    user=current_user(request),
-                    notes=form.cleaned_data["notes"],
-                )
-                messages.success(
-                    request,
-                    f"Processed {result.input_quantity} kg → {result.output_quantity} kg "
-                    f"(loss {result.loss_quantity} kg).",
-                )
-            except (ValueError, ValidationError) as e:  # Restored ValidationError tracking
-                messages.error(request, str(e))
-        else:
-            # Restored user-friendly field contexts for form validation failures
-            for field, errors in form.errors.items():
-                for err in errors:
-                    label = field.replace('_', ' ').title()
-                    messages.error(request, f"{label}: {err}")
-                    
+        form = ProcessingIssueForm(request.POST)
+
+        if not form.is_valid():
+            for errors in form.errors.values():
+                for error in errors:
+                    messages.error(request, error)
+            return redirect("stock_detail", pk=stock.pk)
+
+        try:
+            result = issue_for_processing(
+                stock=stock,
+                process_type=form.cleaned_data["process_type"],
+                input_quantity=form.cleaned_data["input_quantity"],
+                user=current_user(request),
+                notes=form.cleaned_data.get("notes", ""),
+            )
+            messages.success(
+                request,
+                f"{result.processing_run.get_process_type_display()} run "
+                f"#{result.processing_run.pk} started.",
+            )
+        except (ValueError, ValidationError) as exc:
+            messages.error(request, str(exc))
+
         return redirect("stock_detail", pk=stock.pk)
+
+
+class ProcessCompleteView(RoleRequiredMixin, View):
+    """Receive output from an open processing run and close it."""
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
+
+    def post(self, request, pk):
+        run = get_object_or_404(
+            ProcessingRun.objects.select_related("stock"),
+            pk=pk,
+        )
+        form = ProcessingCompleteForm(request.POST)
+
+        if not form.is_valid():
+            for errors in form.errors.values():
+                for error in errors:
+                    messages.error(request, error)
+            return redirect("stock_detail", pk=run.stock_id)
+
+        output = form.cleaned_data["output_quantity"]
+        quakers = form.cleaned_data.get("quaker_quantity") or Decimal("0.00")
+        notes = form.cleaned_data.get("notes", "")
+
+        try:
+            if run.process_type == "roasting":
+                complete_roasting(
+                    processing_run=run,
+                    output_quantity=output,
+                    user=current_user(request),
+                    notes=notes,
+                )
+            elif run.process_type == "sorting":
+                complete_sorting(
+                    processing_run=run,
+                    good_quantity=output,
+                    quaker_quantity=quakers,
+                    user=current_user(request),
+                    notes=notes,
+                )
+            elif run.process_type == "grinding":
+                complete_grinding(
+                    processing_run=run,
+                    output_quantity=output,
+                    user=current_user(request),
+                    notes=notes,
+                )
+            else:
+                raise ValidationError("Unsupported processing run type.")
+
+            messages.success(
+                request,
+                f"Processing run #{run.pk} completed successfully.",
+            )
+        except (ValueError, ValidationError) as exc:
+            messages.error(request, str(exc))
+
+        return redirect("stock_detail", pk=run.stock_id)
+
+
 # ===================== PACKAGED INVENTORY VIEWS =====================
 
-class PackagedInventoryListView(ListView):
+class PackagedInventoryListView(RoleRequiredMixin, ListView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     model = PackagedInventory
     template_name = "pipeline/packaged_inventory_list.html"
     context_object_name = "inventory"
@@ -620,7 +730,8 @@ class PackagedInventoryListView(ListView):
         return ctx
 
 
-class PackagedProductDetailView(DetailView):
+class PackagedProductDetailView(RoleRequiredMixin, DetailView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     model = PackagedProduct
     template_name = "pipeline/packaged_product_detail.html"
     context_object_name = "product"
@@ -634,7 +745,7 @@ class PackagedProductDetailView(DetailView):
         
         ctx["packaging_runs"] = PackagingRun.objects.filter(
             product=product
-        ).select_related("stock", "stock__variety").order_by("-run_date")
+        ).select_related("stock", "stock__variety").order_by("-issued_at")
         
         ctx["releases"] = PackRelease.objects.filter(
             product=product
@@ -643,7 +754,8 @@ class PackagedProductDetailView(DetailView):
         return ctx
 
 
-class PackagedProductCreateView(CreateView):
+class PackagedProductCreateView(RoleRequiredMixin, CreateView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     model = PackagedProduct
     form_class = PackagedProductForm
     template_name = "pipeline/packaged_product_form.html"
@@ -652,7 +764,8 @@ class PackagedProductCreateView(CreateView):
 
 # ===================== PACKAGING RUN VIEWS =====================
 
-class PackagingRunListView(ListView):
+class PackagingRunListView(RoleRequiredMixin, ListView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     model = PackagingRun
     template_name = "pipeline/packaging_run_list.html"
     context_object_name = "packaging_runs"
@@ -660,10 +773,11 @@ class PackagingRunListView(ListView):
     def get_queryset(self):
         return PackagingRun.objects.select_related(
             "product__blend", "product__pack_size", "stock"
-        ).order_by("-run_date")
+        ).order_by("-issued_at")
 
 
-class PackagingRunDetailView(DetailView):
+class PackagingRunDetailView(RoleRequiredMixin, DetailView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     model = PackagingRun
     template_name = "pipeline/packaging_run_detail.html"
     context_object_name = "run"
@@ -671,12 +785,13 @@ class PackagingRunDetailView(DetailView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         run = self.object
-        kg_per_pack = Decimal(str(run.product.pack_size.weight_kg))
+        kg_per_pack = run.product.kg_per_pack
         ctx["represented_kg"] = Decimal(run.packs_produced) * kg_per_pack
         return ctx
 
 
-class PackagingRunCreateView(CreateView):
+class PackagingRunCreateView(RoleRequiredMixin, CreateView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     model = PackagingRun
     form_class = PackagingRunForm
     template_name = "pipeline/packaging_run_form.html"
@@ -702,31 +817,48 @@ class PackagingRunCreateView(CreateView):
 
 # ===================== PACK RELEASE & RETURN VIEWS =====================
 
-class PackReleaseListView(ListView):
+class PackReleaseListView(RoleRequiredMixin, ListView):
+    allowed_roles = (User.Role.MANAGER, User.Role.SALES, User.Role.ADMIN)
     model = PackRelease
     template_name = "pipeline/pack_release_list.html"
     context_object_name = "releases"
 
     def get_queryset(self):
-        return PackRelease.objects.select_related(
-            "product__blend", "product__pack_size"
+        qs = PackRelease.objects.select_related(
+            "product__blend", "product__pack_size", "released_to"
         ).order_by("-released_at")
+        if self.request.user.role == User.Role.SALES:
+            qs = qs.filter(released_to=self.request.user)
+        return qs
 
 
-class PackReleaseDetailView(DetailView):
+class PackReleaseDetailView(RoleRequiredMixin, DetailView):
+    allowed_roles = (User.Role.MANAGER, User.Role.SALES, User.Role.ADMIN)
     model = PackRelease
     template_name = "pipeline/pack_release_detail.html"
     context_object_name = "release"
 
+    def get_queryset(self):
+        qs = PackRelease.objects.select_related(
+            "product__blend", "product__pack_size", "released_to"
+        ).prefetch_related("returns")
+        if self.request.user.role == User.Role.SALES:
+            qs = qs.filter(released_to=self.request.user)
+        return qs
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         release = self.object
-        ctx["accounted_packs"] = release.packs_sold + release.packs_returned
         ctx["returns"] = PackReturn.objects.filter(release=release).order_by("-returned_at")
+        try:
+            ctx["settlement"] = release.settlement
+        except Exception:
+            ctx["settlement"] = None
         return ctx
 
 
-class PackReleaseCreateView(CreateView):
+class PackReleaseCreateView(RoleRequiredMixin, CreateView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     model = PackRelease
     form_class = PackReleaseForm
     template_name = "pipeline/pack_release_form.html"
@@ -749,7 +881,8 @@ class PackReleaseCreateView(CreateView):
             return self.form_invalid(form)
 
 
-class PackReturnListView(ListView):
+class PackReturnListView(RoleRequiredMixin, ListView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     model = PackReturn
     template_name = "pipeline/pack_return_list.html"
     context_object_name = "returns"
@@ -760,7 +893,8 @@ class PackReturnListView(ListView):
         ).order_by("-returned_at")
 
 
-class PackReturnCreateView(CreateView):
+class PackReturnCreateView(RoleRequiredMixin, CreateView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     model = PackReturn
     form_class = PackReturnForm
     template_name = "pipeline/pack_return_form.html"

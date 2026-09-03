@@ -56,7 +56,7 @@
                 </div>
 
                 <div class="flex items-center justify-end pt-1">
-                    <a href="#" class="text-xs font-medium text-clay hover:text-rust transition">
+                    <a href="{% url 'register' %}" class="text-xs font-medium text-clay hover:text-rust transition">
                         Forgot password?
                     </a>
                 </div>
@@ -72,6 +72,12 @@
                 </div>
 
             </form>
+
+            <div class="flex items-center justify-end pt-1">
+                    <a href="{% url 'register' %}" class="text-[10px] font-black text-blue-600 hover:text-blue-700 hover:underline transition">
+                        Forgot Access Password?
+                    </a>
+                </div>
 
         </div>
 

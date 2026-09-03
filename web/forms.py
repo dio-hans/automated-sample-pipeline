@@ -322,7 +322,7 @@ class CoffeeStockForm(forms.ModelForm):
 
 class CoffeeStockIntakeForm(CoffeeStockForm):
     """
-    Receive coffee. Quantity is never written to the batch directly — it is
+    Receive coffee. Quantity is never written to the batch directly Ã¢â‚¬â€ it is
     posted as a receipt StockMovement so the ledger stays the source of truth.
     """
 
@@ -378,15 +378,79 @@ class ContractForm(forms.ModelForm):
 
 
 
-class ProcessingForm(forms.Form):
-    STEP_CHOICES = [
-        ('roast', 'Roast'),
-        ('grind', 'Grind'),
+class ProcessingIssueForm(forms.Form):
+    PROCESS_CHOICES = [
+        ("roasting", "Roasting"),
+        ("sorting", "Sorting"),
+        ("grinding", "Grinding"),
     ]
-    step = forms.ChoiceField(choices=STEP_CHOICES, widget=forms.Select(attrs={'class': 'form-select'}))
-    input_quantity = forms.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
-    output_quantity = forms.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.00'))
-    notes = forms.CharField(widget=forms.Textarea(attrs={'rows': 2}), required=False)
+
+    process_type = forms.ChoiceField(
+        choices=PROCESS_CHOICES,
+        widget=forms.Select(attrs={"class": FIELD_CLASS}),
+    )
+    input_quantity = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        widget=forms.NumberInput(attrs={
+            "class": FIELD_CLASS,
+            "step": "0.01",
+            "min": "0.01",
+        }),
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            "class": FIELD_CLASS,
+            "rows": 2,
+            "placeholder": "Optional processing note",
+        }),
+    )
+
+
+class ProcessingCompleteForm(forms.Form):
+    output_quantity = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.00"),
+        widget=forms.NumberInput(attrs={
+            "class": FIELD_CLASS,
+            "step": "0.01",
+            "min": "0",
+        }),
+    )
+    quaker_quantity = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.00"),
+        required=False,
+        initial=Decimal("0.00"),
+        widget=forms.NumberInput(attrs={
+            "class": FIELD_CLASS,
+            "step": "0.01",
+            "min": "0",
+        }),
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            "class": FIELD_CLASS,
+            "rows": 2,
+            "placeholder": "Optional completion note",
+        }),
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        output = cleaned.get("output_quantity")
+        quakers = cleaned.get("quaker_quantity") or Decimal("0.00")
+        if output is not None and quakers > output:
+            # This is not generally a valid sorting rule; the service performs
+            # the authoritative input-balance check. Keep the form permissive
+            # for roasting/grinding and let the service validate the run.
+            pass
+        return cleaned
 
 
 class PackagedProductForm(forms.ModelForm):
@@ -404,15 +468,40 @@ class PackagedProductForm(forms.ModelForm):
 class PackagingRunForm(forms.ModelForm):
     class Meta:
         model = PackagingRun
-        fields = ['stock', 'product', 'source_stage', 'input_kg', 'packs_produced', 'notes']
+        fields = ["stock", "product", "source_stage", "input_kg", "packs_produced", "notes"]
         widgets = {
-            'stock': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
-            'product': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
-            'source_stage': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
-            'input_kg': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'step': '0.01'}),
-            'packs_produced': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'min': '0'}),
-            'notes': forms.Textarea(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'rows': 3}),
+            "stock": forms.Select(attrs={"class": FIELD_CLASS}),
+            "product": forms.Select(attrs={"class": FIELD_CLASS}),
+            "source_stage": forms.Select(attrs={"class": FIELD_CLASS}),
+            "input_kg": forms.NumberInput(attrs={
+                "class": FIELD_CLASS,
+                "step": "0.01",
+                "min": "0.01",
+            }),
+            "packs_produced": forms.NumberInput(attrs={
+                "class": FIELD_CLASS,
+                "min": "1",
+            }),
+            "notes": forms.Textarea(attrs={
+                "class": FIELD_CLASS,
+                "rows": 3,
+            }),
         }
+
+    def clean(self):
+        cleaned = super().clean()
+        product = cleaned.get("product")
+        source_stage = cleaned.get("source_stage")
+
+        if product and source_stage:
+            expected_stage = "ground" if product.form == "ground" else "roasted"
+            if source_stage != expected_stage:
+                raise forms.ValidationError(
+                    f"{product.get_form_display()} products must be packaged from "
+                    f"{expected_stage} coffee."
+                )
+
+        return cleaned
 
 
 class PackReleaseForm(forms.ModelForm):
@@ -421,11 +510,18 @@ class PackReleaseForm(forms.ModelForm):
         fields = ['product', 'released_to', 'packs_out', 'price_per_pack', 'notes']
         widgets = {
             'product': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
-            'released_to': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
+            "released_to": forms.Select(attrs={"class": FIELD_CLASS}),
             'packs_out': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'min': '1'}),
             'price_per_pack': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'step': '0.01'}),
             'notes': forms.Textarea(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'rows': 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["released_to"].queryset = User.objects.filter(
+            role=User.Role.SALES,
+            is_active=True,
+        ).order_by("username")
 
 
 class PackReturnForm(forms.ModelForm):

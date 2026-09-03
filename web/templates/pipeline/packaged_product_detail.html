@@ -1,8 +1,8 @@
-```html
+
 {% extends "pipeline/base.html" %}
 
 {% block title %}
-{{ product.blend.name }} {{ product.pack_size.label }} — Packaged Coffee
+{{ product.blend.name }} {{ product.pack_size.label }} â€” Packaged Coffee
 {% endblock %}
 
 {% block breadcrumb %}
@@ -23,7 +23,7 @@ Inventory / Packaged Coffee / {{ product.blend.name }} {{ product.pack_size.labe
 
     <a href="{% url 'packaged_inventory_list' %}"
        class="px-4 py-2 text-sm font-medium border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition">
-        ← Packaged Coffee
+        â† Packaged Coffee
     </a>
 
 </div>
@@ -179,7 +179,7 @@ Inventory / Packaged Coffee / {{ product.blend.name }} {{ product.pack_size.labe
 
                         <a href="{% url 'packaging_run_detail' run.pk %}"
                            class="text-sm font-semibold text-rust hover:underline">
-                            View run →
+                            View run â†’
                         </a>
 
                     </div>
@@ -203,7 +203,7 @@ Inventory / Packaged Coffee / {{ product.blend.name }} {{ product.pack_size.labe
                         <div>
                             <p class="text-xs text-gray-500">Represented</p>
                             <p class="font-bold text-gray-900 mt-1">
-                                {{ run.packs_produced|default:"0" }} × {{ product.kg_per_pack }} kg
+                                {{ run.packs_produced|default:"0" }} Ã— {{ product.kg_per_pack }} kg
                             </p>
                         </div>
 
@@ -286,7 +286,7 @@ Inventory / Packaged Coffee / {{ product.blend.name }} {{ product.pack_size.labe
                         </td>
 
                         <td class="px-6 py-4 font-medium text-gray-900">
-                            {{ release.released_to|default:"—" }}
+                            {{ release.released_to|default:"â€”" }}
                         </td>
 
                         <td class="px-6 py-4 text-right">
@@ -330,4 +330,3 @@ Inventory / Packaged Coffee / {{ product.blend.name }} {{ product.pack_size.labe
 </div>
 
 {% endblock %}
-```

@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import sales_views
 
 urlpatterns = [
     # companies
@@ -38,13 +39,14 @@ urlpatterns = [
     path("api/get-variety-details/", views.get_variety_details, name="get_variety_details"),
     path("api/stocks/<int:pk>/inventory/", views.stock_stage_inventory_api, name="stock_inventory_api"),
     path("inventory/ledger/",views.StockMovementListView.as_view(),name="stock_ledger",),
-    path("dashboard",views.DashboardView.as_view(),name="dashboard",),
+    path("dashboard/", views.dashboard_router, name="dashboard"),
      # low stock 
     path("stock/low/", views.low_stock_list, name="stock_low"),
 
     #login
     path('', views.user_login, name='login'),
     path('register/', views.register_user, name='register'),
+    path("users/<int:user_id>/toggle-status/", views.toggle_user_status, name="toggle_user_status"),
 
 # more inventory urls
     # --- Auth ---
@@ -52,6 +54,7 @@ urlpatterns = [
 
     # --- Processing ---
     path('stock/<int:pk>/process/', views.ProcessStockView.as_view(), name='process_stock'),
+    path("processing/<int:pk>/complete/", views.ProcessCompleteView.as_view(), name="processing_complete"),
 
     # --- Packaged Inventory & Products ---
     path('packaged-inventory/', views.PackagedInventoryListView.as_view(), name='packaged_inventory_list'),
@@ -70,5 +73,23 @@ urlpatterns = [
 
     # --- Pack Returns ---
     path('pack-returns/', views.PackReturnListView.as_view(), name='pack_return_list'),
-    path('pack-returns/add/', views.PackReturnCreateView.as_view(), name='pack_return_create'),
+
+    # --- Sales / store stock workflow ---
+    path("sales/", sales_views.SalesWorkspaceView.as_view(), name="record_sale"),
+    path("stock-requests/", sales_views.MyStockRequestListView.as_view(), name="stock_request_list"),
+    path("stock-requests/create/", sales_views.StockRequestCreateView.as_view(), name="stock_request_create"),
+    path("stock-requests/<int:pk>/", sales_views.StockRequestDetailView.as_view(), name="stock_request_detail"),
+    path("stock-requests/<int:pk>/fulfil/", sales_views.StockRequestFulfillView.as_view(), name="stock_request_fulfill"),
+    path("sales/stock/", sales_views.SalesStockView.as_view(), name="my_stock"),
+
+    # --- Cashier ---
+    path("cashier/queue/", sales_views.CashierQueueView.as_view(), name="order_queue"),
+    path("cashier/releases/<int:pk>/clear/", sales_views.CashierClearanceView.as_view(), name="cashier_clearance"),
+
+    # --- Role-specific dashboards ---
+    path("admin-dashboard/", sales_views.AdminDashboardView.as_view(), name="admin_dashboard"),
+    path("inventory-dashboard/", sales_views.InventoryDashboardView.as_view(), name="inventory_dashboard"),
+
+    # --- Return from a specific physical release ---
+    path("pack-releases/<int:release_pk>/return/", sales_views.PackReturnFromReleaseView.as_view(), name="pack_return_create"),
 ]
