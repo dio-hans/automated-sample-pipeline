@@ -1,3 +1,4 @@
+
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
@@ -9,6 +10,7 @@ from .models import (
     PackReturn,
     PackSettlement,
     PackagedProduct,
+    PackagedInventory,
     StockRequest,
     StockRequestItem,
 )
@@ -17,7 +19,7 @@ from .models import (
 def _available(product):
     try:
         return product.inventory.available
-    except product.inventory.RelatedObjectDoesNotExist:
+    except PackagedInventory.DoesNotExist:
         return 0
 
 
@@ -52,43 +54,32 @@ def create_stock_request(*, user, purpose, items, company=None, notes=""):
 
 
 @transaction.atomic
-def fulfill_request_item(*, item, quantity, price_per_pack, manager, notes=""):
-    """Issue packaged stock against one request item."""
-    item = (
-        StockRequestItem.objects
-        .select_for_update()
-        .select_related("request", "product")
-        .get(pk=item.pk)
-    )
+def fulfill_request_item(*, item, quantity, selling_price, manager, notes=""):
+    """Issue packaged stock against one request item atomically."""
+    item = (StockRequestItem.objects.select_for_update()
+            .select_related("request", "product").get(pk=item.pk))
     quantity = int(quantity)
-    price_per_pack = Decimal(price_per_pack)
-
+    selling_price = Decimal(selling_price)
+    if item.request.status in {"cancelled", "fulfilled"}:
+        raise ValidationError("This stock request is no longer open for fulfilment.")
     if quantity <= 0:
         raise ValidationError("Issue quantity must be greater than zero.")
-    if price_per_pack < 0:
+    if selling_price < 0:
         raise ValidationError("Price per pack cannot be negative.")
     if quantity > item.outstanding_quantity:
-        raise ValidationError(
-            f"Only {item.outstanding_quantity} packs remain to fulfil this item."
-        )
-
+        raise ValidationError(f"Only {item.outstanding_quantity} packs remain to fulfil this item.")
     product = PackagedProduct.objects.select_for_update().get(pk=item.product_id)
-    available = product.inventory.available if hasattr(product, "inventory") else 0
+    try:
+        inventory = PackagedInventory.objects.select_for_update().get(product=product)
+    except PackagedInventory.DoesNotExist:
+        raise ValidationError(f"No packaged stock exists for {product}.")
+    available = inventory.available
     if quantity > available:
-        raise ValidationError(
-            f"Only {available} packs of {product} are currently available."
-        )
-
+        raise ValidationError(f"Only {available} packs of {product} are currently available.")
     release = PackRelease.objects.create(
-        product=product,
-        request_item=item,
-        released_to=item.request.requested_by,
-        packs_out=quantity,
-        price_per_pack=price_per_pack,
-        created_by=manager,
-        notes=notes,
+        product=product, request_item=item, released_to=item.request.requested_by,
+        packs_out=quantity, selling_price=selling_price, created_by=manager, notes=notes,
     )
-
     request = item.request
     items = list(request.items.all())
     if all(i.outstanding_quantity == 0 for i in items):
@@ -97,8 +88,8 @@ def fulfill_request_item(*, item, quantity, price_per_pack, manager, notes=""):
         request.save(update_fields=["status", "fulfilled_at"])
     else:
         request.status = "partially_fulfilled"
-        request.save(update_fields=["status"])
-
+        request.fulfilled_at = None
+        request.save(update_fields=["status", "fulfilled_at"])
     return release
 
 
@@ -169,7 +160,7 @@ def settle_release(
     if amount_paid < 0:
         raise ValidationError("Amount paid cannot be negative.")
 
-    amount_due = Decimal(packs_sold) * release.price_per_pack
+    amount_due = Decimal(packs_sold) * release.selling_price
     if amount_paid > amount_due:
         raise ValidationError(
             f"Amount paid cannot exceed the amount due ({amount_due:,.2f})."
@@ -199,3 +190,6 @@ def settle_release(
         settlement.save()
 
     return settlement
+
+
+

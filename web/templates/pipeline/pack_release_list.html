@@ -1,5 +1,65 @@
+
 {% extends "pipeline/base.html" %}
 {% block title %}Releases | Nonda{% endblock %}
 {% block breadcrumb %}Stock Control / Releases{% endblock %}
 {% block page_title %}Stock Releases{% endblock %}
-{% block content %}<div class="bg-white border border-line rounded-xl overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-olive text-white"><tr><th class="px-5 py-3 text-left">Date</th><th class="px-5 py-3 text-left">Product</th><th class="px-5 py-3 text-left">Released to</th><th class="px-5 py-3 text-right">Out</th><th class="px-5 py-3 text-right">Returned</th><th class="px-5 py-3 text-right">Outstanding</th><th class="px-5 py-3 text-right">Price</th><th class="px-5 py-3 text-left">Status</th></tr></thead><tbody class="divide-y divide-line">{% for release in releases %}<tr class="hover:bg-paper"><td class="px-5 py-4">{{ release.released_at|date:"d M Y, H:i" }}</td><td class="px-5 py-4"><a href="{% url 'pack_release_detail' release.pk %}" class="font-semibold text-rust">{{ release.product.blend.name }} · {{ release.product.pack_size.label }}</a><p class="text-xs text-clay">{{ release.product.get_form_display }}</p></td><td class="px-5 py-4">{{ release.released_to }}</td><td class="px-5 py-4 text-right">{{ release.packs_out }}</td><td class="px-5 py-4 text-right">{{ release.packs_returned }}</td><td class="px-5 py-4 text-right font-semibold">{{ release.packs_outstanding }}</td><td class="px-5 py-4 text-right">UGX {{ release.price_per_pack|floatformat:0 }}</td><td class="px-5 py-4">{{ release.get_status_display }}</td></tr>{% empty %}<tr><td colspan="8" class="px-5 py-12 text-center text-clay">No releases recorded.</td></tr>{% endfor %}</tbody></table></div></div>{% endblock %}
+{% block content %}
+<div class="bg-white border border-line rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-olive text-white">
+                <tr>
+                    <th class="px-5 py-3 text-left">
+                        Date
+                    </th>
+                    <th class="px-5 py-3 text-left">
+                        Product
+                    </th>
+                    <th class="px-5 py-3 text-left">
+                        Released to
+                    </th>
+                    <th class="px-5 py-3 text-right">
+                        Out
+                    </th>
+                    <th class="px-5 py-3 text-right">
+                        Returned
+                    </th>
+                    <th class="px-5 py-3 text-right">
+                        Outstanding
+                    </th>
+                    <th class="px-5 py-3 text-right">
+                        Price
+                    </th>
+                    <th class="px-5 py-3 text-left">
+                        Status
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-line">
+                {% for release in releases %}
+                <tr class="hover:bg-paper">
+                    <td class="px-5 py-4">{{ release.released_at|date:"d M Y, H:i" }}</td>
+                    <td class="px-5 py-4">
+                        <a href="{% url 'pack_release_detail' release.pk %}" class="font-semibold text-rust">{{ release.product.blend.name }} · {{ release.product.pack_size.label }}</a>
+                        <p class="text-xs text-clay">{{ release.product.get_form_display }}</p>
+                    </td>
+                    <td class="px-5 py-4">{{ release.released_to }}</td>
+                    <td class="px-5 py-4 text-right">{{ release.packs_out }}</td>
+                    <td class="px-5 py-4 text-right">{{ release.packs_returned }}</td>
+                    <td class="px-5 py-4 text-right font-semibold">{{ release.packs_outstanding }}</td>
+                    <td class="px-5 py-4 text-right">UGX {{ release.selling_price|floatformat:0 }}</td>
+                    <td class="px-5 py-4">{{ release.get_status_display }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="px-5 py-12 text-center text-clay">No releases recorded.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+
+

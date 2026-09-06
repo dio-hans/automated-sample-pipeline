@@ -13,6 +13,8 @@ from django.contrib.auth.models import AbstractUser
 
 # --- 1. COMPANY DETAILS ---
 
+
+
 class Coffee_type(models.TextChoices):
     ARABICA = 'arabica', 'Arabica'
     ROBUSTA = 'robusta', 'Robusta'
@@ -72,6 +74,9 @@ class CoffeeVariety(models.Model):
 
     def __str__(self):
         return self.name
+
+
+
 
 class StockStage(models.TextChoices):
         GREEN = "green_received", "Green Coffee"
@@ -761,7 +766,7 @@ class PackSize(models.Model):
         (1000, "1kg"),
         (15, "Sachet (15g)"),  # sachets are beans-only, small
     ]
-    grams = models.PositiveIntegerField(unique=True, choices=GRAM_CHOICES)
+    grams = models.PositiveIntegerField(choices=GRAM_CHOICES)
     label = models.CharField(max_length=30)  # "50g", "250g", etc.
     is_sachet = models.BooleanField(default=False)  # sachets = beans only
     is_active = models.BooleanField(default=True)
@@ -769,6 +774,12 @@ class PackSize(models.Model):
 
     class Meta:
         ordering = ["grams"]
+        constraints = [
+        models.UniqueConstraint(
+            fields=("grams", "is_sachet"),
+            name="unique_pack_size_type",
+        ),
+    ]
 
     def __str__(self):
         return self.label
@@ -786,7 +797,7 @@ class ProductForm(models.TextChoices):
 
 
 # 4. PACKAGED PRODUCT  (blend Ã— pack_size Ã— form)
-#    This is the sellable SKU.
+#    This is the sellaxble SKU.
 class PackagedProduct(models.Model):
 
     blend = models.ForeignKey(
@@ -818,6 +829,12 @@ class PackagedProduct(models.Model):
 
     created_at = models.DateTimeField(
         auto_now_add=True,
+    )
+
+    selling_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
     )
 
     class Meta:
@@ -904,6 +921,12 @@ class PackagingRun(models.Model):
 
     # Actual coffee represented by those packs
     coffee_used_kg = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
+
+    selling_price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         default=Decimal("0.00"),
@@ -1070,7 +1093,7 @@ class PackRelease(models.Model):
 
     packs_out = models.PositiveIntegerField()
 
-    price_per_pack = models.DecimalField(
+    selling_price = models.DecimalField(
         max_digits=10, 
         decimal_places=2,
         default=Decimal('0.00'),)
@@ -1129,7 +1152,7 @@ class PackRelease(models.Model):
 
     @property
     def stock_value(self):
-        return Decimal(self.packs_out) * self.price_per_pack
+        return Decimal(self.packs_out) * self.selling_price
 
 # 8. PACK RETURN  (salesperson â†’ store)
 class PackReturn(models.Model):
@@ -1294,7 +1317,7 @@ class PackSettlement(models.Model):
 
     @property
     def amount_due(self):
-        return Decimal(self.packs_sold) * self.release.price_per_pack
+        return Decimal(self.packs_sold) * self.release.selling_price
 
     @property
     def balance(self):

@@ -446,7 +446,7 @@ class InventoryAccessAndWorkflowTests(TestCase):
         release = fulfill_request_item(
             item=item,
             quantity=20,
-            price_per_pack=Decimal("15000"),
+            selling_price=Decimal("15000"),
             manager=self.manager,
         )
         self.assertEqual(PackagedInventory.objects.get(product=product).available, 80)

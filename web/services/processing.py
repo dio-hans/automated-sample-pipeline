@@ -1,3 +1,4 @@
+
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -45,7 +46,7 @@ def issue_for_processing(
     Example:
 
         400 kg green
-              ↓
+              â†“
         issued for roasting
 
     The roasting return is recorded later.
@@ -479,3 +480,6 @@ def complete_grinding(
     )
 
     return run, output_movement
+
+
+

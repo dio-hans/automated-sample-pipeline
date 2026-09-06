@@ -1,26 +1,798 @@
 {% extends "pipeline/base.html" %}
+
 {% block title %}Request Stock | Nonda{% endblock %}
+
 {% block breadcrumb %}Sales / Stock Request{% endblock %}
+
 {% block page_title %}Request Packaged Coffee{% endblock %}
-{% block header_action %}<a href="{% url 'record_sale' %}" class="px-4 py-2.5 border border-line rounded-lg bg-white text-sm font-medium">Cancel</a>{% endblock %}
-{% block content %}
-<form method="post" class="max-w-4xl space-y-6">
-{% csrf_token %}
-{% if form.non_field_errors or item_formset.non_form_errors %}<div class="rounded-lg border border-rust/20 bg-rust/5 px-4 py-3 text-sm text-rust">{{ form.non_field_errors }}{{ item_formset.non_form_errors }}</div>{% endif %}
-<section class="bg-white border border-line rounded-xl p-6">
-<h2 class="font-display text-xl">Request details</h2>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
-{% for field in form %}<div class="{% if field.name == 'notes' %}md:col-span-2{% endif %}"><label class="block text-sm font-semibold mb-1" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<p class="text-xs text-rust mt-1">{{ error }}</p>{% endfor %}</div>{% endfor %}
-</div></section>
-<section class="bg-white border border-line rounded-xl overflow-hidden">
-<div class="px-6 py-5 border-b border-line flex justify-between items-center"><div><h2 class="font-display text-xl">Products needed</h2><p class="text-sm text-clay mt-1">Add each packaged product and the quantity you need.</p></div><button type="button" id="add-row" class="px-3 py-2 border border-line rounded-lg text-sm font-semibold hover:bg-paper">Add product</button></div>
-<div id="item-forms" class="p-6 space-y-4">
-{{ item_formset.management_form }}
-{% for item in item_formset %}<div class="request-row grid grid-cols-1 md:grid-cols-[1fr_180px_auto] gap-4 items-end"><div><label class="block text-sm font-semibold mb-1">Product</label>{{ item.product }}</div><div><label class="block text-sm font-semibold mb-1">Quantity</label>{{ item.quantity_requested }}</div><button type="button" class="remove-row px-3 py-2.5 border border-line rounded-lg text-sm">Remove</button></div>{% endfor %}
-</div></section>
-<div class="flex justify-end"><button class="px-5 py-2.5 rounded-lg bg-rust text-white text-sm font-semibold">Submit Request</button></div>
-</form>
+
+
+{% block header_action %}
+
+<a
+    href="{% url 'record_sale' %}"
+    class="px-4 py-2.5 border border-[#E4DECB] rounded-lg bg-white text-sm font-medium text-slate-600 hover:bg-slate-50"
+>
+    Cancel
+</a>
+
 {% endblock %}
-{% block extra_scripts %}<script>
-(function(){const container=document.getElementById('item-forms');const total=document.getElementById('id_items-TOTAL_FORMS');const add=document.getElementById('add-row');function bind(row){row.querySelector('.remove-row').onclick=()=>{const rows=container.querySelectorAll('.request-row');if(rows.length>1){row.remove();Array.from(container.querySelectorAll('.request-row')).forEach((r,i)=>r.querySelectorAll('select,input').forEach(el=>{el.name=el.name.replace(/items-\d+-/,`items-${i}-`);el.id=el.id.replace(/items-\d+-/,`items-${i}-`)}));total.value=container.querySelectorAll('.request-row').length;}};}container.querySelectorAll('.request-row').forEach(bind);add.onclick=()=>{const index=container.querySelectorAll('.request-row').length;const template=container.querySelector('.request-row').cloneNode(true);template.querySelectorAll('select,input').forEach(el=>{el.name=el.name.replace(/items-\d+-/,`items-${index}-`);el.id=el.id.replace(/items-\d+-/,`items-${index}-`);if(el.tagName==='INPUT')el.value='';});container.appendChild(template);total.value=index+1;bind(template);};})();
-</script>{% endblock %}
+
+
+{% block content %}
+
+<form
+    method="post"
+    id="stock-request-form"
+    autocomplete="off"
+    class="space-y-6"
+>
+
+    {% csrf_token %}
+
+    {{ item_formset.management_form }}
+
+
+    <!-- GLOBAL ERRORS -->
+
+    {% if form.non_field_errors or item_formset.non_form_errors %}
+
+        <div class="rounded-lg border border-rust/20 bg-rust/5 px-4 py-3 text-sm text-rust">
+
+            {{ form.non_field_errors }}
+
+            {{ item_formset.non_form_errors }}
+
+        </div>
+
+    {% endif %}
+
+
+
+    <!-- 1. REQUEST DETAILS -->
+
+    <section class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm">
+
+        <h2 class="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">
+            1. Request Details
+        </h2>
+
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {% for field in form %}
+
+                <div class="{% if field.name == 'notes' %}md:col-span-2{% endif %}">
+
+                    <label
+                        class="block text-xs font-semibold text-slate-600 mb-1"
+                        for="{{ field.id_for_label }}"
+                    >
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% for error in field.errors %}
+
+                        <p class="text-xs text-rust mt-1">
+                            {{ error }}
+                        </p>
+
+                    {% endfor %}
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+
+
+    <!-- 2. ERP WORKSPACE -->
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+
+        <!-- PRODUCT CATALOG -->
+
+        <section
+            class="lg:col-span-7 bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm space-y-4"
+        >
+
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+
+                <div>
+
+                    <h2 class="text-sm font-semibold text-slate-800">
+                        2. Select Store Products
+                    </h2>
+
+                    <p class="text-[11px] text-slate-400 mt-0.5">
+                        Click a product card to add it to your request cart.
+                    </p>
+
+                </div>
+
+
+                <!-- SEARCH -->
+
+                <div class="relative w-full sm:w-64">
+
+                    <input
+                        type="text"
+                        id="catalog-search"
+                        class="w-full rounded-lg border border-[#E4DECB] px-3 py-2 bg-slate-50 text-xs focus:outline-none focus:ring-2 focus:ring-rust focus:bg-white"
+                        placeholder="Search product name or size..."
+                        aria-label="Search products"
+                    >
+
+                </div>
+
+            </div>
+
+
+
+            <!-- PRODUCT GRID -->
+
+            <div
+                id="catalog-grid"
+                class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[450px] overflow-y-auto pr-1"
+            >
+
+                {% for choice in item_formset.forms.0.fields.product.choices %}
+
+                    {% if choice.0 %}
+
+                        <button
+                            type="button"
+                            class="product-card text-left p-3.5 border border-[#E4DECB] bg-white rounded-xl hover:border-rust hover:bg-rust/5 transition flex flex-col justify-between group active:scale-95"
+                            data-product-id="{{ choice.0 }}"
+                            data-product-name="{{ choice.1 }}"
+                        >
+
+                            <span
+                                class="block text-xs font-bold text-slate-700 group-hover:text-rust truncate-2-lines leading-relaxed"
+                            >
+                                {{ choice.1 }}
+                            </span>
+
+
+                            <div class="mt-3 flex items-center justify-between text-[11px] font-medium text-slate-500">
+
+                                <span
+                                    class="uppercase tracking-wider px-1.5 py-0.5 bg-slate-100 rounded text-slate-400 font-bold text-[9px]"
+                                >
+                                    In Store
+                                </span>
+
+                                <span class="font-bold text-slate-700">
+                                    Available
+                                </span>
+
+                            </div>
+
+                        </button>
+
+                    {% endif %}
+
+                {% endfor %}
+
+            </div>
+
+        </section>
+
+
+
+        <!-- ACTIVE CART -->
+
+        <section
+            class="lg:col-span-5 bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden flex flex-col"
+        >
+
+            <div class="p-5 border-b border-slate-100 bg-slate-50/50">
+
+                <h2 class="text-sm font-semibold text-slate-800">
+                    3. Active Request Cart
+                </h2>
+
+                <p class="text-xs text-slate-400 mt-0.5">
+                    Adjust required quantities or remove line items.
+                </p>
+
+            </div>
+
+
+
+            <div
+                id="cart-items-list"
+                class="p-5 overflow-y-auto max-h-[380px]"
+            >
+
+                <!--
+                    JavaScript generates the Django formset
+                    fields here.
+                -->
+
+                <div
+                    id="hidden-formset-rows"
+                    class="hidden"
+                ></div>
+
+
+                <!-- VISIBLE CART -->
+
+                <div
+                    id="visible-cart-cards"
+                    class="space-y-2.5"
+                ></div>
+
+
+                <!-- EMPTY STATE -->
+
+                <div
+                    id="cart-empty-state"
+                    class="text-center py-12 text-slate-400"
+                >
+
+                    <p class="text-xs">
+                        Your request cart is currently empty.
+                    </p>
+
+                    <p class="text-[11px] text-slate-400/80 mt-1">
+                        Click a product on the left to add it.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- SUBMIT -->
+
+            <div
+                class="p-4 bg-slate-50 border-t border-[#E4DECB] flex justify-end"
+            >
+
+                <button
+                    type="submit"
+                    id="submit-request-button"
+                    class="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-rust hover:bg-rust-dark text-white text-sm font-semibold shadow-sm transition"
+                >
+                    Submit Request
+                </button>
+
+            </div>
+
+        </section>
+
+    </div>
+
+</form>
+
+{% endblock %}
+
+
+
+{% block extra_scripts %}
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const totalFormsInput =
+        document.getElementById("id_items-TOTAL_FORMS");
+
+    const visibleCartContainer =
+        document.getElementById("visible-cart-cards");
+
+    const emptyStateElement =
+        document.getElementById("cart-empty-state");
+
+    const nativeContainer =
+        document.getElementById("hidden-formset-rows");
+
+    const productCards =
+        document.querySelectorAll(".product-card");
+
+    const searchInput =
+        document.getElementById("catalog-search");
+
+    const requestForm =
+        document.getElementById("stock-request-form");
+
+    const submitButton =
+        document.getElementById("submit-request-button");
+
+
+    /*
+     * Confirm Django rendered the expected management form.
+     */
+
+    if (!totalFormsInput) {
+
+        console.error(
+            "Django formset management form not found. Expected id_items-TOTAL_FORMS."
+        );
+
+        return;
+
+    }
+
+
+    /*
+     * Current cart state.
+     *
+     * Example:
+     *
+     * [
+     *     {
+     *         id: "4",
+     *         name: "Kitiko · 250g",
+     *         quantity: 2
+     *     }
+     * ]
+     */
+
+    let activeCart = [];
+
+
+
+    /*
+     * SEARCH PRODUCTS
+     */
+
+    if (searchInput) {
+
+        searchInput.addEventListener("input", function () {
+
+            const query =
+                this.value.toLowerCase().trim();
+
+
+            productCards.forEach(function (card) {
+
+                const productName =
+                    (
+                        card.dataset.productName || ""
+                    ).toLowerCase();
+
+
+                card.style.display =
+                    productName.includes(query)
+                        ? ""
+                        : "none";
+
+            });
+
+        });
+
+    }
+
+
+
+    /*
+     * REBUILD DJANGO FORMSET + VISIBLE CART
+     */
+
+    function updateFormsetValues() {
+
+        nativeContainer.innerHTML = "";
+
+        visibleCartContainer.innerHTML = "";
+
+
+        /*
+         * Empty cart.
+         */
+
+        if (activeCart.length === 0) {
+
+            emptyStateElement.classList.remove("hidden");
+
+            totalFormsInput.value = "0";
+
+            return;
+
+        }
+
+
+        /*
+         * Cart contains products.
+         */
+
+        emptyStateElement.classList.add("hidden");
+
+
+        activeCart.forEach(function (item, index) {
+
+
+            /*
+             * -----------------------------
+             * VISIBLE CART ROW
+             * -----------------------------
+             */
+
+            const row =
+                document.createElement("div");
+
+            row.className =
+                "flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100";
+
+
+            const name =
+                document.createElement("span");
+
+            name.className =
+                "text-xs font-bold text-slate-700 truncate mr-2";
+
+            name.textContent =
+                item.name;
+
+
+            const controls =
+                document.createElement("div");
+
+            controls.className =
+                "flex items-center gap-2.5 shrink-0";
+
+
+            /*
+             * Quantity input.
+             */
+
+            const quantityInput =
+                document.createElement("input");
+
+            quantityInput.type = "number";
+
+            quantityInput.min = "1";
+
+            quantityInput.step = "1";
+
+            quantityInput.value =
+                item.quantity;
+
+            quantityInput.className =
+                "cart-qty-trigger w-14 text-center rounded-md border border-[#E4DECB] py-1 text-xs font-bold";
+
+            quantityInput.dataset.prodId =
+                item.id;
+
+
+            /*
+             * Remove button.
+             */
+
+            const removeButton =
+                document.createElement("button");
+
+            removeButton.type = "button";
+
+            removeButton.className =
+                "cart-remove-trigger text-slate-400 hover:text-rust p-1";
+
+            removeButton.dataset.prodId =
+                item.id;
+
+            removeButton.setAttribute(
+                "aria-label",
+                "Remove " + item.name
+            );
+
+            removeButton.innerHTML = `
+                <svg
+                    class="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    aria-hidden="true"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                </svg>
+            `;
+
+
+            controls.appendChild(quantityInput);
+
+            controls.appendChild(removeButton);
+
+            row.appendChild(name);
+
+            row.appendChild(controls);
+
+            visibleCartContainer.appendChild(row);
+
+
+
+            /*
+             * -----------------------------
+             * DJANGO FORMSET FIELDS
+             * -----------------------------
+             *
+             * Django receives:
+             *
+             * items-0-id
+             * items-0-product
+             * items-0-quantity_requested
+             *
+             * items-1-id
+             * items-1-product
+             * items-1-quantity_requested
+             *
+             * etc.
+             *
+             * id is blank because these are new
+             * StockRequestItem records.
+             */
+
+
+            const idInput =
+                document.createElement("input");
+
+            idInput.type = "hidden";
+
+            idInput.name =
+                `items-${index}-id`;
+
+            idInput.id =
+                `id_items-${index}-id`;
+
+            idInput.value = "";
+
+
+            const productInput =
+                document.createElement("input");
+
+            productInput.type = "hidden";
+
+            productInput.name =
+                `items-${index}-product`;
+
+            productInput.id =
+                `id_items-${index}-product`;
+
+            productInput.value =
+                item.id;
+
+
+            const quantityFormInput =
+                document.createElement("input");
+
+            quantityFormInput.type = "hidden";
+
+            quantityFormInput.name =
+                `items-${index}-quantity_requested`;
+
+            quantityFormInput.id =
+                `id_items-${index}-quantity_requested`;
+
+            quantityFormInput.value =
+                item.quantity;
+
+
+            nativeContainer.appendChild(idInput);
+
+            nativeContainer.appendChild(productInput);
+
+            nativeContainer.appendChild(quantityFormInput);
+
+        });
+
+
+        /*
+         * Tell Django how many forms are being submitted.
+         */
+
+        totalFormsInput.value =
+            activeCart.length;
+
+
+        attachCartListeners();
+
+    }
+
+
+
+    /*
+     * QUANTITY + REMOVE LISTENERS
+     */
+
+    function attachCartListeners() {
+
+
+        /*
+         * Quantity changes.
+         */
+
+        document
+            .querySelectorAll(".cart-qty-trigger")
+            .forEach(function (input) {
+
+                input.addEventListener("change", function () {
+
+                    const productId =
+                        this.dataset.prodId;
+
+                    let quantity =
+                        parseInt(this.value, 10);
+
+
+                    if (
+                        !Number.isInteger(quantity) ||
+                        quantity < 1
+                    ) {
+
+                        quantity = 1;
+
+                        this.value = "1";
+
+                    }
+
+
+                    const item =
+                        activeCart.find(function (cartItem) {
+
+                            return cartItem.id === productId;
+
+                        });
+
+
+                    if (item) {
+
+                        item.quantity =
+                            quantity;
+
+                        updateFormsetValues();
+
+                    }
+
+                });
+
+            });
+
+
+
+        /*
+         * Remove buttons.
+         */
+
+        document
+            .querySelectorAll(".cart-remove-trigger")
+            .forEach(function (button) {
+
+                button.addEventListener("click", function () {
+
+                    const productId =
+                        this.dataset.prodId;
+
+
+                    activeCart =
+                        activeCart.filter(function (item) {
+
+                            return item.id !== productId;
+
+                        });
+
+
+                    updateFormsetValues();
+
+                });
+
+            });
+
+    }
+
+
+
+    /*
+     * PRODUCT CARD CLICK
+     */
+
+    productCards.forEach(function (card) {
+
+        card.addEventListener("click", function () {
+
+            const productId =
+                this.dataset.productId;
+
+            const productName =
+                this.dataset.productName;
+
+
+            const existingItem =
+                activeCart.find(function (item) {
+
+                    return item.id === productId;
+
+                });
+
+
+            if (existingItem) {
+
+                /*
+                 * Product already exists.
+                 * Increase requested quantity.
+                 */
+
+                existingItem.quantity += 1;
+
+            } else {
+
+                /*
+                 * First selection.
+                 */
+
+                activeCart.push({
+
+                    id: productId,
+
+                    name: productName,
+
+                    quantity: 1
+
+                });
+
+            }
+
+
+            updateFormsetValues();
+
+        });
+
+    });
+
+
+
+    /*
+     * PREVENT DOUBLE SUBMISSION
+     */
+
+    if (requestForm) {
+
+        requestForm.addEventListener("submit", function () {
+
+            /*
+             * Let Django perform validation normally.
+             * This only prevents accidental double-clicks.
+             */
+
+            if (submitButton) {
+
+                submitButton.disabled = true;
+
+                submitButton.textContent =
+                    "Submitting...";
+
+                submitButton.classList.add(
+                    "opacity-60",
+                    "cursor-not-allowed"
+                );
+
+            }
+
+        });
+
+    }
+
+
+
+    /*
+     * INITIALISE EMPTY CART
+     */
+
+    updateFormsetValues();
+
+});
+
+</script>
+
+{% endblock %}

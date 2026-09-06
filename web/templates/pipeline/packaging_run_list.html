@@ -14,7 +14,7 @@ Packaging Runs
 {% block header_action %}
 <a href="{% url 'packaging_run_create' %}"
    class="px-4 py-2 text-sm font-semibold text-white bg-rust rounded-lg hover:bg-rust/90 transition">
-    + Record Packaging
+    Record Packaging
 </a>
 {% endblock %}
 
@@ -63,7 +63,9 @@ Packaging Runs
                             Loss
                         </th>
 
-                        <th class="px-6 py-3"></th>
+                        <th class="px-6 py-3">
+                            Details
+                        </th>
 
                     </tr>
 
@@ -86,7 +88,7 @@ Packaging Runs
                             </div>
 
                             <div class="text-xs text-gray-500">
-                                {{ run.product.pack_size.label }} Â· {{ run.product.get_form_display }}
+                                {{ run.product.pack_size.label }} {{ run.product.get_form_display }}
                             </div>
 
                         </td>
@@ -113,7 +115,7 @@ Packaging Runs
 
                             <a href="{% url 'packaging_run_detail' run.pk %}"
                                class="font-semibold text-rust hover:underline">
-                                View â†’
+                                View Details
                             </a>
 
                         </td>
@@ -141,3 +143,6 @@ Packaging Runs
 </div>
 
 {% endblock %}
+
+
+

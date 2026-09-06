@@ -1,3 +1,4 @@
+
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db.models import Count
@@ -6,8 +7,6 @@ from django.urls import reverse
 from django.views import View
 from django.views.generic import DetailView, ListView, TemplateView
 from django.forms import formset_factory
-
-from .permissions import RoleRequiredMixin
 
 from .models import (
     Company,
@@ -35,6 +34,18 @@ from .sales_workflow import (
 
 
 FulfillFormSet = formset_factory(FulfillItemForm, extra=0)
+
+
+class RoleRequiredMixin:
+    allowed_roles = ()
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect("login")
+        if request.user.is_superuser or request.user.role in self.allowed_roles:
+            return super().dispatch(request, *args, **kwargs)
+        messages.error(request, "You do not have permission to access this area.")
+        return redirect("dashboard")
 
 
 class AdminDashboardView(RoleRequiredMixin, TemplateView):
@@ -177,7 +188,7 @@ class StockRequestFulfillView(RoleRequiredMixin, View):
     def get(self, request, pk):
         stock_request = self.get_request(pk)
         initial = [
-            {"item_id": item.pk, "issue_quantity": item.outstanding_quantity, "price_per_pack": "0.00"}
+            {"item_id": item.pk, "issue_quantity": item.outstanding_quantity, "selling_price": item.product.selling_price}
             for item in stock_request.items.all()
         ]
         return render(request, self.template_name, {
@@ -196,12 +207,12 @@ class StockRequestFulfillView(RoleRequiredMixin, View):
                     if qty <= 0:
                         continue
                     item = get_object_or_404(StockRequestItem, pk=form.cleaned_data["item_id"], request=stock_request)
-                    if stock_request.purpose == "sale" and form.cleaned_data["price_per_pack"] <= 0:
+                    if stock_request.purpose == "sale" and form.cleaned_data["selling_price"] <= 0:
                         raise ValidationError("A sale release must have a price per pack.")
                     fulfill_request_item(
                         item=item,
                         quantity=qty,
-                        price_per_pack=form.cleaned_data["price_per_pack"],
+                        selling_price=form.cleaned_data["selling_price"],
                         manager=request.user,
                         notes=form.cleaned_data.get("notes", ""),
                     )
@@ -212,7 +223,10 @@ class StockRequestFulfillView(RoleRequiredMixin, View):
                     messages.info(request, "No stock was issued. The request remains open.")
                 return redirect("stock_request_detail", pk=stock_request.pk)
             except ValidationError as exc:
-                formset.forms[0].add_error(None, exc.message)
+                if formset.forms:
+                    formset.forms[0].add_error(None, exc.message)
+                else:
+                    formset._non_form_errors = formset.error_class([str(exc)])
         return render(request, self.template_name, {"stock_request": stock_request, "formset": formset})
 
 
@@ -349,7 +363,7 @@ class CashierClearanceView(RoleRequiredMixin, View):
         release = self.get_release(pk)
         return render(request, self.template_name, {
             "release": release,
-            "form": SettlementForm(initial={"packs_sold": release.packs_outstanding, "amount_paid": release.packs_outstanding * release.price_per_pack}),
+            "form": SettlementForm(initial={"packs_sold": release.packs_outstanding, "amount_paid": release.packs_outstanding * release.selling_price}),
         })
 
     def post(self, request, pk):
@@ -374,3 +388,6 @@ class CashierClearanceView(RoleRequiredMixin, View):
             except ValidationError as exc:
                 form.add_error(None, exc.message)
         return render(request, self.template_name, {"release": release, "form": form})
+
+
+

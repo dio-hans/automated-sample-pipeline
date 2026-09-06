@@ -18,13 +18,9 @@ Inventory / Packaged Coffee / {{ product.blend.name }} {{ product.pack_size.labe
 
     <a href="{% url 'packaging_run_create' %}"
        class="px-4 py-2 text-sm font-semibold text-white bg-rust rounded-lg hover:bg-rust/90 transition">
-        + Record Packaging
+        Record Packaging
     </a>
 
-    <a href="{% url 'packaged_inventory_list' %}"
-       class="px-4 py-2 text-sm font-medium border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition">
-        â† Packaged Coffee
-    </a>
 
 </div>
 {% endblock %}
@@ -46,8 +42,7 @@ Inventory / Packaged Coffee / {{ product.blend.name }} {{ product.pack_size.labe
                         {% if product.form == 'beans' %}
                             bg-amber-50 text-amber-700 border border-amber-100
                         {% else %}
-                            bg-stone-100 text-stone-700 border border-stone-200
-                        {% endif %}
+                            bg-stone-100 text-stone-700 border border-stone-200  {% endif %}
                     ">
                         {{ product.get_form_display }}
                     </span>
@@ -179,7 +174,7 @@ Inventory / Packaged Coffee / {{ product.blend.name }} {{ product.pack_size.labe
 
                         <a href="{% url 'packaging_run_detail' run.pk %}"
                            class="text-sm font-semibold text-rust hover:underline">
-                            View run â†’
+                            View run
                         </a>
 
                     </div>
@@ -203,7 +198,7 @@ Inventory / Packaged Coffee / {{ product.blend.name }} {{ product.pack_size.labe
                         <div>
                             <p class="text-xs text-gray-500">Represented</p>
                             <p class="font-bold text-gray-900 mt-1">
-                                {{ run.packs_produced|default:"0" }} Ã— {{ product.kg_per_pack }} kg
+                                {{ run.packs_produced|default:"0" }} {{ product.kg_per_pack }} kg
                             </p>
                         </div>
 
@@ -286,7 +281,7 @@ Inventory / Packaged Coffee / {{ product.blend.name }} {{ product.pack_size.labe
                         </td>
 
                         <td class="px-6 py-4 font-medium text-gray-900">
-                            {{ release.released_to|default:"â€”" }}
+                            {{ release.released_to|default:"" }}
                         </td>
 
                         <td class="px-6 py-4 text-right">
@@ -330,3 +325,6 @@ Inventory / Packaged Coffee / {{ product.blend.name }} {{ product.pack_size.labe
 </div>
 
 {% endblock %}
+
+
+

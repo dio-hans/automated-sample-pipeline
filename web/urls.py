@@ -1,7 +1,8 @@
+
 from django.urls import path
 from . import views
 from . import sales_views
-
+from .views import toggle_user_status
 urlpatterns = [
     # companies
     path("companies/", views.CompanyListView.as_view(), name="company_list"),
@@ -46,16 +47,14 @@ urlpatterns = [
     #login
     path('', views.user_login, name='login'),
     path('register/', views.register_user, name='register'),
-    path("users/<int:user_id>/toggle-status/", views.toggle_user_status, name="toggle_user_status"),
+    path(
+    "users/<int:user_id>/toggle-status/",views.toggle_user_status,name="toggle_user_status",),
 
 # more inventory urls
     # --- Auth ---
     path('logout/', views.user_logout, name='logout'),
 
     # --- Processing ---
-    path('stock/<int:pk>/process/', views.ProcessStockView.as_view(), name='process_stock'),
-    path("processing/<int:pk>/complete/", views.ProcessCompleteView.as_view(), name="processing_complete"),
-
     # --- Packaged Inventory & Products ---
     path('packaged-inventory/', views.PackagedInventoryListView.as_view(), name='packaged_inventory_list'),
     path('packaged-product/add/', views.PackagedProductCreateView.as_view(), name='packaged_product_form'),
@@ -73,6 +72,7 @@ urlpatterns = [
 
     # --- Pack Returns ---
     path('pack-returns/', views.PackReturnListView.as_view(), name='pack_return_list'),
+    path('pack-returns-list', views.PackReturnListView.as_view(), name='pack_return_list'),  
 
     # --- Sales / store stock workflow ---
     path("sales/", sales_views.SalesWorkspaceView.as_view(), name="record_sale"),
@@ -93,3 +93,6 @@ urlpatterns = [
     # --- Return from a specific physical release ---
     path("pack-releases/<int:release_pk>/return/", sales_views.PackReturnFromReleaseView.as_view(), name="pack_return_create"),
 ]
+
+
+

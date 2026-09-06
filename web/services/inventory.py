@@ -1,3 +1,4 @@
+
 from decimal import Decimal
 
 from django.db import transaction
@@ -12,17 +13,16 @@ from ..models import (
     PackRelease,
     PackReturn,
     RoastedSackSale,
+    StockStage,
 )
 
 
-ZERO = Decimal("0")
+ZERO = Decimal("0.00")
 
 
 # ============================================================
 # RAW / STAGE INVENTORY
 # ============================================================
-
-ZERO = Decimal("0.00")
 
 
 # ============================================================
@@ -51,28 +51,28 @@ def get_stage_inventory(stock, stage):
 def get_green_available(stock):
     return get_stage_inventory(
         stock,
-        CoffeeStock.StockStage.GREEN,
+        StockStage.GREEN,
     )
 
 
 def get_roasted_available(stock):
     return get_stage_inventory(
         stock,
-        CoffeeStock.StockStage.ROASTED,
+        StockStage.ROASTED,
     )
 
 
 def get_ground_available(stock):
     return get_stage_inventory(
         stock,
-        CoffeeStock.StockStage.GROUND,
+        StockStage.GROUND,
     )
 
 
 def get_quaker_available(stock):
     return get_stage_inventory(
         stock,
-        CoffeeStock.StockStage.QUAKERS,
+        StockStage.QUAKERS,
     )
 
 
@@ -154,7 +154,7 @@ def move_stock(
 
     This is used for genuine internal transfers such as:
 
-        roasted → ground
+        roasted â†’ ground
 
     It should NOT be used for roasting, sorting or grinding
     when the process has a separate return/output.
@@ -488,7 +488,7 @@ def sell_roasted_sack(
 
     available = get_stage_inventory(
     locked_stock,
-    CoffeeStock.StockStage.ROASTED,
+    StockStage.ROASTED,
 )
 
     if kg_sold > available:
@@ -508,7 +508,7 @@ def sell_roasted_sack(
     StockMovement.objects.create(
     stock=locked_stock,
     movement_type="dispatch",
-    from_stage=CoffeeStock.StockStage.ROASTED,
+    from_stage=StockStage.ROASTED,
     to_stage=None,
     quantity=kg_sold,
     reference=f"Roasted bulk sale: {buyer_name}",
@@ -517,3 +517,6 @@ def sell_roasted_sack(
 )
 
     return sale
+
+
+

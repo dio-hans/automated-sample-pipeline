@@ -1,7 +1,14 @@
+
 from django import forms
 from django.forms import BaseFormSet, formset_factory
 
-from .models import Company, PackRelease, PackagedProduct, StockRequest
+
+from .models import (Company,
+ PackRelease,
+  PackagedProduct,
+   StockRequest,
+PackagedInventory,
+)
 
 FIELD_CLASS = (
     "w-full rounded-lg border border-[#E4DECB] px-3 py-2.5 bg-white "
@@ -27,14 +34,58 @@ class StockRequestForm(forms.ModelForm):
 
 class StockRequestItemForm(forms.Form):
     product = forms.ModelChoiceField(
-        queryset=PackagedProduct.objects.filter(is_active=True).select_related("blend", "pack_size"),
+        queryset=PackagedProduct.objects.none(),
         widget=forms.Select(attrs={"class": FIELD_CLASS}),
     )
+
     quantity_requested = forms.IntegerField(
         min_value=1,
-        widget=forms.NumberInput(attrs={"class": FIELD_CLASS, "min": "1"}),
+        widget=forms.NumberInput(
+            attrs={
+                "class": FIELD_CLASS,
+                "min": "1",
+            }
+        ),
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        available_product_ids = []
+
+        inventory_records = (
+            PackagedInventory.objects
+            .select_related("product__blend", "product__pack_size")
+        )
+
+        for inventory in inventory_records:
+            if inventory.available > 0 and inventory.product.is_active:
+                available_product_ids.append(inventory.product_id)
+
+        self.fields["product"].queryset = (
+            PackagedProduct.objects
+            .filter(
+                pk__in=available_product_ids,
+                is_active=True,
+            )
+            .select_related("blend", "pack_size")
+            .order_by(
+                "blend__name",
+                "pack_size__grams",
+                "form",
+            )
+        )
+
+    def label_from_instance(self, product):
+        try:
+            available = product.inventory.available
+        except PackagedInventory.DoesNotExist:
+            available = 0
+
+        return (
+            f"{product.blend.name} · {product.pack_size.label} · "
+            f"{product.get_form_display()} — {available} in store"
+        )
 
 class BaseStockRequestItemFormSet(BaseFormSet):
     def clean(self):
@@ -72,7 +123,7 @@ class FulfillItemForm(forms.Form):
         min_value=0,
         widget=forms.NumberInput(attrs={"class": FIELD_CLASS, "min": "0"}),
     )
-    price_per_pack = forms.DecimalField(
+    selling_price = forms.DecimalField(
         min_value=0,
         max_digits=12,
         decimal_places=2,
@@ -127,3 +178,6 @@ class SettlementForm(forms.Form):
         required=False,
         widget=forms.Textarea(attrs={"class": FIELD_CLASS, "rows": 3}),
     )
+
+
+

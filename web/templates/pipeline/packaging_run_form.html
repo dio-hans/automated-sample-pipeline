@@ -1,74 +1,141 @@
 {% extends "pipeline/base.html" %}
 
-{% block title %}Create Packaging Run{% endblock %}
+{% block title %}Packaging Run | Nonda{% endblock %}
+{% block breadcrumb %}Inventory / Packaging / New Run{% endblock %}
+{% block page_title %}Record Packaging Run{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">Convert roasted or ground coffee from kilograms into finished packaged products.</p>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<form method="post" autocomplete="off" class="max-w-4xl space-y-6">
+    {% csrf_token %}
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h3 mb-1">Create Packaging Run</h1>
-            <p class="text-muted mb-0">
-                Convert roasted or ground coffee into packaged product inventory.
-            </p>
-        </div>
-
-        <a href="{% url 'packaging_run_list' %}" class="btn btn-outline-secondary">
-            Back to Packaging Runs
-        </a>
+    <!-- Global / Form Validation Errors -->
+    {% if form.errors or form.non_field_errors %}
+    <div class="p-4 rounded-lg bg-rust/5 border border-rust/20 text-sm text-rust space-y-1">
+        <p class="font-semibold">Please resolve the following submission issues:</p>
+        <ul class="list-disc pl-4 text-xs">
+            {% if form.non_field_errors %}<li>{{ form.non_field_errors.0 }}</li>{% endif %}
+            {% for field in form %}
+                {% if field.errors %}<li><strong>{{ field.label }}:</strong> {{ field.errors.0 }}</li>{% endif %}
+            {% endfor %}
+        </ul>
     </div>
+    {% endif %}
 
-    <div class="card shadow-sm">
-        <div class="card-body p-4">
-
-            <form method="post">
-                {% csrf_token %}
-
-                {% if form.non_field_errors %}
-                    <div class="alert alert-danger">
-                        {{ form.non_field_errors }}
-                    </div>
-                {% endif %}
-
-                {% for field in form %}
-                    <div class="mb-3">
-
-                        <label for="{{ field.id_for_label }}" class="form-label">
-                            {{ field.label }}
-                        </label>
-
-                        {{ field }}
-
-                        {% if field.help_text %}
-                            <div class="form-text">
-                                {{ field.help_text }}
-                            </div>
-                        {% endif %}
-
-                        {% for error in field.errors %}
-                            <div class="text-danger small mt-1">
-                                {{ error }}
-                            </div>
-                        {% endfor %}
-
-                    </div>
-                {% endfor %}
-
-                <div class="d-flex gap-2 mt-4">
-                    <button type="submit" class="btn btn-primary">
-                        Create Packaging Run
-                    </button>
-
-                    <a href="{% url 'packaging_run_list' %}"
-                       class="btn btn-outline-secondary">
-                        Cancel
-                    </a>
+    <!-- Main Card Body -->
+    <section class="bg-white border border-[#E4DECB] rounded-xl p-6 shadow-sm space-y-6">
+        
+        <!-- Section 1: Core Selection Maps -->
+        <div>
+            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 pb-1 border-b border-slate-100">
+                1. Coffee Source & Target Variant
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                
+                <!-- Stock Source Selection dropdown -->
+                <div>
+                    <label for="id_stock" class="block text-sm font-medium text-slate-700 mb-1.5">Batch Stock Source</label>
+                    {{ form.stock }}
                 </div>
 
-            </form>
+                <!-- Product Name Selection Dropdown (Constructed with custom price metrics) -->
+                <div>
+                    <label for="id_product" class="block text-sm font-medium text-slate-700 mb-1.5">Product Name</label>
+                    <select name="product" id="id_product" class="w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-rust focus:border-rust">
+                        <option value="" selected>Select a finished product...</option>
+                        {% for p in form.available_products %}
+                            <option value="{{ p.id }}" data-price="{{ p.selling_price|floatformat:0 }}" data-form="{{ p.form }}">
+                                {{ p.blend.name }} — {{ p.pack_size.label }} ({% if p.form == 'beans' %}Beans{% else %}Ground{% endif %})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
 
+            </div>
         </div>
-    </div>
 
-</div>
+        <!-- Section 2: Metrics Configuration -->
+        <div class="pt-4">
+            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 pb-1 border-b border-slate-100">
+                2. Metrics & Valuation
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+                
+                <!-- Unit Price (Auto filled but fully editable) -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">Unit Price (UGX)</label>
+                    <input type="number" id="id_auto_price" name="custom_price" step="1"
+                           class="w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-rust" 
+                           placeholder="Enter price">
+                </div>
+
+                <!-- Source Stage -->
+                <div>
+                    <label for="id_source_stage" class="block text-sm font-medium text-slate-700 mb-1.5">Source Stage</label>
+                    {{ form.source_stage }}
+                </div>
+
+                <!-- Input Weight -->
+                <div>
+                    <label for="{{ form.input_kg.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-1.5">Qtty (Kg)</label>
+                    {{ form.input_kg }}
+                </div>
+
+                <!-- Output Packages Count -->
+                <div>
+                    <label for="{{ form.packs_produced.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-1.5">Packs Produced</label>
+                    {{ form.packs_produced }}
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Section 3: Textarea Logs -->
+        <div class="pt-4">
+            <label for="{{ form.notes.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-1.5">{{ form.notes.label }}</label>
+            {{ form.notes }}
+        </div>
+    </section>
+
+    <!-- Form Footer Action Handles -->
+    <div class="flex justify-end items-center gap-3 pt-2">
+        <a href="{% url 'packaging_run_list' %}" class="px-4 py-2 border border-[#E4DECB] hover:bg-slate-50 rounded-lg text-sm text-slate-600 transition">Cancel</a>
+        <button type="submit" class="px-5 py-2.5 rounded-lg bg-rust hover:bg-rust-dark text-white text-sm font-semibold shadow-sm transition">Record Packaging Run</button>
+    </div>
+</form>
+
+<!-- JavaScript to Handle Immediate Pricing & Selection State Changes -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const productSelect = document.getElementById("id_product");
+    const priceInput = document.getElementById("id_auto_price");
+    const stageSelect = document.getElementById("id_source_stage");
+
+    if (productSelect) {
+        productSelect.addEventListener("change", function() {
+            const selectedOption = productSelect.options[productSelect.selectedIndex];
+
+            if (selectedOption && selectedOption.value !== "") {
+                // 1. Auto-populate price field out of selected metadata context
+                const basePrice = selectedOption.getAttribute("data-price");
+                priceInput.value = basePrice ? basePrice : "";
+
+                // 2. Automate warehouse workflow stage selections
+                const formType = selectedOption.getAttribute("data-form");
+                if (formType === "beans") {
+                    stageSelect.value = "roasted";
+                } else if (formType === "ground") {
+                    stageSelect.value = "ground";
+                }
+            } else {
+                priceInput.value = "";
+                stageSelect.value = "";
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

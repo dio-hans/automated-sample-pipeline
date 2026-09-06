@@ -1,7 +1,7 @@
 
 {% extends "pipeline/base.html" %}
 
-{% block title %}Packaging Run â€” {{ run.product }}{% endblock %}
+{% block title %}Packaging Run {{ run.product }}{% endblock %}
 
 {% block breadcrumb %}
 Inventory / Packaging Runs / Run {{ run.pk }}
@@ -14,7 +14,7 @@ Packaging Run
 {% block header_action %}
 <a href="{% url 'packaging_run_list' %}"
    class="px-4 py-2 text-sm font-medium border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50">
-    â† Packaging Runs
+    Packaging Runs
 </a>
 {% endblock %}
 
@@ -39,7 +39,7 @@ Packaging Run
 
                 <p class="text-sm text-gray-500 mt-1">
                     {{ run.product.pack_size.label }}
-                    Â·
+                    
                     {{ run.product.get_form_display }}
                 </p>
 
@@ -120,11 +120,11 @@ Packaging Run
 
                     <div>
                         <p class="text-sm font-semibold text-emerald-900">
-                            Accounted
+                            Input Weight
                         </p>
 
                         <p class="text-xs text-emerald-700 mt-1">
-                            Input = packaged coffee + recorded loss
+                            
                         </p>
                     </div>
 
@@ -227,3 +227,6 @@ Packaging Run
 </div>
 
 {% endblock %}
+
+
+
