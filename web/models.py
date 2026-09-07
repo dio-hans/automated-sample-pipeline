@@ -1155,7 +1155,20 @@ class PackRelease(models.Model):
         return Decimal(self.packs_out) * self.selling_price
 
 # 8. PACK RETURN  (salesperson â†’ store)
+from django.conf import settings
+from django.db import models
+from django.utils import timezone
+
+
 class PackReturn(models.Model):
+
+    CONDITION_CHOICES = (
+        ("good", "Good / Resalable"),
+        ("damaged", "Damaged"),
+        ("opened", "Opened"),
+        ("expired", "Expired"),
+        ("other", "Other"),
+    )
 
     release = models.ForeignKey(
         PackRelease,
@@ -1165,16 +1178,25 @@ class PackReturn(models.Model):
 
     packs_returned = models.PositiveIntegerField()
 
+    condition = models.CharField(
+        max_length=20,
+        choices=CONDITION_CHOICES,
+        default="good",
+    )
+
     reason = models.CharField(
         max_length=200,
         blank=True,
     )
 
     returned_at = models.DateTimeField(
-        default=timezone.now
+        default=timezone.now,
     )
 
-    notes = models.TextField(max_length=150)
+    notes = models.TextField(
+        max_length=150,
+        blank=True,
+    )
 
     received_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

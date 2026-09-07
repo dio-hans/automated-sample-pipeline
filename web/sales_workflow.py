@@ -94,26 +94,39 @@ def fulfill_request_item(*, item, quantity, selling_price, manager, notes=""):
 
 
 @transaction.atomic
-def return_packs(*, release, packs_returned, reason="", user=None, notes=""):
-    """Record physical packs coming back to the store."""
+def return_packs(
+    *,
+    release,
+    packs_returned,
+    condition="good",
+    reason="",
+    user=None,
+    notes="",
+):
     release = (
         PackRelease.objects
         .select_for_update()
         .select_related("product", "released_to")
         .get(pk=release.pk)
     )
+
     packs_returned = int(packs_returned)
 
     if packs_returned <= 0:
-        raise ValidationError("Must return at least one pack.")
+        raise ValidationError(
+            "Must return at least one pack."
+        )
+
     if packs_returned > release.packs_outstanding:
         raise ValidationError(
-            f"Only {release.packs_outstanding} packs are outstanding on this release."
+            f"Only {release.packs_outstanding} "
+            f"packs are outstanding on this release."
         )
 
     returned = PackReturn.objects.create(
         release=release,
         packs_returned=packs_returned,
+        condition=condition,
         reason=reason,
         notes=notes,
         received_by=user,
@@ -123,10 +136,15 @@ def return_packs(*, release, packs_returned, reason="", user=None, notes=""):
         release.status = "fully_returned"
     else:
         release.status = "partially_returned"
-    release.save(update_fields=["status", "updated_at"])
+
+    release.save(
+        update_fields=[
+            "status",
+            "updated_at",
+        ]
+    )
+
     return returned
-
-
 @transaction.atomic
 def settle_release(
     *,

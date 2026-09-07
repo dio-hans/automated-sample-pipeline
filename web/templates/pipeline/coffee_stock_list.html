@@ -1,338 +1,369 @@
-
 {% extends "pipeline/base.html" %}
+{% load static %}
 
-{% block title %}Coffee Stock | Nonda{% endblock %}
+{% block title %} Coffee Stock | Nonda {% endblock %}
+{% block breadcrumb %} Inventory / Coffee Stock {% endblock %}
 
-{% block breadcrumb %}
-Inventory / Coffee Stock
+{% block page_title %} Coffee Stock Batches {% endblock %}
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Track raw material weights across Green, Roasted, Ground, and Quakers inventory milestones.
+</p>
 {% endblock %}
 
-{% block page_title %}
-Coffee Stock
-{% endblock %}
-
-{% block header_action %} <a href="{% url 'stock_create' %}"
-class="inline-flex items-center gap-2 px-4 py-2.5
-       rounded-md bg-rust text-white text-sm font-semibold
-       hover:bg-rust-dark transition shadow-sm"> <span class="text-lg leading-none">+</span>
-Receive Coffee </a>
+{% block page_action %}
+<a href="{% url 'stock_create' %}"
+   class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-rust hover:bg-rust-dark text-white text-sm font-semibold shadow-sm transition">
+    Receive Coffee Batch
+</a>
 {% endblock %}
 
 {% block content %}
-
 <div class="space-y-6">
 
-<!-- INVENTORY NAVIGATION -->
-<div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm p-2">
-    <div class="flex flex-wrap items-center gap-1">
-
-        <a href="{% url 'stock_list' %}"
-           class="px-4 py-2 rounded-lg bg-olive text-white text-sm font-medium">
-            Coffee Stock
-        </a>
-
-        <a href="{% url 'stock_ledger' %}"
-           class="px-4 py-2 rounded-lg text-sm font-medium text-clay hover:bg-paper transition">
-            Movement Ledger
-        </a>
-
-        <a href="{% url 'stock_low' %}"
-           class="px-4 py-2 rounded-lg text-sm font-medium text-clay hover:bg-paper transition">
-            Low Stock
-        </a>
-
-    </div>
-</div>
-
-
-<!-- INTRO -->
-<div>
-    <p class="eyebrow text-clay">
-        Raw &amp; Processed Coffee
-    </p>
-
-    <p class="mt-2 max-w-3xl text-sm text-clay">
-        Track coffee batches as they move through receiving, roasting,
-        sorting and grinding. Quantities shown here are measured in kilograms.
-    </p>
-</div>
-
-
-<!-- SUMMARY -->
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
-    <div class="bg-white border border-[#E4DECB] rounded-xl p-5">
-        <p class="text-xs uppercase tracking-wider text-clay font-semibold">
-            Available Coffee
-        </p>
-
-        <p class="mt-2 font-display text-3xl text-ink">
-            {{ total_available|floatformat:2 }}
-            <span class="text-base font-sans text-clay">kg</span>
-        </p>
-
-        <p class="mt-1 text-xs text-clay">
-            Across all active batches
-        </p>
-    </div>
-
-
-    <a href="{% url 'stock_low' %}"
-       class="bg-white border border-[#E4DECB] rounded-xl p-5
-              hover:border-gold/50 hover:shadow-sm transition">
-
-        <p class="text-xs uppercase tracking-wider text-clay font-semibold">
-            Low Stock
-        </p>
-
-        <p class="mt-2 font-display text-3xl
-                  {% if low_stock_count %}text-gold{% else %}text-ink{% endif %}">
-            {{ low_stock_count }}
-        </p>
-
-        <p class="mt-1 text-xs text-clay">
-            Batches requiring attention
-        </p>
-    </a>
-
-
-    <div class="bg-white border border-[#E4DECB] rounded-xl p-5">
-
-        <p class="text-xs uppercase tracking-wider text-clay font-semibold">
-            Out of Stock
-        </p>
-
-        <p class="mt-2 font-display text-3xl
-                  {% if out_of_stock_count %}text-rust{% else %}text-ink{% endif %}">
-            {{ out_of_stock_count }}
-        </p>
-
-        <p class="mt-1 text-xs text-clay">
-            Batches with no remaining kg
-        </p>
-    </div>
-
-</div>
-
-
-<!-- STOCK TABLE -->
-<div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
-
-    <div class="px-6 py-5 border-b border-[#E4DECB]
-                flex flex-col md:flex-row md:items-center
-                md:justify-between gap-3">
-
-        <div>
-            <h2 class="font-display text-xl text-ink">
-                Coffee Batches
-            </h2>
-
-            <p class="text-sm text-clay mt-1">
-                Current quantities by batch and processing stage.
-            </p>
+    <!-- 1. SUMMARY STATS TILES -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Tile 1: Total Weight -->
+        <div class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm">
+            <p class="text-xs uppercase font-bold tracking-wider text-slate-400">Total Net Inventory</p>
+            <p class="font-semibold text-3xl mt-2 text-slate-800">{{ total_available|default:"0.00" }} <span class="text-xs font-normal text-slate-400">Kg</span></p>
+            <p class="text-xs text-slate-400 mt-1">Combined total mass on premises</p>
         </div>
 
-        <span class="text-xs text-clay">
-            {{ stocks|length }} batch{{ stocks|length|pluralize }}
-        </span>
+        <!-- Tile 2: Low Stock Alert -->
+        <div class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm flex justify-between items-start">
+            <div>
+                <p class="text-xs uppercase font-bold tracking-wider text-slate-400">Low Stock Batches</p>
+                <p class="font-semibold text-3xl mt-2 text-slate-800">{{ low_stock_count|default:"0" }}</p>
+                <p class="text-xs text-slate-400 mt-1">Batches below safety threshold</p>
+            </div>
+            {% if low_stock_count > 0 %}
+                <span class="px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[10px] uppercase tracking-wider">Alert</span>
+            {% endif %}
+        </div>
+
+        <!-- Tile 3: Out of Stock -->
+        <div class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm flex justify-between items-start">
+            <div>
+                <p class="text-xs uppercase font-bold tracking-wider text-slate-400">Exhausted Batches</p>
+                <p class="font-semibold text-3xl mt-2 text-slate-800">{{ out_of_stock_count|default:"0" }}</p>
+                <p class="text-xs text-slate-400 mt-1">Batches completely checked out</p>
+            </div>
+            {% if out_of_stock_count > 0 %}
+                <span class="px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 font-bold text-[10px] uppercase tracking-wider">Critical</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 2. DATE FILTERS -->
+    <div class="bg-white border border-[#E4DECB] rounded-xl p-4 shadow-sm">
+
+        <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+
+            <!-- CUSTOM DATE RANGE -->
+            <form method="get" class="flex flex-wrap items-end gap-2">
+
+                <div>
+                    <label for="date_from"
+                           class="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1.5">
+                        From
+                    </label>
+
+                    <input
+                        type="date"
+                        id="date_from"
+                        name="date_from"
+                        value="{{ request.GET.date_from|default:'' }}"
+                        class="px-3 py-1.5 rounded-lg border border-[#E4DECB]
+                               text-xs text-slate-600 bg-white
+                               focus:outline-none focus:border-olive focus:ring-1 focus:ring-olive"
+                    >
+                </div>
+
+                <div>
+                    <label for="date_to"
+                           class="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1.5">
+                        To
+                    </label>
+
+                    <input
+                        type="date"
+                        id="date_to"
+                        name="date_to"
+                        value="{{ request.GET.date_to|default:'' }}"
+                        class="px-3 py-1.5 rounded-lg border border-[#E4DECB]
+                               text-xs text-slate-600 bg-white
+                               focus:outline-none focus:border-olive focus:ring-1 focus:ring-olive"
+                    >
+                </div>
+
+                <button
+                    type="submit"
+                    class="px-3 py-1.5 rounded-lg bg-olive hover:bg-olive-dark
+                           text-white text-xs font-semibold transition"
+                >
+                    Apply
+                </button>
+
+            </form>
+
+
+            <!-- QUICK DATE FILTERS -->
+            <div class="flex flex-wrap items-center gap-2">
+
+                <a href="?preset=this_month"
+                   class="px-3 py-1.5 rounded-lg border text-xs font-medium transition
+                   {% if preset == 'this_month' %}
+                       bg-olive text-white border-olive
+                   {% else %}
+                       bg-white text-slate-600 border-[#E4DECB] hover:bg-slate-50
+                   {% endif %}">
+                    This Month
+                </a>
+
+                <a href="?preset=last_7_days"
+                   class="px-3 py-1.5 rounded-lg border text-xs font-medium transition
+                   {% if preset == 'last_7_days' %}
+                       bg-olive text-white border-olive
+                   {% else %}
+                       bg-white text-slate-600 border-[#E4DECB] hover:bg-slate-50
+                   {% endif %}">
+                    This Week
+                </a>
+
+                <a href="?preset=today"
+                   class="px-3 py-1.5 rounded-lg border text-xs font-medium transition
+                   {% if preset == 'today' %}
+                       bg-olive text-white border-olive
+                   {% else %}
+                       bg-white text-slate-600 border-[#E4DECB] hover:bg-slate-50
+                   {% endif %}">
+                    Today
+                </a>
+
+                <a href="?preset=yesterday"
+                   class="px-3 py-1.5 rounded-lg border text-xs font-medium transition
+                   {% if preset == 'yesterday' %}
+                       bg-olive text-white border-olive
+                   {% else %}
+                       bg-white text-slate-600 border-[#E4DECB] hover:bg-slate-50
+                   {% endif %}">
+                    Yesterday
+                </a>
+
+
+            </div>
+
+        </div>
 
     </div>
 
 
-    <div class="overflow-x-auto">
+    <!-- 3. MAIN INVENTORY SPREADSHEET TABLE -->
+    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
 
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto">
 
-            <thead class="bg-paper border-b border-[#E4DECB]">
+            <table class="w-full text-sm text-left border-collapse bg-white">
 
-                <tr class="text-left text-xs uppercase tracking-wider text-clay">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-[#E4DECB] text-slate-600 font-semibold">
 
-                    <th class="px-6 py-3 font-semibold">
-                        Batch
-                    </th>
+                        <th class="px-6 py-4">
+                            Date Received
+                        </th>
 
-                    <th class="px-6 py-3 font-semibold">
-                        Coffee
-                    </th>
+                        <th class="px-6 py-4">
+                            Batch Number
+                        </th>
 
-                    <th class="px-6 py-3 font-semibold">
-                        Type
-                    </th>
+                        <th class="px-6 py-4">
+                            Variety Type
+                        </th>
 
-                    <th class="px-6 py-3 text-right font-semibold">
-                        Green
-                    </th>
+                        <th class="px-6 py-4 text-right">
+                            Green (Kg)
+                        </th>
 
-                    <th class="px-6 py-3 text-right font-semibold">
-                        Roasted
-                    </th>
+                        <th class="px-6 py-4 text-right">
+                            Roasted (Kg)
+                        </th>
 
-                    <th class="px-6 py-3 text-right font-semibold">
-                        Ground
-                    </th>
+                        <th class="px-6 py-4 text-right">
+                            Ground (Kg)
+                        </th>
 
-                    <th class="px-6 py-3 text-right font-semibold">
-                        Total
-                    </th>
+                        <th class="px-6 py-4 text-right">
+                            Quakers (Kg)
+                        </th>
 
-                    <th class="px-6 py-3 text-center font-semibold">
-                        Status
-                    </th>
+                        <th class="px-6 py-4 text-right">
+                            Total Net (Kg)
+                        </th>
 
-                    <th class="px-6 py-3"></th>
+                        <th class="px-6 py-4 text-center">
+                            Status
+                        </th>
 
-                </tr>
+                        <th class="px-6 py-4 text-right">
+                            Actions
+                        </th>
 
-            </thead>
+                    </tr>
+                </thead>
 
 
-            <tbody class="divide-y divide-[#EEE9DB]">
+                <tbody class="divide-y divide-[#E4DECB] text-slate-700">
 
-                {% for stock in stocks %}
+                    {% for stock in stocks %}
 
-                <tr class="hover:bg-paper/60 transition">
+                    <!-- ONE ROW REPRESENTS ONE COFFEE BATCH -->
+                    <tr class="hover:bg-slate-50/50 transition duration-150">
 
-                    <td class="px-6 py-4">
+                        <!-- DATE RECEIVED -->
+                        <td class="px-6 py-4 whitespace-nowrap font-bold text-slate-900 text-xs">
+                            {{ stock.received_date|date:"d M Y" }}
+                        </td>
 
-                        <a href="{% url 'stock_detail' stock.pk %}"
-                           class="font-mono text-xs font-semibold text-ink hover:text-rust transition">
+
+                        <!-- BATCH CODE -->
+                        <td class="px-6 py-4 whitespace-nowrap font-bold text-slate-900 text-xs">
                             {{ stock.batch_number }}
-                        </a>
-
-                    </td>
+                        </td>
 
 
-                    <td class="px-6 py-4">
-
-                        <a href="{% url 'stock_detail' stock.pk %}"
-                           class="font-medium text-ink hover:text-rust transition">
-                            {{ stock.variety_name }}
-                        </a>
-
-                        {% if stock.source %}
-                            <p class="text-xs text-clay mt-0.5">
-                                {{ stock.source }}
-                            </p>
-                        {% endif %}
-
-                    </td>
+                        <!-- VARIETY PROFILE -->
+                        <td class="px-6 py-4 whitespace-nowrap font-semibold text-slate-800">
+                            {{ stock.variety.name }}
+                        </td>
 
 
-                    <td class="px-6 py-4">
-
-                        <span class="inline-flex px-2.5 py-1
-                                     rounded-full bg-olive/10
-                                     text-olive text-xs font-medium">
-                            {{ stock.get_coffee_type_display }}
-                        </span>
-
-                    </td>
+                        <!-- GREEN -->
+                        <td class="px-6 py-4 text-right font-medium whitespace-nowrap text-slate-500">
+                            {{ stock.quantity_green|default:"0.0" }}
+                        </td>
 
 
-                    <td class="px-6 py-4 text-right tabular-nums">
-                        {{ stock.quantity_green|floatformat:2 }}
-                        <span class="text-xs text-clay">kg</span>
-                    </td>
+                        <!-- ROASTED -->
+                        <td class="px-6 py-4 text-right font-medium whitespace-nowrap text-slate-500">
+                            {{ stock.quantity_roasted|default:"0.0" }}
+                        </td>
 
 
-                    <td class="px-6 py-4 text-right tabular-nums">
-                        {{ stock.quantity_roasted|floatformat:2 }}
-                        <span class="text-xs text-clay">kg</span>
-                    </td>
+                        <!-- GROUND -->
+                        <td class="px-6 py-4 text-right font-medium whitespace-nowrap text-slate-500">
+                            {{ stock.quantity_ground|default:"0.0" }}
+                        </td>
 
 
-                    <td class="px-6 py-4 text-right tabular-nums">
-                        {{ stock.quantity_ground|floatformat:2 }}
-                        <span class="text-xs text-clay">kg</span>
-                    </td>
+                        <!-- QUAKERS -->
+                        <td class="px-6 py-4 text-right font-medium whitespace-nowrap text-slate-500">
+                            {{ stock.quantity_quakers|default:"0.0" }}
+                        </td>
 
 
-                    <td class="px-6 py-4 text-right font-semibold tabular-nums">
-                        {{ stock.quantity_available|floatformat:2 }}
-                        <span class="text-xs font-normal text-clay">kg</span>
-                    </td>
+                        <!-- TOTAL NET -->
+                        <td class="px-6 py-4 text-right font-bold whitespace-nowrap text-slate-900">
+                            {{ stock.quantity_available|default:"0.0" }}
+                        </td>
 
 
-                    <td class="px-6 py-4 text-center">
+                        <!-- STATUS -->
+                        <td class="px-6 py-4 text-center whitespace-nowrap">
 
-                        {% if stock.quantity_available <= 0 %}
+                            {% if stock.quantity_available <= 0 %}
 
-                            <span class="inline-flex px-2.5 py-1
-                                         rounded-full bg-rust/10
-                                         text-rust text-xs font-semibold">
-                                Out
-                            </span>
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-md
+                                             bg-rose-50 text-rose-700 border border-rose-100
+                                             text-xs font-semibold">
+                                    Empty
+                                </span>
 
-                        {% elif stock.quantity_available <= stock.reorder_level %}
+                            {% elif stock.is_low_stock %}
 
-                            <span class="inline-flex px-2.5 py-1
-                                         rounded-full bg-gold/10
-                                         text-gold text-xs font-semibold">
-                                Low
-                            </span>
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-md
+                                             bg-amber-50 text-amber-700 border border-amber-100
+                                             text-xs font-semibold">
+                                    Low Stock
+                                </span>
 
-                        {% else %}
+                            {% else %}
 
-                            <span class="inline-flex px-2.5 py-1
-                                         rounded-full bg-olive/10
-                                         text-olive text-xs font-semibold">
-                                Available
-                            </span>
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-md
+                                             bg-emerald-50 text-emerald-700 border border-emerald-100
+                                             text-xs font-semibold">
+                                    Available
+                                </span>
 
-                        {% endif %}
+                            {% endif %}
 
-                    </td>
+                        </td>
 
 
-                    <td class="px-6 py-4 text-right">
+                        <!-- ACTION -->
+                        <td class="px-6 py-4 text-right whitespace-nowrap">
 
-                        <a href="{% url 'stock_detail' stock.pk %}"
-                           class="text-sm font-medium text-rust hover:underline">
-                            View
-                        </a>
+                            <a href="{% url 'stock_detail' stock.pk %}"
+                               class="inline-flex items-center gap-1 text-sm font-semibold
+                                      text-rust hover:text-rust-dark transition hover:underline">
+                                View Batch
+                            </a>
 
-                    </td>
+                        </td>
 
-                </tr>
+                    </tr>
 
-                {% empty %}
+                    {% empty %}
 
-                <tr>
+                    <!-- EMPTY STATE -->
+                    <tr>
 
-                    <td colspan="9" class="px-6 py-16 text-center">
+                        <td colspan="10" class="px-6 py-16 text-center">
 
-                        <p class="font-display text-xl text-ink">
-                            No coffee batches yet
-                        </p>
+                            <div class="flex flex-col items-center justify-center
+                                        max-w-sm mx-auto space-y-3">
 
-                        <p class="mt-2 text-sm text-clay">
-                            Start by recording the arrival of green coffee.
-                        </p>
+                                <div class="w-12 h-12 rounded-full bg-slate-50
+                                            border border-[#E4DECB] flex items-center
+                                            justify-center text-xl text-slate-400 shadow-sm">
+                                </div>
 
-                        <a href="{% url 'stock_create' %}"
-                           class="inline-flex mt-5 px-4 py-2.5
-                                  rounded-md bg-rust text-white
-                                  text-sm font-semibold hover:bg-rust-dark transition">
-                            Receive Coffee
-                        </a>
+                                <div>
 
-                    </td>
+                                    <p class="font-display text-xl text-slate-800">
+                                        No Coffee Batches Logged
+                                    </p>
 
-                </tr>
+                                    <p class="mt-1 text-xs text-slate-500 leading-normal">
+                                        There are currently no raw green coffee beans
+                                        registered inside the warehouse tracking ledger
+                                        for this timeline filter.
+                                    </p>
 
-                {% endfor %}
+                                </div>
 
-            </tbody>
+                                <a href="{% url 'stock_create' %}"
+                                   class="inline-flex items-center gap-1.5 mt-2
+                                          px-4 py-2.5 rounded-lg bg-rust
+                                          hover:bg-rust-dark text-white text-xs
+                                          font-semibold shadow-sm transition">
+                                    Receive New Coffee
+                                </a>
 
-        </table>
+                            </div>
+
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
 
     </div>
-
-</div>
-
-</div>
 
 {% endblock %}
-
-
-

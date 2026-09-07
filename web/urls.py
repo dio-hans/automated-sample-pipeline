@@ -71,7 +71,7 @@ urlpatterns = [
     path('pack-releases/<int:pk>/', views.PackReleaseDetailView.as_view(), name='pack_release_detail'),
 
     # --- Pack Returns ---
-    path('pack-returns/', views.PackReturnListView.as_view(), name='pack_return_list'),
+    path('pack-returns/', views.PackReturnCreateView.as_view(), name='pack_return_form'),
     path('pack-returns-list', views.PackReturnListView.as_view(), name='pack_return_list'),  
 
     # --- Sales / store stock workflow ---

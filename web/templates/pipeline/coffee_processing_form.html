@@ -1,0 +1,327 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}Process Coffee | Nonda{% endblock %}
+
+{% block breadcrumb %}
+Inventory / Coffee Processing
+{% endblock %}
+
+{% block page_title %}
+Process Coffee
+{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Move coffee through roasting, sorting and grinding while keeping every kilogram traceable.
+</p>
+{% endblock %}
+
+{% block header_action %}
+<a href="{% url 'stock_list' %}"
+   class="inline-flex items-center gap-2 px-4 py-2.5 rounded-md
+          border border-[#E4DECB] bg-white text-ink text-sm font-medium
+          hover:bg-paper transition">
+    ← Coffee Stock
+</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="space-y-6">
+
+    <!-- PROCESS PIPELINE -->
+    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm p-5">
+
+        <p class="eyebrow text-clay">
+            Production flow
+        </p>
+
+        <div class="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold">
+
+            <span class="px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100">
+                Green
+            </span>
+
+            <span class="text-clay">→</span>
+
+            <span class="px-3 py-2 rounded-lg bg-amber-50 text-amber-700 border border-amber-100">
+                Roasted
+            </span>
+
+            <span class="text-clay">→</span>
+
+            <span class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+                Sorted
+            </span>
+
+            <span class="text-clay">→</span>
+
+            <span class="px-3 py-2 rounded-lg bg-blue-50 text-blue-700 border border-blue-100">
+                Ground
+            </span>
+
+            <span class="text-clay">→</span>
+
+            <span class="px-3 py-2 rounded-lg bg-rust/10 text-rust border border-rust/20">
+                Packaged
+            </span>
+
+        </div>
+
+    </div>
+
+
+    <!-- START PROCESS -->
+    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
+
+        <div class="px-6 py-5 border-b border-[#E4DECB]">
+
+            <p class="eyebrow text-clay">
+                New processing run
+            </p>
+
+            <h2 class="mt-1 font-display text-xl text-ink">
+                Send Coffee for Processing
+            </h2>
+
+            <p class="mt-1 text-sm text-clay">
+                Select a batch, choose the processing operation and enter the quantity being sent.
+            </p>
+
+        </div>
+
+        <form method="post"
+              action=""
+              class="p-6">
+
+            {% csrf_token %}
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+                <div class="lg:col-span-1">
+
+                    <label class="block text-xs uppercase tracking-wider font-bold text-clay mb-1.5">
+                        Coffee Batch
+                    </label>
+
+                    <select name="stock"
+                            id="stock-select"
+                            required
+                            class="w-full rounded-lg border border-[#E4DECB]
+                                   px-3 py-2.5 text-sm bg-white text-ink
+                                   focus:outline-none focus:border-olive">
+
+                        <option value="">
+                            Select batch
+                        </option>
+
+                        {% for stock in stocks %}
+
+                            <option value="{{ stock.pk }}">
+                                {{ stock.batch_number }} — {{ stock.variety.name }}
+                            </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+
+                <div>
+
+                    <label class="block text-xs uppercase tracking-wider font-bold text-clay mb-1.5">
+                        Processing Stage
+                    </label>
+
+                    <select name="process_type"
+                            id="process-type"
+                            required
+                            class="w-full rounded-lg border border-[#E4DECB]
+                                   px-3 py-2.5 text-sm bg-white text-ink
+                                   focus:outline-none focus:border-olive">
+
+                        <option value="roasting">
+                            Roasting
+                        </option>
+
+                        <option value="sorting">
+                            Sorting
+                        </option>
+
+                        <option value="grinding">
+                            Grinding
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div>
+
+                    <label class="block text-xs uppercase tracking-wider font-bold text-clay mb-1.5">
+                        Quantity (kg)
+                    </label>
+
+                    <input type="number"
+                           name="input_quantity"
+                           min="0.01"
+                           step="0.01"
+                           required
+                           placeholder="e.g. 100"
+                           class="w-full rounded-lg border border-[#E4DECB]
+                                  px-3 py-2.5 text-sm bg-white text-ink
+                                  focus:outline-none focus:border-olive">
+
+                </div>
+
+            </div>
+
+
+            <div class="mt-5">
+
+                <label class="block text-xs uppercase tracking-wider font-bold text-clay mb-1.5">
+                    Notes
+                </label>
+
+                <textarea name="notes"
+                          rows="3"
+                          placeholder="Optional processing note..."
+                          class="w-full rounded-lg border border-[#E4DECB]
+                                 px-3 py-2.5 text-sm bg-white text-ink
+                                 focus:outline-none focus:border-olive"></textarea>
+
+            </div>
+
+
+            <div class="mt-5 flex justify-end">
+
+                <button type="submit"
+                        class="px-5 py-2.5 rounded-md bg-rust
+                               hover:bg-rust-dark text-white text-sm
+                               font-semibold shadow-sm transition">
+                    Start Processing
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+
+    <!-- OPEN RUNS -->
+    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
+
+        <div class="px-6 py-5 border-b border-[#E4DECB]">
+
+            <p class="eyebrow text-clay">
+                Awaiting completion
+            </p>
+
+            <h2 class="mt-1 font-display text-xl text-ink">
+                Open Processing Runs
+            </h2>
+
+        </div>
+
+        <div class="overflow-x-auto">
+
+            <table class="w-full text-sm">
+
+                <thead class="bg-paper border-b border-[#E4DECB]">
+
+                    <tr class="text-left text-xs uppercase tracking-wider text-clay">
+
+                        <th class="px-6 py-3">
+                            Batch
+                        </th>
+
+                        <th class="px-6 py-3">
+                            Process
+                        </th>
+
+                        <th class="px-6 py-3 text-right">
+                            Input
+                        </th>
+
+                        <th class="px-6 py-3">
+                            Started
+                        </th>
+
+                        <th class="px-6 py-3 text-right">
+                            Action
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody class="divide-y divide-[#EEE9DB]">
+
+                    {% for run in open_runs %}
+
+                    <tr class="hover:bg-paper/50">
+
+                        <td class="px-6 py-4">
+
+                            <p class="font-mono text-xs font-semibold text-rust">
+                                {{ run.stock.batch_number }}
+                            </p>
+
+                            <p class="text-xs text-clay mt-0.5">
+                                {{ run.stock.variety.name }}
+                            </p>
+
+                        </td>
+
+                        <td class="px-6 py-4 font-medium text-ink">
+                            {{ run.get_process_type_display }}
+                        </td>
+
+                        <td class="px-6 py-4 text-right font-semibold tabular-nums">
+                            {{ run.input_quantity|floatformat:2 }}
+                            <span class="text-xs font-normal text-clay">kg</span>
+                        </td>
+
+                        <td class="px-6 py-4 text-clay whitespace-nowrap">
+                            {{ run.issued_at|date:"d M Y, H:i" }}
+                        </td>
+
+                        <td class="px-6 py-4 text-right">
+
+                            <a href="{% url 'stock_detail' run.stock.pk %}"
+                               class="inline-flex items-center gap-1 text-sm
+                                      font-semibold text-rust hover:underline">
+                                Receive Output
+                            </a>
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+
+                        <td colspan="5"
+                            class="px-6 py-12 text-center text-sm text-clay">
+                            No processing runs are currently waiting for completion.
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

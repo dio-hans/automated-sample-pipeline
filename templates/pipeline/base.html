@@ -210,7 +210,8 @@
          ========================================================= -->
 
     
-
+         {% block sidebar_wrapper %}
+         
     <aside id="mainSidebar"
            class="fixed inset-y-0 left-0 z-50
                   w-64
@@ -442,7 +443,7 @@
 
 
 
-    # PROCESSING
+     PROCESSING
     
             <div>
 
@@ -457,7 +458,7 @@
                     <a href="#"
                        class="nav-link">
 
-                        <span class="nav-icon">◌</span>
+                        <span class="nav-icon"></span>
 
                         <span>
                             Processing
@@ -511,7 +512,7 @@
                     <a href="{% url 'pack_return_list' %}"
                        class="nav-link">
 
-                        <span class="nav-icon">←</span>
+                        <span class="nav-icon"></span>
 
                         <span>
                             Returns
@@ -541,7 +542,7 @@
                     <a href="{% url 'pack_release_list' %}"
                        class="nav-link">
 
-                        <span class="nav-icon">＋</span>
+                        <span class="nav-icon"></span>
 
                         <span>
                             Record Sale
@@ -703,28 +704,15 @@
     </aside>
 
     <div id="sidebarOverlay"
-         class="fixed inset-0
-                z-40
-                bg-black/40
-                hidden
-                lg:hidden">
+         class="fixed inset-0 z-40 bg-black/40 hidden lg:hidden">
     </div>
 
-    <!-- =========================================================
-         MAIN APPLICATION AREA
-         ========================================================= -->
+    <!--  MAIN APPLICATION ARE  -->
 
-    <div class="flex-1
-                min-w-0
-                lg:ml-64
-                flex
-                flex-col
-                min-h-screen">
+    <div class="flex-1 min-w-0 lg:ml-64 flex flex-col min-h-screen">
 
 
-        <!-- =====================================================
-             TOP BAR
-             ===================================================== -->
+        <!--TOP BAR -->
 
         <header class="h-16
                        flex-shrink-0
@@ -757,7 +745,7 @@
                                text-ink
                                hover:bg-gray-50">
 
-                    ☰
+                    
 
                 </button>
 
@@ -779,6 +767,7 @@
                 </div>
 
             </div>
+            {% endblock %}
 
 
             <!-- RIGHT -->
@@ -808,6 +797,8 @@
 
             {% block page_header %}
             {% endblock %}
+
+            
 
             <div class="mb-6
                         flex flex-col
@@ -911,20 +902,22 @@
              FOOTER
              ===================================================== -->
 
-        <footer class="border-t
-                       border-line
-                       px-4 sm:px-6 lg:px-8
-                       py-4
-                       text-center
-                       text-xs
-                       text-clay
-                       flex-shrink-0">
+        {% block footer %}
+<footer class="border-t
+               border-line
+               px-4 sm:px-6 lg:px-8
+               py-4
+               text-center
+               text-xs
+               text-clay
+               flex-shrink-0">
 
-            Nonda Commodities
-            <span class="mx-1">•</span>
-            {% now "Y" %}
+    Nonda Commodities
+    <span class="mx-1">•</span>
+    {% now "Y" %}
 
-        </footer>
+</footer>
+{% endblock footer %}
 
     </div>
 

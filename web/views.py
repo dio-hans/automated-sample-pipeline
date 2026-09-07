@@ -1,4 +1,5 @@
 from django.views.generic import FormView
+from .permissions import RoleRequiredMixin
 from .forms import (PackagingRunForm, PackReleaseForm, PackReturnForm
 )
 from .services.packaging import (
@@ -15,7 +16,7 @@ from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import ListView, TemplateView, CreateView, UpdateView, DeleteView, DetailView, View
 
-from .models import Company, PackReturn, CoffeeStock, CoffeeVariety, Sample, StockMovement, Followup, Contract, StockStage, User
+from .models import Company, PackReturn, CoffeeStock, CoffeeVariety, ProcessingRun, Sample, StockMovement, Followup, Contract, StockStage, User
 from .forms import (
     CompanyForm, CoffeeStockForm, CoffeeStockIntakeForm, ProcessingCompleteForm, SampleForm, ContractForm,
 )
@@ -32,7 +33,96 @@ from django.core.exceptions import ValidationError
 
 from .models import ( PackagedProduct, PackagingRun, 
     PackagedInventory, PackRelease)
+from .decorators import role_required
+
+
+def redirect_user_by_role(user):
+    """Send each authenticated user to the workspace for their role."""
+    if user.is_superuser or user.role == User.Role.ADMIN:
+        return redirect("admin_dashboard")
+    if user.role == User.Role.MANAGER:
+        return redirect("inventory_dashboard")
+    if user.role == User.Role.SALES:
+        return redirect("record_sale")
+    if user.role in {User.Role.CASHIER, User.Role.ACCOUNTS}:
+        return redirect("order_queue")
+    return redirect("login")
+
+def user_login(request):
+    if request.method == 'POST':
+        form = UserLoginForm(request, data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+
+            if not user.is_active:
+                messages.error(request, "Access Denied: Your account has been suspended.")
+                return redirect('login')
+
+            login(request, user)
+            messages.success(request, f"Welcome back, {user.username}!")
+            return redirect_user_by_role(user)
+    else:
+        form = UserLoginForm()
+
+    return render(request, 'pipeline/login.html', {'form': form})
+
+def user_logout(request):
+    logout(request)
+    messages.info(request, "Session terminated successfully.")
+    return redirect('login')
+
+
+# Staff Profiling and Administrative Actions
+
+def register_user(request):
+    """
+    Unified User Control Gateway: Manages real-time 
+    staff account listing alongside provisioning forms.
+    """
+    if request.method == 'POST':
+        form = UserRegistrationForm(request.POST)
+        if form.is_valid():
+            new_user = form.save()
+            messages.success(request, f"Terminal credentials generated successfully for {new_user.username}!")
+            return redirect('login') # Keeps Admin on page to view updated table
+        else:
+            messages.error(request, "Account registration failed. Verify database constraints.")
+    else:
+        form = UserRegistrationForm()
+
+    # Query active system users to populate the integrated dashboard table
+    system_users = User.objects.all().order_by('role', 'username')
     
+    return render(request, 'pipeline/registration.html', {
+        'form': form,
+        'users': system_users
+    })
+
+def toggle_user_status(request, user_id):
+    """
+    Soft deactivation feature to handle account locks safely.
+    Protected explicitly against arbitrary privilege escalations.
+    """
+    employee = get_object_or_404(User, id=user_id)
+    
+    if employee == request.user:
+        messages.error(request, "Security Violation Protection: You cannot lock out your own administrative account.")
+        return redirect('regi/ster_user')
+
+    # Atomic inversion of status state
+    employee.is_active = not employee.is_active
+    employee.save()
+
+    status = "activated" if employee.is_active else "suspended"
+    
+    if employee.is_active:
+        messages.success(request, f"Access clearance for {employee.username} successfully restored.")
+    else:
+        messages.warning(request, f"Terminal operational rights for {employee.username} have been suspended.")
+        
+    return redirect('register_user')
+
+# AUTH & USER CONTROL    
 class InventoryRoleRequiredMixin:
     allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     def dispatch(self, request, *args, **kwargs):
@@ -220,7 +310,8 @@ class CoffeeStockListViews(ListView):
     context_object_name = "stocks"
 
     def get_queryset(self):
-        qs = StockMovement.objects.select_related("stock__variety", "created_by").order_by("-created_at")
+        #  Corrected: Only select 'variety' since 'received_by' is a text CharField!
+        qs = CoffeeStock.objects.select_related("variety").order_by("-created_at")
         qs, preset, today, start, end = apply_date_filters(self.request, qs, "created_at")
         self._preset = preset
         self._start = start
@@ -231,9 +322,10 @@ class CoffeeStockListViews(ListView):
         ctx = super().get_context_data(**kwargs)
         ctx["preset"] = getattr(self, "_preset", "this_month")
         ctx["total_available"] = sum(s.quantity_available for s in ctx["stocks"])
-        ctx["low_stock_count"] = sum(1 for s in ctx["stocks"] if 0 < s.quantity_available <= s.reorder_level)
+        ctx["low_stock_count"] = sum(1 for s in ctx["stocks"] if s.is_low_stock)
         ctx["out_of_stock_count"] = sum(1 for s in ctx["stocks"] if s.quantity_available <= 0)
         return ctx
+
 
 
 class CoffeeStockDetailView(DetailView):
@@ -596,101 +688,41 @@ def low_stock_list(request):
         "low_stock_count": len(low_stocks),
     })
 
-# login and registration
-
-def redirect_user_by_role(user):
-    """Send each authenticated user to the workspace for their role."""
-    if user.is_superuser or user.role == User.Role.ADMIN:
-        return redirect("admin_dashboard")
-    if user.role == User.Role.MANAGER:
-        return redirect("inventory_dashboard")
-    if user.role == User.Role.SALES:
-        return redirect("record_sale")
-    if user.role in {User.Role.CASHIER, User.Role.ACCOUNTS}:
-        return redirect("order_queue")
-    return redirect("login")
-
-def user_login(request):
-    if request.method == 'POST':
-        form = UserLoginForm(request, data=request.POST)
-        if form.is_valid():
-            user = form.get_user()
-
-            if not user.is_active:
-                messages.error(request, "Access Denied: Your account has been suspended.")
-                return redirect('login')
-
-            login(request, user)
-            messages.success(request, f"Welcome back, {user.username}!")
-            return redirect_user_by_role(user)
-    else:
-        form = UserLoginForm()
-
-    return render(request, 'pipeline/login.html', {'form': form})
-
-def user_logout(request):
-    logout(request)
-    messages.info(request, "Session terminated successfully.")
-    return redirect('login')
-
-
-# Staff Profiling and Administrative Actions
-
-def register_user(request):
-    """
-    Unified User Control Gateway: Manages real-time 
-    staff account listing alongside provisioning forms.
-    """
-    if request.method == 'POST':
-        form = UserRegistrationForm(request.POST)
-        if form.is_valid():
-            new_user = form.save()
-            messages.success(request, f"Terminal credentials generated successfully for {new_user.username}!")
-            return redirect('login') # Keeps Admin on page to view updated table
-        else:
-            messages.error(request, "Account registration failed. Verify database constraints.")
-    else:
-        form = UserRegistrationForm()
-
-    # Query active system users to populate the integrated dashboard table
-    system_users = User.objects.all().order_by('role', 'username')
-    
-    return render(request, 'pipeline/registration.html', {
-        'form': form,
-        'users': system_users
-    })
-
-def toggle_user_status(request, user_id):
-    """
-    Soft deactivation feature to handle account locks safely.
-    Protected explicitly against arbitrary privilege escalations.
-    """
-    employee = get_object_or_404(User, id=user_id)
-    
-    if employee == request.user:
-        messages.error(request, "Security Violation Protection: You cannot lock out your own administrative account.")
-        return redirect('regi/ster_user')
-
-    # Atomic inversion of status state
-    employee.is_active = not employee.is_active
-    employee.save()
-
-    status = "activated" if employee.is_active else "suspended"
-    
-    if employee.is_active:
-        messages.success(request, f"Access clearance for {employee.username} successfully restored.")
-    else:
-        messages.warning(request, f"Terminal operational rights for {employee.username} have been suspended.")
-        
-    return redirect('register_user')
-
-# AUTH & USER CONTROL
 
 # PROCESS STOCK VIEW
 
 
 
+class ProcessingWorkspaceView(RoleRequiredMixin, View):
+    allowed_roles = (
+        User.Role.MANAGER,
+        User.Role.ADMIN,
+    )
 
+    template_name = "pipeline/processing_workspace.html"
+
+    def get(self, request):
+        stocks = (
+            CoffeeStock.objects
+            .select_related("variety")
+            .order_by("variety__name", "batch_number")
+        )
+
+        open_runs = (
+            ProcessingRun.objects
+            .filter(status="open")
+            .select_related("stock", "stock__variety")
+            .order_by("-issued_at")
+        )
+
+        return render(
+            request,
+            self.template_name,
+            {
+                "stocks": stocks,
+                "open_runs": open_runs,
+            },
+        )
 
 
 class ProcessStockView(InventoryRoleRequiredMixin, View):
