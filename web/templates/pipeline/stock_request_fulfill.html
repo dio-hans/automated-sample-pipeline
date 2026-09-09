@@ -1,180 +1,151 @@
 {% extends "pipeline/base.html" %}
+{% load static %}
 
 {% block title %}Fulfil Request {{ stock_request.short_number }} | Nonda{% endblock %}
-
 {% block breadcrumb %}Stock Control / Requests / Fulfil{% endblock %}
-
 {% block page_title %}Fulfil Request {{ stock_request.short_number }}{% endblock %}
 
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">Dispatch requested quantities. Items set to zero or left underfilled will remain open as partial delivery balances.</p>
+{% endblock %}
+
 {% block content %}
+<div class="max-w-6xl mx-auto">
 
-<div class="max-w-6xl">
-
-    <form method="post">
-
+    <form method="post" autocomplete="off">
         {% csrf_token %}
         {{ formset.management_form }}
 
         {% if formset.non_form_errors %}
-            <div class="mb-5 p-4 rounded-lg bg-rust/5 border border-rust/20 text-sm text-rust">
+            <div class="mb-5 p-4 rounded-xl bg-rust/5 border border-rust/20 text-sm text-rust font-medium">
                 {{ formset.non_form_errors }}
             </div>
         {% endif %}
 
-        <div class="bg-white border border-line rounded-xl overflow-hidden">
+        <div class="bg-white border border-[#E4DECB] rounded-xl overflow-hidden shadow-sm">
 
-            <div class="px-6 py-5 border-b border-line">
-                <h2 class="font-display text-xl">
-                    Issue stock
+            <!-- Card Header Header -->
+            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                <h2 class="text-sm font-semibold text-slate-800">
+                    Issue Packaged Stock
                 </h2>
-
-                <p class="text-sm text-clay mt-1">
-                    Enter the quantity actually handed out and the price attached to the release.
+                <p class="text-xs text-slate-400 mt-0.5">
+                    Enter the quantity actually handed out and the price attached to this release action.
                 </p>
             </div>
 
-            <div class="divide-y divide-line">
-
+            <!-- Dynamic Formset Items Loop -->
+            <div class="divide-y divide-slate-100">
                 {% for form in formset %}
-
                     <div class="p-6">
-
                         {{ form.item_id }}
 
                         {% if form.non_field_errors %}
-                            <div class="mb-4 p-3 rounded-lg bg-rust/5 border border-rust/20 text-sm text-rust">
+                            <div class="mb-4 p-3 rounded-lg bg-rust/5 border border-rust/20 text-xs text-rust font-medium">
                                 {{ form.non_field_errors }}
                             </div>
                         {% endif %}
 
-                        <div class="grid grid-cols-1 lg:grid-cols-[2fr_1fr_1fr_2fr] gap-4 items-end">
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-end">
 
-                            <!-- Product -->
-                            <div>
-                                <p class="text-xs uppercase tracking-wide text-clay mb-1">
-                                    Product
+                            <!-- Col 1: Product Lot Descriptions (5 Columns) -->
+                            <div class="lg:col-span-5 min-w-0">
+                                <p class="text-[11px] uppercase font-bold tracking-wider text-slate-400 mb-1">
+                                    Product Variant
                                 </p>
-
-                                <p class="font-semibold text-ink">
+                                <p class="font-bold text-slate-800 text-sm truncate">
                                     {% with item_id=form.item_id.value %}
                                         {% for item in stock_request.items.all %}
                                             {% if item.pk|stringformat:"s" == item_id|stringformat:"s" %}
-                                                {{ item.product.blend.name }}
-                                                ·
-                                                {{ item.product.pack_size.label }}
-                                                ·
-                                                {{ item.product.get_form_display }}
+                                                {{ item.product.blend.name }} · {{ item.product.pack_size.label }}
                                             {% endif %}
                                         {% endfor %}
                                     {% endwith %}
                                 </p>
-
-                                <p class="text-sm text-clay mt-1">
+                                <p class="text-xs text-amber-600 font-semibold mt-1">
                                     {% with item_id=form.item_id.value %}
                                         {% for item in stock_request.items.all %}
                                             {% if item.pk|stringformat:"s" == item_id|stringformat:"s" %}
-                                                {{ item.outstanding_quantity }} pack(s) remaining
+                                                📦 {{ item.outstanding_quantity }} pack(s) remaining
                                             {% endif %}
                                         {% endfor %}
                                     {% endwith %}
                                 </p>
                             </div>
 
-
-                            <!-- Issue quantity -->
-                            <div>
-                                <label
-                                    for="{{ form.issue_quantity.id_for_label }}"
-                                    class="block text-xs font-semibold text-clay mb-1"
-                                >
-                                    Issue quantity
+                            <!-- Col 2: Issue Quantity field (2 Columns) -->
+                            <div class="lg:col-span-2">
+                                <label for="{{ form.issue_quantity.id_for_label }}" class="block text-xs font-semibold text-slate-600 mb-1.5">
+                                    Issue Quantity
                                 </label>
-
                                 {{ form.issue_quantity }}
-
                                 {% if form.issue_quantity.errors %}
-                                    <div class="mt-1 text-xs text-rust">
-                                        {{ form.issue_quantity.errors }}
-                                    </div>
+                                    <p class="mt-1 text-xs text-rust font-medium">{{ form.issue_quantity.errors.0 }}</p>
                                 {% endif %}
                             </div>
 
-
-                            <!-- Selling price -->
-                            <div>
-                                <label
-                                    for="{{ form.selling_price.id_for_label }}"
-                                    class="block text-xs font-semibold text-clay mb-1"
-                                >
-                                    Price / pack
+                            <!-- Col 3: Price per Pack field (2 Columns) -->
+                            <div class="lg:col-span-2">
+                                <label for="{{ form.selling_price.id_for_label }}" class="block text-xs font-semibold text-slate-600 mb-1.5">
+                                    Price / Pack (UGX)
                                 </label>
-
                                 {{ form.selling_price }}
-
                                 {% if form.selling_price.errors %}
-                                    <div class="mt-1 text-xs text-rust">
-                                        {{ form.selling_price.errors }}
-                                    </div>
+                                    <p class="mt-1 text-xs text-rust font-medium">{{ form.selling_price.errors.0 }}</p>
                                 {% endif %}
                             </div>
 
-
-                            <!-- Notes -->
-                            <div>
-                                <label
-                                    for="{{ form.notes.id_for_label }}"
-                                    class="block text-xs font-semibold text-clay mb-1"
-                                >
-                                    Note
+                            <!-- Col 4: Run Annotation Notes field (3 Columns) -->
+                            <div class="lg:col-span-3">
+                                <label for="{{ form.notes.id_for_label }}" class="block text-xs font-semibold text-slate-600 mb-1.5">
+                                    Run Annotation Note
                                 </label>
-
                                 {{ form.notes }}
-
                                 {% if form.notes.errors %}
-                                    <div class="mt-1 text-xs text-rust">
-                                        {{ form.notes.errors }}
-                                    </div>
+                                    <p class="mt-1 text-xs text-rust font-medium">{{ form.notes.errors.0 }}</p>
                                 {% endif %}
                             </div>
 
                         </div>
-
                     </div>
-
                 {% empty %}
-
-                    <div class="px-6 py-12 text-center text-clay">
-                        There are no items available for fulfilment on this request.
+                    <div class="px-6 py-12 text-center text-xs text-slate-400 italic bg-white">
+                        There are no active items left available for fulfilment on this request ticket.
                     </div>
-
                 {% endfor %}
-
             </div>
 
+            <!-- CORE BUTTON CONTROLS FOOTER ROW -->
+            <div class="px-6 py-4 bg-slate-50 border-t border-[#E4DECB] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                
+                <!-- LEFT WALL PANEL: Completely isolated request denial trigger button -->
+                <div>
+                    <button type="submit" form="global-cancel-form" class="w-full sm:w-auto px-4 py-2 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-lg text-xs font-bold transition active:scale-95">
+                        🚫 Deny & Cancel Request
+                    </button>
+                </div>
 
-            <!-- Actions -->
-            <div class="px-6 py-5 border-t border-line flex justify-end gap-3">
-
-                <a
-                    href="{% url 'stock_request_detail' stock_request.pk %}"
-                    class="px-4 py-2.5 border border-line rounded-lg text-sm"
-                >
-                    Cancel
-                </a>
-
-                <button
-                    type="submit"
-                    class="px-5 py-2.5 bg-rust text-white rounded-lg text-sm font-semibold"
-                >
-                    Issue Stock
-                </button>
+                <!-- RIGHT WALL PANEL: Core operations flow buttons -->
+                <div class="flex items-center justify-end gap-3 w-full sm:w-auto">
+                    <a href="{% url 'stock_request_detail' stock_request.pk %}"
+                       class="w-full sm:w-auto text-center px-4 py-2 border border-[#E4DECB] hover:bg-white bg-slate-50 rounded-lg text-xs font-semibold text-slate-600 transition">
+                        Back to Details
+                    </a>
+                    <button type="submit"
+                            class="w-full sm:w-auto px-5 py-2 bg-rust hover:bg-rust-dark text-white rounded-lg text-xs font-bold shadow-sm transition active:scale-95">
+                        🚀 Release Verified Stock
+                    </button>
+                </div>
 
             </div>
 
         </div>
+    </form>
 
+    <!-- SECONDARY ISOLATED METHOD CAPTURE FORM: Fires completely independently -->
+    <form id="global-cancel-form" method="POST" action="{% url 'stock_request_cancel' stock_request.pk %}" class="hidden" onsubmit="return confirm('Are you sure you want to completely deny and cancel this stock request ticket? This cannot be undone.');">
+        {% csrf_token %}
     </form>
 
 </div>
-
 {% endblock %}

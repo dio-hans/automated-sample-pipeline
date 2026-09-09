@@ -1,60 +1,87 @@
-
 {% extends "pipeline/base.html" %}
+{% load humanize %}
+
 {% block title %}Stock Requests | Nonda{% endblock %}
 {% block breadcrumb %}Stock Control / Requests{% endblock %}
-{% block page_title %}Stock Requests{% endblock %}
+{% block page_title %}Stock Requests Queue{% block page_subtitle %}{% endblock %}{% endblock %}
+
+
+
 {% block content %}
-<div class="bg-white border border-line rounded-xl overflow-hidden">
-    <div class="overflow-x-auto"><table class="w-full text-sm">
-        <thead class="bg-olive text-white"><tr><th class="px-5 py-3 text-left">
-            Request
-        </th><th class="px-5 py-3 text-left">
-            Requested by
-        </th>
-        <th class="px-5 py-3 text-left">
-            Purpose
-        </th>
-        <th class="px-5 py-3 text-left">
-            Date
-        </th>
-        <th class="px-5 py-3 text-left">
-            Status
-        </th>
-    </tr>
-</thead>
-<tbody class="divide-y divide-line">
-    {% for request in requests %}
-    <tr class="hover:bg-paper">
-        <td class="px-5 py-4">
-            <a class="font-semibold text-rust" href="{% url 'stock_request_detail' request.pk %}">
-                {{ request.short_number }}
-            </a>
-        </td>
-        <td class="px-5 py-4">
-            {{ request.requested_by }}
-        </td>
-        <td class="px-5 py-4">
-            {{ request.get_purpose_display }}
-        </td>
-        <td class="px-5 py-4">
-            {{ request.requested_at|date:"d M Y, H:i" }}
-        </td>
-        <td class="px-5 py-4">
-            {{ request.get_status_display }}
-        </td>
-    </tr>
-    {% empty %}
-    <tr>
-        <td colspan="5" class="px-5 py-12 text-center text-clay">
-            No stock requests yet.
-        </td>
-    </tr>
-    {% endfor %}
-</tbody>
-</table>
-</div>
+<div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left border-collapse bg-white">
+            <thead>
+                <tr class="bg-slate-50 border-b border-[#E4DECB] text-slate-600 font-semibold">
+                    <th class="px-6 py-4">Request Ticket</th>
+                    <th class="px-6 py-4">Requested By</th>
+                    <th class="px-6 py-4">Allocation Purpose</th>
+                    <th class="px-6 py-4">Date Submitted</th>
+                    <th class="px-6 py-4 text-center">Fulfillment Status</th>
+                    <th class="px-6 py-4 text-right">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-[#E4DECB] text-slate-700">
+                {% for request in requests %}
+                <tr class="hover:bg-slate-50/50 transition duration-150">
+                    <!-- Ticket ID -->
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <a class="font-bold text-rust hover:text-rust-dark hover:underline text-xs tracking-wider" href="{% url 'stock_request_detail' request.pk %}">
+                            {{ request.short_number }}
+                        </a>
+                    </td>
+                    
+                    <!-- Applicant -->
+                    <td class="px-6 py-4 whitespace-nowrap font-medium text-slate-800">
+                        {{ request.requested_by.get_full_name|default:request.requested_by.username }}
+                    </td>
+                    
+                    <!-- Purpose -->
+                    <td class="px-6 py-4 whitespace-nowrap text-xs text-slate-500 font-medium capitalize">
+                        {{ request.get_purpose_display }}
+                    </td>
+                    
+                    <!-- Datetime -->
+                    <td class="px-6 py-4 whitespace-nowrap text-xs text-slate-400 font-medium">
+                        {{ request.requested_at|date:"d M Y, H:i" }}
+                    </td>
+                    
+                    <!-- Status Badges -->
+                    <td class="px-6 py-4 text-center whitespace-nowrap">
+                        {% if request.status == "partially_fulfilled" %}
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-100 text-xs font-semibold">
+                                Partial Dispatch
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-100 text-xs font-semibold">
+                                Pending Store
+                            </span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Direct Navigation Action Link -->
+                    <td class="px-6 py-4 text-right whitespace-nowrap">
+                        <a href="{% url 'stock_request_detail' request.pk %}" class="text-xs font-bold text-rust hover:text-rust-dark hover:underline">
+                            Process Order 
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <!-- Empty Queue Exception State Layout -->
+                <tr>
+                    <td colspan="6" class="px-6 py-16 text-center text-slate-400">
+                        <div class="flex flex-col items-center justify-center space-y-2 max-w-xs mx-auto">
+                            <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                            </svg>
+                            <p class="text-xs font-bold text-slate-800">Clear Action Queue</p>
+                            <p class="text-[11px] text-slate-400 leading-normal">Excellent! All logged agent requests have been completely fulfilled or signed off.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}
-
-
-

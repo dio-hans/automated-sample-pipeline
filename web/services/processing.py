@@ -1,9 +1,13 @@
-
+from django.contrib import messages
+from django.views import View
 from dataclasses import dataclass
 from decimal import Decimal
+from django.shortcuts import get_object_or_404, redirect
 
 from django.db import transaction
 from django.utils import timezone
+
+from ..permissions import RoleRequiredMixin
 
 from ..models import (
     CoffeeStock,
@@ -134,110 +138,63 @@ def issue_for_processing(
 # COMPLETE ROASTING
 # ============================================================
 
-@transaction.atomic
-def complete_roasting(
-    *,
-    processing_run,
-    output_quantity,
-    user=None,
-    notes="",
-):
+from decimal import Decimal
+from django.utils import timezone
+from django.core.exceptions import ValidationError
+from ..models import StockStage, StockMovement
+
+def complete_roasting(processing_run, good_quantity, bad_quantity, user, notes=""):
     """
-    Receive roasted coffee back from roasting.
-
-    Example:
-
-        Issued: 400 kg
-
-        Returned: 370 kg
-        Loss:      30 kg
+    Step 2: Completes an active roasting run.
+    Deducts from 'Machinery' and updates 'Roasted' and 'Quakers' inventory states.
     """
+    good_qty = Decimal(good_quantity)
+    bad_qty = Decimal(bad_quantity)
+    total_output = good_qty + bad_qty
 
-    output_quantity = Decimal(output_quantity)
-
-    if output_quantity <= 0:
-        raise ValueError(
-            "Roasted quantity must be greater than zero."
+    if total_output > processing_run.input_quantity:
+        raise ValidationError(
+            f"Output ({total_output} kg) cannot be greater than the input lot weight "
+            f"({processing_run.input_quantity} kg)."
         )
 
-    run = (
-        ProcessingRun.objects
-        .select_for_update()
-        .select_related("stock")
-        .get(pk=processing_run.pk)
-    )
+    # 🧮 Automatic Process Loss Calculation (Moisture Loss / Silver-skin chaff)
+    process_loss = processing_run.input_quantity - total_output
 
-    if run.process_type != "roasting":
-        raise ValueError(
-            "This processing run is not a roasting run."
-        )
+    # Update the core machinery run record logs
+    processing_run.output_quantity = good_qty
+    processing_run.bad_quantity_sorted = bad_qty  # Assumes you add this field, or log via movements
+    processing_run.status = "completed"
+    processing_run.completed_at = timezone.now()
+    processing_run.save()
 
-    if run.status != "open":
-        raise ValueError(
-            "This roasting run has already been completed."
-        )
+    # 🚚 POST STOCK MOVEMENTS TO LEDGER
+    stock = processing_run.stock
 
-    if output_quantity > run.input_quantity:
-        raise ValueError(
-            "Roasted output cannot exceed input."
-        )
-
-    loss_quantity = (
-        run.input_quantity
-        - output_quantity
-    )
-
-    output_movement = StockMovement.objects.create(
-        stock=run.stock,
-        movement_type="roast_return",
-        from_stage=None,
+    # 1. Log Good Roasted Output moving out of Machinery to ROASTED stage
+    StockMovement.objects.create(
+        stock=stock,
+        from_stage=StockStage.MACHINERY,
         to_stage=StockStage.ROASTED,
-        quantity=output_quantity,
-        reference=f"Processing #{run.pk}",
-        notes=notes,
+        quantity=good_qty,
+        movement_type="processing_complete",
         created_by=user,
+        notes=notes
     )
 
-    loss_movement = None
-
-    if loss_quantity > ZERO:
-
-        loss_movement = StockMovement.objects.create(
-            stock=run.stock,
-            movement_type="loss",
-            from_stage=None,
-            to_stage=None,
-            quantity=loss_quantity,
-            reference=f"Roasting loss #{run.pk}",
-            notes=(
-                f"Roasting loss. "
-                f"Input: {run.input_quantity} kg. "
-                f"Output: {output_quantity} kg."
-            ),
+    # 2. Log Bad Roasted Output (Quakers) moving out of Machinery to QUAKERS stage
+    if bad_qty > 0:
+        StockMovement.objects.create(
+            stock=stock,
+            from_stage=StockStage.MACHINERY,
+            to_stage=StockStage.QUAKERS,
+            quantity=bad_qty,
+            movement_type="defect_sorting",
             created_by=user,
+            notes=f"Sorted bad beans saved for staff consumption. {notes}"
         )
 
-    run.output_quantity = output_quantity
-    run.loss_quantity = loss_quantity
-    run.status = "completed"
-    run.completed_by = user
-    run.completed_at = timezone.now()
-
-    if notes:
-        run.notes = notes
-
-    run.save(
-        update_fields=[
-            "output_quantity",
-            "loss_quantity",
-            "status",
-            "completed_by",
-            "completed_at",
-            "notes",
-        ]
-    )
-
-    return run, output_movement, loss_movement
+    return processing_run, process_loss
 
 
 # ============================================================
@@ -483,3 +440,40 @@ def complete_grinding(
 
 
 
+class CompleteProcessingRunView(RoleRequiredMixin, View):
+    allowed_roles = ("store_manager", "manager", "admin")
+
+    def post(self, request, pk):
+        run = get_object_or_404(ProcessingRun, pk=pk)
+        
+        try:
+            user = request.user
+            notes = request.POST.get("notes", "")
+
+            if run.process_type == "roasting":
+                good_qty = request.POST.get("good_quantity", 0)
+                bad_qty = request.POST.get("bad_quantity", 0)
+                
+                # Execute completion with sorting parameters split out
+                completed_run, process_loss = complete_roasting(
+                    processing_run=run, 
+                    good_quantity=good_qty, 
+                    bad_quantity=bad_qty, 
+                    user=user, 
+                    notes=notes
+                )
+                messages.success(
+                    request, 
+                    f"Roast Complete: {completed_run.input_quantity}kg input → "
+                    f"{good_qty}kg Good, {bad_qty}kg Defective (Staff), {process_loss:.2f}kg Process Loss."
+                )
+            else:
+                # Grinding remains a simple input-to-output conversion layer
+                output_qty = request.POST.get("output_quantity", 0)
+                completed_run, _ = complete_grinding(processing_run=run, output_quantity=float(output_qty), user=user, notes=notes)
+                messages.success(request, f"Grinding Complete: produced {completed_run.output_quantity} kg.")
+
+        except Exception as exc:
+            messages.error(request, str(exc))
+
+        return redirect("processing_run_list")

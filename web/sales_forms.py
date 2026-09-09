@@ -1,3 +1,5 @@
+from .models import PackReturn
+from decimal import Decimal
 
 from django import forms
 from django.forms import BaseFormSet, formset_factory
@@ -5,7 +7,7 @@ from django.forms import BaseFormSet, formset_factory
 
 from .models import (Company,
  PackRelease,
-  PackagedProduct,
+  PackagedProduct, PaymentReceipt,
    StockRequest,
 PackagedInventory,
 )
@@ -134,19 +136,51 @@ class FulfillItemForm(forms.Form):
         widget=forms.TextInput(attrs={"class": FIELD_CLASS, "placeholder": "Optional issue note"}),
     )
 
-
 class PackReturnCleanForm(forms.Form):
+
     packs_returned = forms.IntegerField(
         min_value=1,
-        widget=forms.NumberInput(attrs={"class": FIELD_CLASS, "min": "1"}),
+        widget=forms.NumberInput(
+            attrs={
+                "class": FIELD_CLASS,
+                "min": "1",
+            }
+        ),
     )
+
+    condition = forms.ChoiceField(
+        choices=PackReturn.CONDITION_CHOICES,
+        widget=forms.Select(
+            attrs={"class": FIELD_CLASS}
+        ),
+    )
+
+    disposition = forms.ChoiceField(
+        choices=PackReturn.DISPOSITION_CHOICES,
+        initial="accepted",
+        widget=forms.Select(
+            attrs={"class": FIELD_CLASS}
+        ),
+    )
+
     reason = forms.CharField(
         required=False,
-        widget=forms.TextInput(attrs={"class": FIELD_CLASS, "placeholder": "e.g. unsold stock returned"}),
+        widget=forms.TextInput(
+            attrs={
+                "class": FIELD_CLASS,
+                "placeholder": "e.g. unsold stock returned",
+            }
+        ),
     )
+
     notes = forms.CharField(
         required=False,
-        widget=forms.Textarea(attrs={"class": FIELD_CLASS, "rows": 3}),
+        widget=forms.Textarea(
+            attrs={
+                "class": FIELD_CLASS,
+                "rows": 3,
+            }
+        ),
     )
 
 
@@ -181,3 +215,54 @@ class SettlementForm(forms.Form):
 
 
 
+class PaymentReceiptForm(forms.ModelForm):
+
+    class Meta:
+        model = PaymentReceipt
+        fields = [
+            "amount",
+            "method",
+            "payment_reference",
+            "notes",
+        ]
+
+        widgets = {
+            "amount": forms.NumberInput(
+                attrs={
+                    "class": FIELD_CLASS,
+                    "min": "0.01",
+                    "step": "0.01",
+                }
+            ),
+
+            "method": forms.Select(
+                attrs={"class": FIELD_CLASS}
+            ),
+
+            "payment_reference": forms.TextInput(
+                attrs={
+                    "class": FIELD_CLASS,
+                    "placeholder": "MoMo / bank transaction reference",
+                }
+            ),
+
+            "notes": forms.Textarea(
+                attrs={
+                    "class": FIELD_CLASS,
+                    "rows": 3,
+                    "placeholder": "Optional payment note",
+                }
+            ),
+        }
+
+    def clean_amount(self):
+        amount = self.cleaned_data["amount"]
+
+        if amount <= Decimal("0.00"):
+            raise forms.ValidationError(
+                "Payment amount must be greater than zero."
+            )
+
+        return amount
+
+    

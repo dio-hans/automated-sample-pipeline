@@ -16,7 +16,7 @@ urlpatterns = [
     path("stocks/<int:pk>/", views.CoffeeStockDetailView.as_view(), name="stock_detail"),
     path("stocks/create/", views.CoffeeStockCreateView.as_view(), name="stock_create"),
     path("stocks/<int:pk>/update/", views.CoffeeStockUpdateView.as_view(), name="stock_update"),
-    path("stocks/<int:pk>/process/", views.ProcessStockView.as_view(), name="stock_process"),
+   
 
     # samples
     path("samples/", views.SampleListView.as_view(), name="sample_list"),
@@ -71,8 +71,13 @@ urlpatterns = [
     path('pack-releases/<int:pk>/', views.PackReleaseDetailView.as_view(), name='pack_release_detail'),
 
     # --- Pack Returns ---
-    path('pack-returns/', views.PackReturnCreateView.as_view(), name='pack_return_form'),
-    path('pack-returns-list', views.PackReturnListView.as_view(), name='pack_return_list'),  
+    # 1. The Form Page to Record/Add a New Pack Return Transaction
+    path("returns/add/", views.PackReturnCreateView.as_view(), name="pack_return_form"),
+
+    # 2. The History Ledger Page Listing All Logged Coffee Pack Returns
+    path("returns/list/", views.PackReturnListView.as_view(), name="pack_return_list"),
+
+  
 
     # --- Sales / store stock workflow ---
     path("sales/", sales_views.SalesWorkspaceView.as_view(), name="record_sale"),
@@ -81,6 +86,8 @@ urlpatterns = [
     path("stock-requests/<int:pk>/", sales_views.StockRequestDetailView.as_view(), name="stock_request_detail"),
     path("stock-requests/<int:pk>/fulfil/", sales_views.StockRequestFulfillView.as_view(), name="stock_request_fulfill"),
     path("sales/stock/", sales_views.SalesStockView.as_view(), name="my_stock"),
+    path("stock-requests/<int:pk>/cancel/",views.CancelStockRequestView.as_view(),name="stock_request_cancel"),
+
 
     # --- Cashier ---
     path("cashier/queue/", sales_views.CashierQueueView.as_view(), name="order_queue"),
@@ -92,7 +99,14 @@ urlpatterns = [
 
     # --- Return from a specific physical release ---
     path("pack-releases/<int:release_pk>/return/", sales_views.PackReturnFromReleaseView.as_view(), name="pack_return_create"),
+
+    #PROCESSING
+    path("processing/issue/<int:pk>/", views.IssueProcessingRunView.as_view(), name="issue_processing"),
+    path("processing/complete/<int:pk>/", views.CompleteProcessingRunView.as_view(), name="complete_processing"),
+    path("releases/<int:pk>/collect-payment/",views.RecordInstallmentPaymentView.as_view(),name="record_installment"),
+    path("cash-book/", views.CashLedgerListView.as_view(), name="cash_ledger_list"),
+    path("releases/<int:pk>/collect-payment/",views.RecordInstallmentPaymentView.as_view(),name="record_installment",),
+    path("processing-workspace/", views.ProcessingWorkspaceView.as_view(), name="processing_workspace"),
+    path("accounting/credit-ledger/",views.CreditControlLedgerView.as_view(),name="credit_control_ledger"),
+
 ]
-
-
-

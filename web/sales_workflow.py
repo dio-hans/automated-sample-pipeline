@@ -6,11 +6,13 @@ from django.db import transaction
 from django.utils import timezone
 
 from .models import (
+    AccountHolder,
     PackRelease,
     PackReturn,
     PackSettlement,
     PackagedProduct,
     PackagedInventory,
+    PaymentReceipt,
     StockRequest,
     StockRequestItem,
 )
@@ -58,8 +60,10 @@ def fulfill_request_item(*, item, quantity, selling_price, manager, notes=""):
     """Issue packaged stock against one request item atomically."""
     item = (StockRequestItem.objects.select_for_update()
             .select_related("request", "product").get(pk=item.pk))
+    
     quantity = int(quantity)
     selling_price = Decimal(selling_price)
+    
     if item.request.status in {"cancelled", "fulfilled"}:
         raise ValidationError("This stock request is no longer open for fulfilment.")
     if quantity <= 0:
@@ -68,18 +72,47 @@ def fulfill_request_item(*, item, quantity, selling_price, manager, notes=""):
         raise ValidationError("Price per pack cannot be negative.")
     if quantity > item.outstanding_quantity:
         raise ValidationError(f"Only {item.outstanding_quantity} packs remain to fulfil this item.")
+        
     product = PackagedProduct.objects.select_for_update().get(pk=item.product_id)
     try:
         inventory = PackagedInventory.objects.select_for_update().get(product=product)
     except PackagedInventory.DoesNotExist:
         raise ValidationError(f"No packaged stock exists for {product}.")
+        
     available = inventory.available
     if quantity > available:
         raise ValidationError(f"Only {available} packs of {product} are currently available.")
+
+    # ---------------------------------------------------------
+    # RESOLVE ACCOUNTHOLDER FOR PACKRELEASE CONTEXT
+    # ---------------------------------------------------------
+    request_user = item.request.requested_by # This is the "User" instance
+    
+    # Check if this user already has an AccountHolder profile card linked
+    account_holder = AccountHolder.objects.filter(system_user=request_user).first()
+    
+    # Auto-bootstrap profile if they don't have an account card entry yet
+    if not account_holder:
+        account_holder, _ = AccountHolder.objects.get_or_create(
+            system_user=request_user,
+            defaults={
+                "name": request_user.get_full_name() or request_user.username,
+                "account_type": "salesperson",
+                "is_active": True
+            }
+        )
+
+    # 🚀 Create the release record using the valid AccountHolder instance!
     release = PackRelease.objects.create(
-        product=product, request_item=item, released_to=item.request.requested_by,
-        packs_out=quantity, selling_price=selling_price, created_by=manager, notes=notes,
+        product=product, 
+        request_item=item, 
+        released_to=account_holder,  #  Fixed: We pass the AccountHolder here!
+        packs_out=quantity, 
+        selling_price=selling_price, 
+        created_by=manager, 
+        notes=notes,
     )
+
     request = item.request
     items = list(request.items.all())
     if all(i.outstanding_quantity == 0 for i in items):
@@ -90,7 +123,9 @@ def fulfill_request_item(*, item, quantity, selling_price, manager, notes=""):
         request.status = "partially_fulfilled"
         request.fulfilled_at = None
         request.save(update_fields=["status", "fulfilled_at"])
+        
     return release
+
 
 
 @transaction.atomic
@@ -98,15 +133,15 @@ def return_packs(
     *,
     release,
     packs_returned,
-    condition="good",
+    condition,
+    disposition,
     reason="",
-    user=None,
     notes="",
+    user=None,
 ):
     release = (
         PackRelease.objects
         .select_for_update()
-        .select_related("product", "released_to")
         .get(pk=release.pk)
     )
 
@@ -120,13 +155,14 @@ def return_packs(
     if packs_returned > release.packs_outstanding:
         raise ValidationError(
             f"Only {release.packs_outstanding} "
-            f"packs are outstanding on this release."
+            "packs remain outstanding on this release."
         )
 
     returned = PackReturn.objects.create(
         release=release,
         packs_returned=packs_returned,
         condition=condition,
+        disposition=disposition,
         reason=reason,
         notes=notes,
         received_by=user,
@@ -134,7 +170,7 @@ def return_packs(
 
     if release.packs_outstanding == 0:
         release.status = "fully_returned"
-    else:
+    elif returned.counts_against_release:
         release.status = "partially_returned"
 
     release.save(
@@ -145,6 +181,7 @@ def return_packs(
     )
 
     return returned
+
 @transaction.atomic
 def settle_release(
     *,
@@ -210,4 +247,42 @@ def settle_release(
     return settlement
 
 
+@transaction.atomic
+def record_payment(
+    *,
+    release,
+    amount,
+    method,
+    payment_reference="",
+    collected_by=None,
+    notes="",
+):
+    release = (
+        PackRelease.objects
+        .select_for_update()
+        .get(pk=release.pk)
+    )
 
+    amount = Decimal(amount)
+
+    if amount <= Decimal("0.00"):
+        raise ValidationError(
+            "Payment amount must be greater than zero."
+        )
+
+    if amount > release.outstanding_balance:
+        raise ValidationError(
+            f"Payment exceeds the outstanding balance of "
+            f"UGX {release.outstanding_balance:,.2f}."
+        )
+
+    payment = PaymentReceipt.objects.create(
+        release=release,
+        amount=amount,
+        method=method,
+        payment_reference=payment_reference,
+        collected_by=collected_by,
+        notes=notes,
+    )
+
+    return payment

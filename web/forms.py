@@ -687,24 +687,81 @@ class PackagingRunForm(forms.ModelForm):
 
 
 class PackReleaseForm(forms.ModelForm):
+
     class Meta:
         model = PackRelease
-        fields = ['product', 'released_to', 'packs_out', 'selling_price', 'notes']
+        fields = [
+            "product",
+            "released_to",
+            "packs_out",
+            "selling_price",
+            "notes",
+        ]
+
         widgets = {
-            'product': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
-            "released_to": forms.Select(attrs={"class": FIELD_CLASS}),
-            'packs_out': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'min': '1'}),
-            'selling_price': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'step': '0.01'}),
-            'notes': forms.Textarea(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'rows': 3}),
+            "product": forms.Select(
+                attrs={"class": FIELD_CLASS}
+            ),
+
+            "released_to": forms.Select(
+                attrs={"class": FIELD_CLASS}
+            ),
+
+            "packs_out": forms.NumberInput(
+                attrs={
+                    "class": FIELD_CLASS,
+                    "min": "1",
+                }
+            ),
+
+            "selling_price": forms.NumberInput(
+                attrs={
+                    "class": FIELD_CLASS,
+                    "min": "0",
+                    "step": "0.01",
+                }
+            ),
+
+            "notes": forms.Textarea(
+                attrs={
+                    "class": FIELD_CLASS,
+                    "rows": 3,
+                }
+            ),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["released_to"].queryset = User.objects.filter(
-            role=User.Role.SALES,
-            is_active=True,
-        ).order_by("username")
 
+        self.fields["released_to"].queryset = (
+            AccountHolder.objects
+            .filter(is_active=True)
+            .order_by("name")
+        )
+
+        self.fields["released_to"].empty_label = (
+            "Select account holder..."
+        )
+
+    def clean_packs_out(self):
+        quantity = self.cleaned_data["packs_out"]
+
+        if quantity <= 0:
+            raise forms.ValidationError(
+                "Release quantity must be greater than zero."
+            )
+
+        return quantity
+
+    def clean_selling_price(self):
+        price = self.cleaned_data["selling_price"]
+
+        if price < 0:
+            raise forms.ValidationError(
+                "Selling price cannot be negative."
+            )
+
+        return price
 
 class PackReturnForm(forms.ModelForm):
     class Meta:

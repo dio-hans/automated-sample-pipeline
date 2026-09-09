@@ -1,65 +1,144 @@
-
 {% extends "pipeline/base.html" %}
-{% block title %}Releases | Nonda{% endblock %}
-{% block breadcrumb %}Stock Control / Releases{% endblock %}
-{% block page_title %}Stock Releases{% endblock %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Stock Releases Ledger | Nonda{% endblock %}
+{% block breadcrumb %}Financials / Stock Releases{% endblock %}
+{% block page_title %}Stock Releases & Receivables Ledger{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Accountability desk for physical dispatches, partial field credits, and real-time debt liquidations.
+</p>
+{% endblock %}
+
 {% block content %}
-<div class="bg-white border border-line rounded-xl overflow-hidden">
-    <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead class="bg-olive text-white">
-                <tr>
-                    <th class="px-5 py-3 text-left">
-                        Date
-                    </th>
-                    <th class="px-5 py-3 text-left">
-                        Product
-                    </th>
-                    <th class="px-5 py-3 text-left">
-                        Released to
-                    </th>
-                    <th class="px-5 py-3 text-right">
-                        Out
-                    </th>
-                    <th class="px-5 py-3 text-right">
-                        Returned
-                    </th>
-                    <th class="px-5 py-3 text-right">
-                        Outstanding
-                    </th>
-                    <th class="px-5 py-3 text-right">
-                        Price
-                    </th>
-                    <th class="px-5 py-3 text-left">
-                        Status
-                    </th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-line">
-                {% for release in releases %}
-                <tr class="hover:bg-paper">
-                    <td class="px-5 py-4">{{ release.released_at|date:"d M Y, H:i" }}</td>
-                    <td class="px-5 py-4">
-                        <a href="{% url 'pack_release_detail' release.pk %}" class="font-semibold text-rust">{{ release.product.blend.name }} · {{ release.product.pack_size.label }}</a>
-                        <p class="text-xs text-clay">{{ release.product.get_form_display }}</p>
-                    </td>
-                    <td class="px-5 py-4">{{ release.released_to }}</td>
-                    <td class="px-5 py-4 text-right">{{ release.packs_out }}</td>
-                    <td class="px-5 py-4 text-right">{{ release.packs_returned }}</td>
-                    <td class="px-5 py-4 text-right font-semibold">{{ release.packs_outstanding }}</td>
-                    <td class="px-5 py-4 text-right">UGX {{ release.selling_price|floatformat:0 }}</td>
-                    <td class="px-5 py-4">{{ release.get_status_display }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="8" class="px-5 py-12 text-center text-clay">No releases recorded.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="space-y-6">
+
+    <!-- 1. LIVE DYNAMIC FINANCIAL MATRIX CARDS -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Card A: Total Value Released -->
+        <div class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm">
+            <p class="text-xs uppercase font-bold tracking-wider text-slate-400">Total Value Dispatched</p>
+            <p class="font-semibold text-2xl mt-2 text-slate-800">{{ total_value_issued|floatformat:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">UGX</span></p>
+            <p class="text-xs text-slate-400 mt-1">Gross worth of inventory moved from warehouse</p>
+        </div>
+
+        <!-- Card B: Cash Collected Natively -->
+         {% if request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" %}
+        <div class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm">
+            <p class="text-xs uppercase font-bold tracking-wider text-slate-400">Liquid Cash Collected</p>
+            <p class="font-semibold text-2xl mt-2 text-emerald-600">{{ total_collected_revenue|floatformat:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">UGX</span></p>
+            <p class="text-xs text-slate-400 mt-1">Cleared revenue securely locked in-house</p>
+        </div>
+        {% endif %}
+
+        <!-- Card C: Unpaid Outstanding Debt -->
+         {% if request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" %}
+         <a href="{% url 'credit_control_ledger' %}">
+        <div class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm">
+            <p class="text-xs uppercase font-bold tracking-wider text-slate-400">Outstanding Field Debt</p>
+            <p class="font-semibold text-2xl mt-2 text-rose-600">{{ total_outstanding_debt|floatformat:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">UGX</span></p>
+            <p class="text-xs text-slate-400 mt-1">Active credit balances currently pending collection</p>
+        </div>
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- 2. DATE FILTERS TIMELINE CONTROL TIMELINE BAR -->
+    <div class="flex flex-wrap items-center gap-2 bg-white border border-[#E4DECB] rounded-xl p-3 shadow-sm">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-2 pl-1">Filter Timeline:</span>
+        <a href="?preset=this_month" class="px-3 py-1.5 rounded-lg border text-xs font-medium transition {% if preset == 'this_month' %}bg-olive text-white border-olive{% else %}bg-slate-50 text-slate-600 border-[#E4DECB] hover:bg-slate-100{% endif %}">This Month</a>
+        <a href="?preset=last_7_days" class="px-3 py-1.5 rounded-lg border text-xs font-medium transition {% if preset == 'last_7_days' %}bg-olive text-white border-olive{% else %}bg-slate-50 text-slate-600 border-[#E4DECB] hover:bg-slate-100{% endif %}">Last 7 Days</a>
+        <a href="?preset=today" class="px-3 py-1.5 rounded-lg border text-xs font-medium transition {% if preset == 'today' %}bg-olive text-white border-olive{% else %}bg-slate-50 text-slate-600 border-[#E4DECB] hover:bg-slate-100{% endif %}">Today</a>
+        <a href="?preset=all" class="px-3 py-1.5 rounded-lg border text-xs font-medium transition {% if preset == 'all' %}bg-olive text-white border-olive{% else %}bg-slate-50 text-slate-600 border-[#E4DECB] hover:bg-slate-100{% endif %}">Show All Ledger</a>
+    </div>
+
+    <!-- 3. CENTRAL TRANSACTION LEDGER TABLE -->
+    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left border-collapse bg-white">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-[#E4DECB] text-slate-600 font-semibold text-xs uppercase tracking-wider">
+                        <th class="px-6 py-4">Date Issued</th>
+                        <th class="px-6 py-4">Product Variant</th>
+                        <th class="px-6 py-4">Account Holder</th>
+                        <th class="px-6 py-4 text-center">Out</th>
+                        <th class="px-6 py-4 text-center">Returned</th>
+                        <th class="px-6 py-4 text-center">Outstanding</th>
+                        <th class="px-6 py-4 text-right">Price / Pack</th>
+
+                        {% if request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" %}
+                        <th class="px-6 py-4 text-right">Collected</th>
+                        <th class="px-6 py-4 text-right">Debt Balance</th>
+                        <th class="px-6 py-4 text-center">Quick Action</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#E4DECB] text-slate-700 text-xs">
+                    {% for release in releases %}
+                    <tr class="hover:bg-slate-50/50 transition duration-150">
+                        <!-- Date -->
+                        <td class="px-6 py-4 whitespace-nowrap text-slate-400 font-medium">
+                            {{ release.released_at|date:"d M Y, H:i" }}
+                        </td>
+
+                        <!-- Product -->
+                        <td class="px-6 py-4 whitespace-nowrap font-bold text-slate-900">
+                            {{ release.product.blend.name }} · {{ release.product.pack_size.label }}
+                        </td>
+
+                        <!-- Account Holder -->
+                        <td class="px-6 py-4 whitespace-nowrap font-semibold text-slate-800">
+                            {% if release.released_to %}
+                                {{ release.released_to.name }}
+                            {% else %}
+                                <span class="text-slate-400 font-normal italic">Unassigned Agent</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Quantity Columns -->
+                        <td class="px-6 py-4 text-center font-medium text-slate-500">{{ release.packs_out }}</td>
+                        <td class="px-6 py-4 text-center font-medium text-slate-500">{{ release.packs_returned }}</td>
+                        <td class="px-6 py-4 text-center font-bold text-slate-800 bg-slate-50/50">{{ release.packs_outstanding }}</td>
+
+                        <!-- Price / Pack -->
+                        <td class="px-6 py-4 text-right font-medium text-slate-500">{{ release.selling_price|floatformat:0|intcomma }}</td>
+
+                        <!-- Collected Revenue -->
+
+                        {% if request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" %}
+                        <td class="px-6 py-4 text-right font-bold text-emerald-600">{{ release.total_amount_paid|floatformat:0|intcomma }}</td>
+
+                        <!-- Remaining Balance Owed -->
+                        <td class="px-6 py-4 text-right font-black text-rose-600 bg-rose-50/10">
+                            {{ release.outstanding_balance|floatformat:0|intcomma }}
+                        </td>
+
+                        <!-- Direct Quick Actions Payment Trigger -->
+                        <td class="px-6 py-4 text-center whitespace-nowrap">
+                            {% if not release.is_fully_cleared %}
+                                <a href="{% url 'record_installment' release.pk %}" class="inline-flex px-2.5 py-1 bg-rust hover:bg-rust-dark text-white rounded text-[11px] font-bold shadow-sm transition">
+                                    Collect UGX
+                                </a>
+                            {% else %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">✓ Settled</span>
+                            {% endif %}
+
+                            
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="px-6 py-16 text-center text-slate-400 italic">
+                            No product lot dispatches currently found matching this filter window.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 {% endblock %}
-
-
-

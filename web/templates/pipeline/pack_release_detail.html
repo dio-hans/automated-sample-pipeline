@@ -1,10 +1,837 @@
-
 {% extends "pipeline/base.html" %}
+
 {% block title %}Release {{ release.pk }} | Nonda{% endblock %}
-{% block breadcrumb %}Stock Control / Releases / {{ release.pk }}{% endblock %}
-{% block page_title %}Stock Release{% endblock %}
-{% block header_action %}<div class="flex gap-2"><a href="{% url 'pack_release_list' %}" class="px-4 py-2.5 border border-line bg-white rounded-lg text-sm">Releases</a>{% if release.packs_outstanding > 0 %}<a href="{% url 'pack_return_create' release.pk %}" class="px-4 py-2.5 bg-rust text-white rounded-lg text-sm font-semibold">Record Return</a>{% endif %}</div>{% endblock %}
-{% block content %}<div class="max-w-5xl space-y-6"><section class="bg-white border border-line rounded-xl p-6"><p class="text-xs uppercase tracking-wider text-clay">{{ release.released_at|date:"d M Y, H:i" }}</p><h2 class="font-display text-2xl mt-1">{{ release.product.blend.name }} Â· {{ release.product.pack_size.label }}</h2><p class="text-sm text-clay mt-1">{{ release.product.get_form_display }} Â· Released to {{ release.released_to }}</p>{% if release.request_item %}<p class="text-sm text-clay mt-3">Request {{ release.request_item.request.short_number }} Â· {{ release.request_item.request.get_purpose_display }}</p>{% endif %}</section><section class="grid grid-cols-1 md:grid-cols-4 gap-4"><div class="bg-white border border-line rounded-xl p-5"><p class="text-xs uppercase text-clay">Issued</p><p class="font-display text-3xl mt-2">{{ release.packs_out }}</p></div><div class="bg-white border border-line rounded-xl p-5"><p class="text-xs uppercase text-clay">Returned</p><p class="font-display text-3xl mt-2">{{ release.packs_returned }}</p></div><div class="bg-white border border-line rounded-xl p-5"><p class="text-xs uppercase text-clay">Outstanding</p><p class="font-display text-3xl mt-2">{{ release.packs_outstanding }}</p></div><div class="bg-white border border-line rounded-xl p-5"><p class="text-xs uppercase text-clay">Release value</p><p class="font-display text-2xl mt-2">UGX {{ release.stock_value|floatformat:0 }}</p><p class="text-xs text-clay mt-1">UGX {{ release.selling_price|floatformat:0 }} per pack</p></div></section><section class="bg-white border border-line rounded-xl overflow-hidden"><div class="px-6 py-5 border-b border-line"><h2 class="font-display text-xl">Payment</h2></div><div class="p-6">{% if settlement %}<div class="grid grid-cols-1 md:grid-cols-3 gap-5"><div><p class="text-xs text-clay">Sold</p><p class="font-semibold mt-1">{{ settlement.packs_sold }} packs</p></div><div><p class="text-xs text-clay">Paid</p><p class="font-semibold mt-1">UGX {{ settlement.amount_paid|floatformat:0 }}</p></div><div><p class="text-xs text-clay">Status</p><p class="font-semibold mt-1">{{ settlement.get_status_display }}</p></div></div>{% else %}<p class="text-sm text-clay">No payment has been recorded yet.</p>{% endif %}</div></section><section class="bg-white border border-line rounded-xl overflow-hidden"><div class="px-6 py-5 border-b border-line"><h2 class="font-display text-xl">Returns</h2></div><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-paper"><tr><th class="px-6 py-3 text-left">Date</th><th class="px-6 py-3 text-right">Quantity</th><th class="px-6 py-3 text-left">Reason</th><th class="px-6 py-3 text-left">Received by</th></tr></thead><tbody class="divide-y divide-line">{% for item in returns %}<tr><td class="px-6 py-4">{{ item.returned_at|date:"d M Y, H:i" }}</td><td class="px-6 py-4 text-right font-semibold">{{ item.packs_returned }}</td><td class="px-6 py-4">{{ item.reason|default:"â€”" }}</td><td class="px-6 py-4">{{ item.received_by|default:"â€”" }}</td></tr>{% empty %}<tr><td colspan="4" class="px-6 py-10 text-center text-clay">No returns recorded.</td></tr>{% endfor %}</tbody></table></div></section></div>{% endblock %}
+
+{% block breadcrumb %}
+Stock Control / Releases / {{ release.pk }}
+{% endblock %}
+
+{% block page_title %}
+Stock Release
+{% endblock %}
+
+{% block header_action %}
+
+<div class="flex flex-wrap gap-2">
+
+```
+<a href="{% url 'pack_release_list' %}"
+   class="inline-flex items-center px-4 py-2.5
+          border border-line bg-white rounded-lg
+          text-sm font-medium text-ink
+          hover:bg-paper transition">
+    Back to Releases
+</a>
+
+{% if release.outstanding_balance > 0 %}
+    <a href="{% url 'record_installment' release.pk %}"
+       class="inline-flex items-center px-4 py-2.5
+              bg-rust text-white rounded-lg
+              text-sm font-semibold
+              hover:bg-rust-dark transition">
+        Record Payment
+    </a>
+{% endif %}
+
+{% if release.packs_outstanding > 0 %}
+    <a href="{% url 'pack_return_create' release.pk %}"
+       class="inline-flex items-center px-4 py-2.5
+              border border-rust bg-white text-rust rounded-lg
+              text-sm font-semibold
+              hover:bg-paper transition">
+        Record Return
+    </a>
+{% endif %}
+```
+
+</div>
+{% endblock %}
+
+{% block content %}
+
+<div class="max-w-5xl space-y-6">
+
+```
+<!-- =========================================================
+     RELEASE SUMMARY
+========================================================== -->
+<section class="bg-white border border-line rounded-xl overflow-hidden">
+
+    <div class="px-6 py-5 border-b border-line bg-paper">
+
+        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+
+            <div>
+
+                <p class="text-xs uppercase tracking-wider font-semibold text-clay">
+                    Release #{{ release.pk }}
+                    ·
+                    {{ release.released_at|date:"d M Y, H:i" }}
+                </p>
+
+                <h2 class="font-display text-2xl text-ink mt-1">
+                    {{ release.product.blend.name }}
+                    ·
+                    {{ release.product.pack_size.label }}
+                </h2>
+
+                <p class="text-sm text-clay mt-1">
+                    {{ release.product.get_form_display }}
+                </p>
+
+            </div>
+
+            <!-- PAYMENT STATUS -->
+            <div>
+
+                {% if release.payment_status == "cleared" %}
+
+                    <span class="inline-flex items-center px-3 py-1.5
+                                 rounded-full bg-emerald-50
+                                 text-emerald-700 text-xs font-semibold">
+                        Cleared
+                    </span>
+
+                {% elif release.payment_status == "partial" %}
+
+                    <span class="inline-flex items-center px-3 py-1.5
+                                 rounded-full bg-amber-50
+                                 text-amber-700 text-xs font-semibold">
+                        Partially Paid
+                    </span>
+
+                {% else %}
+
+                    <span class="inline-flex items-center px-3 py-1.5
+                                 rounded-full bg-rose-50
+                                 text-rose-700 text-xs font-semibold">
+                        Credit / Outstanding
+                    </span>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+        {% if release.request_item %}
+            <div class="mt-4 pt-4 border-t border-line">
+
+                <p class="text-xs text-clay">
+                    Stock Request
+                </p>
+
+                <p class="text-sm font-medium text-ink mt-1">
+                    Request {{ release.request_item.request.short_number }}
+                    ·
+                    {{ release.request_item.request.get_purpose_display }}
+                </p>
+
+            </div>
+        {% endif %}
+
+    </div>
 
 
+    <!-- ACCOUNT HOLDER -->
+    <div class="px-6 py-5">
 
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+
+            <div>
+                <p class="text-[10px] uppercase tracking-wider font-bold text-clay">
+                    Account Holder
+                </p>
+
+                <p class="mt-1 text-sm font-semibold text-ink">
+                    {{ release.released_to.name }}
+                </p>
+
+                {% if release.released_to.phone_number %}
+                    <p class="mt-1 text-xs text-clay">
+                        {{ release.released_to.phone_number }}
+                    </p>
+                {% endif %}
+            </div>
+
+
+            <div>
+                <p class="text-[10px] uppercase tracking-wider font-bold text-clay">
+                    Account Type
+                </p>
+
+                <p class="mt-1 text-sm font-medium text-ink">
+                    {{ release.released_to.get_account_type_display }}
+                </p>
+            </div>
+
+
+            <div>
+                <p class="text-[10px] uppercase tracking-wider font-bold text-clay">
+                    Issued By
+                </p>
+
+                <p class="mt-1 text-sm font-medium text-ink">
+                    {{ release.created_by|default:"—" }}
+                </p>
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     STOCK POSITION
+========================================================== -->
+<section>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+        <!-- ISSUED -->
+        <div class="bg-white border border-line rounded-xl p-5">
+
+            <p class="text-[10px] uppercase tracking-wider font-bold text-clay">
+                Packs Issued
+            </p>
+
+            <p class="font-display text-3xl text-ink mt-2">
+                {{ release.packs_out }}
+            </p>
+
+            <p class="text-xs text-clay mt-1">
+                Original release quantity
+            </p>
+
+        </div>
+
+
+        <!-- RETURNED -->
+        <div class="bg-white border border-line rounded-xl p-5">
+
+            <p class="text-[10px] uppercase tracking-wider font-bold text-clay">
+                Packs Returned
+            </p>
+
+            <p class="font-display text-3xl text-ink mt-2">
+                {{ release.packs_returned }}
+            </p>
+
+            <p class="text-xs text-clay mt-1">
+                Accepted against this release
+            </p>
+
+        </div>
+
+
+        <!-- OUTSTANDING -->
+        <div class="bg-white border border-line rounded-xl p-5">
+
+            <p class="text-[10px] uppercase tracking-wider font-bold text-clay">
+                Packs Outstanding
+            </p>
+
+            <p class="font-display text-3xl text-rust mt-2">
+                {{ release.packs_outstanding }}
+            </p>
+
+            <p class="text-xs text-clay mt-1">
+                Still held against this release
+            </p>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     ACCOUNT / FINANCIAL SUMMARY
+========================================================== -->
+<section class="bg-white border border-line rounded-xl overflow-hidden">
+
+    <div class="px-6 py-5 border-b border-line">
+
+        <h2 class="font-display text-xl text-ink">
+            Account Summary
+        </h2>
+
+        <p class="text-sm text-clay mt-1">
+            Financial position for {{ release.released_to.name }} on this release.
+        </p>
+
+    </div>
+
+
+    <div class="p-6">
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+
+            <!-- GROSS -->
+            <div>
+
+                <p class="text-[10px] uppercase tracking-wider font-bold text-clay">
+                    Gross Value
+                </p>
+
+                <p class="mt-1 text-lg font-semibold text-ink">
+                    UGX {{ release.gross_amount|floatformat:0 }}
+                </p>
+
+                <p class="mt-1 text-xs text-clay">
+                    {{ release.packs_out }}
+                    ×
+                    UGX {{ release.selling_price|floatformat:0 }}
+                </p>
+
+            </div>
+
+
+            <!-- RETURN CREDIT -->
+            <div>
+
+                <p class="text-[10px] uppercase tracking-wider font-bold text-clay">
+                    Return Credit
+                </p>
+
+                <p class="mt-1 text-lg font-semibold text-emerald-700">
+                    UGX {{ release.return_credit|floatformat:0 }}
+                </p>
+
+                <p class="mt-1 text-xs text-clay">
+                    Accepted returns only
+                </p>
+
+            </div>
+
+
+            <!-- PAID -->
+            <div>
+
+                <p class="text-[10px] uppercase tracking-wider font-bold text-clay">
+                    Total Paid
+                </p>
+
+                <p class="mt-1 text-lg font-semibold text-emerald-700">
+                    UGX {{ release.total_amount_paid|floatformat:0 }}
+                </p>
+
+                <p class="mt-1 text-xs text-clay">
+                    All recorded payments
+                </p>
+
+            </div>
+
+
+            <!-- OUTSTANDING -->
+            <div>
+
+                <p class="text-[10px] uppercase tracking-wider font-bold text-clay">
+                    Outstanding Balance
+                </p>
+
+                <p class="mt-1 text-lg font-black text-rust">
+                    UGX {{ release.outstanding_balance|floatformat:0 }}
+                </p>
+
+                <p class="mt-1 text-xs text-clay">
+                    Current amount owed
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <!-- NET AMOUNT DUE -->
+        <div class="mt-6 pt-5 border-t border-dashed border-line">
+
+            <div class="flex items-center justify-between gap-4">
+
+                <div>
+
+                    <p class="text-sm font-semibold text-ink">
+                        Net Amount Due
+                    </p>
+
+                    <p class="text-xs text-clay mt-1">
+                        Gross release value less accepted return credits.
+                    </p>
+
+                </div>
+
+                <p class="text-lg font-bold text-ink">
+                    UGX {{ release.net_amount_due|floatformat:0 }}
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     PAYMENT HISTORY
+========================================================== -->
+<section class="bg-white border border-line rounded-xl overflow-hidden">
+
+    <div class="px-6 py-5 border-b border-line
+                flex flex-col sm:flex-row sm:items-center
+                sm:justify-between gap-3">
+
+        <div>
+
+            <h2 class="font-display text-xl text-ink">
+                Payment History
+            </h2>
+
+            <p class="text-sm text-clay mt-1">
+                Every payment collected against this release.
+            </p>
+
+        </div>
+
+        {% if release.outstanding_balance > 0 %}
+            <a href="{% url 'record_installment' release.pk %}"
+               class="inline-flex items-center justify-center
+                      px-4 py-2.5 rounded-md
+                      bg-rust text-white text-sm font-semibold
+                      hover:bg-rust-dark transition">
+                Record Payment
+            </a>
+        {% endif %}
+
+    </div>
+
+
+    {% if payments %}
+
+        <div class="overflow-x-auto">
+
+            <table class="w-full text-sm">
+
+                <thead class="bg-paper border-b border-line">
+
+                    <tr>
+
+                        <th class="px-6 py-3 text-left
+                                   text-[10px] uppercase tracking-wider
+                                   font-bold text-clay">
+                            Date
+                        </th>
+
+                        <th class="px-6 py-3 text-left
+                                   text-[10px] uppercase tracking-wider
+                                   font-bold text-clay">
+                            Method
+                        </th>
+
+                        <th class="px-6 py-3 text-right
+                                   text-[10px] uppercase tracking-wider
+                                   font-bold text-clay">
+                            Amount
+                        </th>
+
+                        <th class="px-6 py-3 text-left
+                                   text-[10px] uppercase tracking-wider
+                                   font-bold text-clay">
+                            Reference
+                        </th>
+
+                        <th class="px-6 py-3 text-left
+                                   text-[10px] uppercase tracking-wider
+                                   font-bold text-clay">
+                            Collected By
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody class="divide-y divide-line">
+
+                    {% for payment in payments %}
+
+                        <tr class="hover:bg-paper transition">
+
+                            <td class="px-6 py-4 text-clay">
+                                {{ payment.collected_at|date:"d M Y, H:i" }}
+                            </td>
+
+                            <td class="px-6 py-4">
+
+                                <p class="font-medium text-ink">
+                                    {{ payment.get_method_display }}
+                                </p>
+
+                            </td>
+
+                            <td class="px-6 py-4 text-right
+                                       font-semibold text-emerald-700">
+                                UGX {{ payment.amount|floatformat:0 }}
+                            </td>
+
+                            <td class="px-6 py-4 text-clay">
+
+                                {% if payment.payment_reference %}
+                                    {{ payment.payment_reference }}
+                                {% else %}
+                                    —
+                                {% endif %}
+
+                            </td>
+
+                            <td class="px-6 py-4 text-ink">
+                                {{ payment.collected_by|default:"—" }}
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    {% else %}
+
+        <div class="px-6 py-12 text-center">
+
+            <p class="text-sm font-medium text-ink">
+                No payments recorded yet.
+            </p>
+
+            <p class="text-xs text-clay mt-1">
+                This release is currently unpaid unless an initial payment
+                was recorded elsewhere in the release transaction.
+            </p>
+
+            {% if release.outstanding_balance > 0 %}
+
+                <a href="{% url 'record_installment' release.pk %}"
+                   class="inline-flex items-center mt-4
+                          px-4 py-2.5 rounded-md
+                          bg-rust text-white text-sm font-semibold
+                          hover:bg-rust-dark transition">
+                    Record First Payment
+                </a>
+
+            {% endif %}
+
+        </div>
+
+    {% endif %}
+
+</section>
+
+
+<!-- =========================================================
+     RETURN HISTORY
+========================================================== -->
+<section class="bg-white border border-line rounded-xl overflow-hidden">
+
+    <div class="px-6 py-5 border-b border-line
+                flex flex-col sm:flex-row sm:items-center
+                sm:justify-between gap-3">
+
+        <div>
+
+            <h2 class="font-display text-xl text-ink">
+                Return History
+            </h2>
+
+            <p class="text-sm text-clay mt-1">
+                Physical returns and their financial treatment.
+            </p>
+
+        </div>
+
+        {% if release.packs_outstanding > 0 %}
+            <a href="{% url 'pack_return_create' release.pk %}"
+               class="inline-flex items-center justify-center
+                      px-4 py-2.5 rounded-md
+                      border border-rust text-rust
+                      bg-white text-sm font-semibold
+                      hover:bg-paper transition">
+                Record Return
+            </a>
+        {% endif %}
+
+    </div>
+
+
+    {% if returns %}
+
+        <div class="overflow-x-auto">
+
+            <table class="w-full text-sm">
+
+                <thead class="bg-paper border-b border-line">
+
+                    <tr>
+
+                        <th class="px-6 py-3 text-left
+                                   text-[10px] uppercase tracking-wider
+                                   font-bold text-clay">
+                            Date
+                        </th>
+
+                        <th class="px-6 py-3 text-right
+                                   text-[10px] uppercase tracking-wider
+                                   font-bold text-clay">
+                            Quantity
+                        </th>
+
+                        <th class="px-6 py-3 text-left
+                                   text-[10px] uppercase tracking-wider
+                                   font-bold text-clay">
+                            Condition
+                        </th>
+
+                        <th class="px-6 py-3 text-left
+                                   text-[10px] uppercase tracking-wider
+                                   font-bold text-clay">
+                            Disposition
+                        </th>
+
+                        <th class="px-6 py-3 text-right
+                                   text-[10px] uppercase tracking-wider
+                                   font-bold text-clay">
+                            Financial Credit
+                        </th>
+
+                        <th class="px-6 py-3 text-left
+                                   text-[10px] uppercase tracking-wider
+                                   font-bold text-clay">
+                            Received By
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody class="divide-y divide-line">
+
+                    {% for returned in returns %}
+
+                        <tr class="hover:bg-paper transition">
+
+                            <td class="px-6 py-4 text-clay">
+                                {{ returned.returned_at|date:"d M Y, H:i" }}
+                            </td>
+
+
+                            <td class="px-6 py-4 text-right
+                                       font-semibold text-ink">
+                                {{ returned.packs_returned }}
+                            </td>
+
+
+                            <td class="px-6 py-4">
+
+                                <p class="font-medium text-ink">
+                                    {{ returned.get_condition_display }}
+                                </p>
+
+                            </td>
+
+
+                            <td class="px-6 py-4">
+
+                                {% if returned.disposition == "accept" %}
+
+                                    <span class="inline-flex items-center
+                                                 px-2.5 py-1 rounded-full
+                                                 bg-emerald-50
+                                                 text-emerald-700
+                                                 text-xs font-semibold">
+                                        {{ returned.get_disposition_display }}
+                                    </span>
+
+                                {% elif returned.disposition == "accept_charge" %}
+
+                                    <span class="inline-flex items-center
+                                                 px-2.5 py-1 rounded-full
+                                                 bg-amber-50
+                                                 text-amber-700
+                                                 text-xs font-semibold">
+                                        {{ returned.get_disposition_display }}
+                                    </span>
+
+                                {% elif returned.disposition == "refuse" %}
+
+                                    <span class="inline-flex items-center
+                                                 px-2.5 py-1 rounded-full
+                                                 bg-rose-50
+                                                 text-rose-700
+                                                 text-xs font-semibold">
+                                        {{ returned.get_disposition_display }}
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="inline-flex items-center
+                                                 px-2.5 py-1 rounded-full
+                                                 bg-slate-100
+                                                 text-slate-600
+                                                 text-xs font-semibold">
+                                        {{ returned.get_disposition_display }}
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+
+                            <td class="px-6 py-4 text-right">
+
+                                {% if returned.financial_credit > 0 %}
+
+                                    <p class="font-semibold text-emerald-700">
+                                        UGX {{ returned.financial_credit|floatformat:0 }}
+                                    </p>
+
+                                {% else %}
+
+                                    <p class="text-clay">
+                                        —
+                                    </p>
+
+                                {% endif %}
+
+                            </td>
+
+
+                            <td class="px-6 py-4 text-ink">
+                                {{ returned.received_by|default:"—" }}
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    {% else %}
+
+        <div class="px-6 py-12 text-center">
+
+            <p class="text-sm font-medium text-ink">
+                No returns recorded.
+            </p>
+
+            <p class="text-xs text-clay mt-1">
+                Returned packs will appear here with their condition,
+                disposition and financial effect.
+            </p>
+
+        </div>
+
+    {% endif %}
+
+</section>
+
+
+<!-- =========================================================
+     RELEASE NOTES
+========================================================== -->
+{% if release.notes %}
+
+    <section class="bg-white border border-line rounded-xl overflow-hidden">
+
+        <div class="px-6 py-5 border-b border-line">
+
+            <h2 class="font-display text-xl text-ink">
+                Release Notes
+            </h2>
+
+        </div>
+
+        <div class="p-6">
+
+            <p class="text-sm text-clay leading-relaxed whitespace-pre-line">
+                {{ release.notes }}
+            </p>
+
+        </div>
+
+    </section>
+
+{% endif %}
+
+
+<!-- =========================================================
+     FINAL ACCOUNT POSITION
+========================================================== -->
+<section class="bg-paper border border-line rounded-xl p-6">
+
+    <div class="flex flex-col md:flex-row
+                md:items-center md:justify-between gap-5">
+
+        <div>
+
+            <p class="text-[10px] uppercase tracking-wider font-bold text-clay">
+                Current Account Position
+            </p>
+
+            <h3 class="font-display text-xl text-ink mt-1">
+                {{ release.released_to.name }}
+            </h3>
+
+            <p class="text-sm text-clay mt-1">
+                Release #{{ release.pk }}
+            </p>
+
+        </div>
+
+
+        <div class="text-left md:text-right">
+
+            {% if release.outstanding_balance > 0 %}
+
+                <p class="text-xs uppercase tracking-wider
+                          font-bold text-clay">
+                    Amount Still Owed
+                </p>
+
+                <p class="font-display text-3xl text-rust mt-1">
+                    UGX {{ release.outstanding_balance|floatformat:0 }}
+                </p>
+
+            {% else %}
+
+                <p class="text-xs uppercase tracking-wider
+                          font-bold text-emerald-700">
+                    Account Cleared
+                </p>
+
+                <p class="font-display text-3xl text-emerald-700 mt-1">
+                    UGX 0
+                </p>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+</section>
+```
+
+</div>
+
+{% endblock %}

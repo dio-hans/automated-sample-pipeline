@@ -1,5 +1,5 @@
 {% extends "pipeline/base.html" %}
-{% load static %}
+{% load static humanize %}
 
 {% block title %} Coffee Stock | Nonda {% endblock %}
 {% block breadcrumb %} Inventory / Coffee Stock {% endblock %}
@@ -21,349 +21,120 @@
 {% block content %}
 <div class="space-y-6">
 
-    <!-- 1. SUMMARY STATS TILES -->
+    <!-- 1. INTERACTIVE SUMMARY STATS CARD LINK DECKS -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <!-- Tile 1: Total Weight -->
-        <div class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm">
-            <p class="text-xs uppercase font-bold tracking-wider text-slate-400">Total Net Inventory</p>
-            <p class="font-semibold text-3xl mt-2 text-slate-800">{{ total_available|default:"0.00" }} <span class="text-xs font-normal text-slate-400">Kg</span></p>
-            <p class="text-xs text-slate-400 mt-1">Combined total mass on premises</p>
-        </div>
+        <!-- Tile 1: Total Weight (Resets filters) -->
+        <a href="?preset={{ preset }}&status=all" class="bg-white border border-[#E4DECB] hover:border-slate-400 rounded-xl p-5 shadow-sm transition block group">
+            <p class="text-xs uppercase font-bold tracking-wider text-slate-400 group-hover:text-slate-600">Total Net Inventory</p>
+            <p class="font-semibold text-3xl mt-2 text-slate-800">{{ total_available|default:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">Kg</span></p>
+            <p class="text-xs text-slate-400 mt-1">Combined total mass active on premises</p>
+        </a>
 
-        <!-- Tile 2: Low Stock Alert -->
-        <div class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm flex justify-between items-start">
+        <!-- Tile 2: Low Stock Alert drill-down link -->
+        <a href="?preset={{ preset }}&status=low" 
+           class="bg-white border rounded-xl p-5 shadow-sm transition flex justify-between items-start group {% if status_filter == 'low' %}border-amber-500 ring-2 ring-amber-500/10 bg-amber-50/10{% else %}border-[#E4DECB] hover:border-amber-400{% endif %}">
             <div>
-                <p class="text-xs uppercase font-bold tracking-wider text-slate-400">Low Stock Batches</p>
+                <p class="text-xs uppercase font-bold tracking-wider {% if status_filter == 'low' %}text-amber-600{% else %}text-slate-400 group-hover:text-amber-600{% endif %}">Low Stock Batches</p>
                 <p class="font-semibold text-3xl mt-2 text-slate-800">{{ low_stock_count|default:"0" }}</p>
                 <p class="text-xs text-slate-400 mt-1">Batches below safety threshold</p>
             </div>
-            {% if low_stock_count > 0 %}
-                <span class="px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[10px] uppercase tracking-wider">Alert</span>
-            {% endif %}
-        </div>
 
-        <!-- Tile 3: Out of Stock -->
-        <div class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm flex justify-between items-start">
+        </a>
+
+        <!-- Tile 3: INTERACTIVE EXHAUSTED BATCHES DRILL-DOWN LINK -->
+        <a href="?preset={{ preset }}&status=exhausted" 
+           class="bg-white border rounded-xl p-5 shadow-sm transition flex justify-between items-start group {% if status_filter == 'exhausted' %}border-rose-500 ring-2 ring-rose-500/10 bg-rose-50/10{% else %}border-[#E4DECB] hover:border-rose-400{% endif %}">
             <div>
-                <p class="text-xs uppercase font-bold tracking-wider text-slate-400">Exhausted Batches</p>
-                <p class="font-semibold text-3xl mt-2 text-slate-800">{{ out_of_stock_count|default:"0" }}</p>
+                <p class="text-xs uppercase font-bold tracking-wider {% if status_filter == 'exhausted' %}text-rose-600{% else %}text-slate-400 group-hover:text-rose-600{% endif %}">Exhausted Batches</p>
+                <p class="font-semibold text-3xl mt-2 text-rose-600">{{ out_of_stock_count|default:"0" }}</p>
                 <p class="text-xs text-slate-400 mt-1">Batches completely checked out</p>
             </div>
-            {% if out_of_stock_count > 0 %}
-                <span class="px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 font-bold text-[10px] uppercase tracking-wider">Critical</span>
+           
+        </a>
+    </div>
+
+    <!-- 2. DATE AND SCOPE TIMELINE FILTER CONTROLS BAR -->
+    <div class="bg-white border border-[#E4DECB] rounded-xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <form method="get" class="flex flex-wrap items-end gap-2">
+            <input type="hidden" name="status" value="{{ status_filter }}">
+            <div>
+                <label for="date_from" class="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1.5">From</label>
+                <input type="date" id="date_from" name="date_from" value="{{ request.GET.date_from|default:'' }}"
+                    class="px-3 py-1.5 rounded-lg border border-[#E4DECB] text-xs text-slate-600 bg-white focus:outline-none focus:border-olive focus:ring-1 focus:ring-olive">
+            </div>
+            <div>
+                <label for="date_to" class="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1.5">To</label>
+                <input type="date" id="date_to" name="date_to" value="{{ request.GET.date_to|default:'' }}"
+                    class="px-3 py-1.5 rounded-lg border border-[#E4DECB] text-xs text-slate-600 bg-white focus:outline-none focus:border-olive focus:ring-1 focus:ring-olive">
+            </div>
+            <button type="submit" class="px-3 py-1.5 rounded-lg bg-olive hover:bg-olive-dark text-white text-xs font-semibold transition">Apply</button>
+        </form>
+
+        <!-- Quick date filter presets links -->
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="?preset=this_month&status={{ status_filter }}" class="px-3 py-1.5 rounded-lg border text-xs font-medium transition {% if preset == 'this_month' %}bg-olive text-white border-olive{% else %}bg-white text-slate-600 border-[#E4DECB] hover:bg-slate-50{% endif %}">This Month</a>
+            <a href="?preset=last_7_days&status={{ status_filter }}" class="px-3 py-1.5 rounded-lg border text-xs font-medium transition {% if preset == 'last_7_days' %}bg-olive text-white border-olive{% else %}bg-white text-slate-600 border-[#E4DECB] hover:bg-slate-50{% endif %}">This Week</a>
+            
+            {% if status_filter != 'all' %}
+                <a href="?preset={{ preset }}&status=all" class="text-xs font-bold text-rust hover:underline ml-2">
+                    ✕ Reset Row Filter
+                </a>
             {% endif %}
         </div>
     </div>
-
-    <!-- 2. DATE FILTERS -->
-    <div class="bg-white border border-[#E4DECB] rounded-xl p-4 shadow-sm">
-
-        <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-
-            <!-- CUSTOM DATE RANGE -->
-            <form method="get" class="flex flex-wrap items-end gap-2">
-
-                <div>
-                    <label for="date_from"
-                           class="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1.5">
-                        From
-                    </label>
-
-                    <input
-                        type="date"
-                        id="date_from"
-                        name="date_from"
-                        value="{{ request.GET.date_from|default:'' }}"
-                        class="px-3 py-1.5 rounded-lg border border-[#E4DECB]
-                               text-xs text-slate-600 bg-white
-                               focus:outline-none focus:border-olive focus:ring-1 focus:ring-olive"
-                    >
-                </div>
-
-                <div>
-                    <label for="date_to"
-                           class="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1.5">
-                        To
-                    </label>
-
-                    <input
-                        type="date"
-                        id="date_to"
-                        name="date_to"
-                        value="{{ request.GET.date_to|default:'' }}"
-                        class="px-3 py-1.5 rounded-lg border border-[#E4DECB]
-                               text-xs text-slate-600 bg-white
-                               focus:outline-none focus:border-olive focus:ring-1 focus:ring-olive"
-                    >
-                </div>
-
-                <button
-                    type="submit"
-                    class="px-3 py-1.5 rounded-lg bg-olive hover:bg-olive-dark
-                           text-white text-xs font-semibold transition"
-                >
-                    Apply
-                </button>
-
-            </form>
-
-
-            <!-- QUICK DATE FILTERS -->
-            <div class="flex flex-wrap items-center gap-2">
-
-                <a href="?preset=this_month"
-                   class="px-3 py-1.5 rounded-lg border text-xs font-medium transition
-                   {% if preset == 'this_month' %}
-                       bg-olive text-white border-olive
-                   {% else %}
-                       bg-white text-slate-600 border-[#E4DECB] hover:bg-slate-50
-                   {% endif %}">
-                    This Month
-                </a>
-
-                <a href="?preset=last_7_days"
-                   class="px-3 py-1.5 rounded-lg border text-xs font-medium transition
-                   {% if preset == 'last_7_days' %}
-                       bg-olive text-white border-olive
-                   {% else %}
-                       bg-white text-slate-600 border-[#E4DECB] hover:bg-slate-50
-                   {% endif %}">
-                    This Week
-                </a>
-
-                <a href="?preset=today"
-                   class="px-3 py-1.5 rounded-lg border text-xs font-medium transition
-                   {% if preset == 'today' %}
-                       bg-olive text-white border-olive
-                   {% else %}
-                       bg-white text-slate-600 border-[#E4DECB] hover:bg-slate-50
-                   {% endif %}">
-                    Today
-                </a>
-
-                <a href="?preset=yesterday"
-                   class="px-3 py-1.5 rounded-lg border text-xs font-medium transition
-                   {% if preset == 'yesterday' %}
-                       bg-olive text-white border-olive
-                   {% else %}
-                       bg-white text-slate-600 border-[#E4DECB] hover:bg-slate-50
-                   {% endif %}">
-                    Yesterday
-                </a>
-
-
-            </div>
-
-        </div>
-
-    </div>
-
 
     <!-- 3. MAIN INVENTORY SPREADSHEET TABLE -->
     <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
-
-        <div class="overflow-x-auto">
-
-            <table class="w-full text-sm text-left border-collapse bg-white">
-
+        <div class="overflow-x-auto w-full">
+            <table class="w-full text-sm text-left border-collapse bg-white min-w-[1000px]">
                 <thead>
-                    <tr class="bg-slate-50 border-b border-[#E4DECB] text-slate-600 font-semibold">
-
-                        <th class="px-6 py-4">
-                            Date Received
-                        </th>
-
-                        <th class="px-6 py-4">
-                            Batch Number
-                        </th>
-
-                        <th class="px-6 py-4">
-                            Variety Type
-                        </th>
-
-                        <th class="px-6 py-4 text-right">
-                            Green (Kg)
-                        </th>
-
-                        <th class="px-6 py-4 text-right">
-                            Roasted (Kg)
-                        </th>
-
-                        <th class="px-6 py-4 text-right">
-                            Ground (Kg)
-                        </th>
-
-                        <th class="px-6 py-4 text-right">
-                            Quakers (Kg)
-                        </th>
-
-                        <th class="px-6 py-4 text-right">
-                            Total Net (Kg)
-                        </th>
-
-                        <th class="px-6 py-4 text-center">
-                            Status
-                        </th>
-
-                        <th class="px-6 py-4 text-right">
-                            Actions
-                        </th>
-
+                    <tr class="bg-slate-50 border-b border-[#E4DECB] text-slate-600 font-semibold text-xs uppercase tracking-wider">
+                        <th class="px-6 py-4">Date Received</th>
+                        <th class="px-6 py-4">Batch Number</th>
+                        <th class="px-6 py-4">Variety Type</th>
+                        <th class="px-6 py-4 text-right">Green (Kg)</th>
+                        <th class="px-6 py-4 text-right">Roasted (Kg)</th>
+                        <th class="px-6 py-4 text-right">Ground (Kg)</th>
+                        <th class="px-6 py-4 text-right">Quakers (Kg)</th>
+                        <th class="px-6 py-4 text-right">Total Net (Kg)</th>
+                        <th class="px-6 py-4 text-center">Status</th>
                     </tr>
                 </thead>
-
-
-                <tbody class="divide-y divide-[#E4DECB] text-slate-700">
-
+                <tbody class="divide-y divide-[#E4DECB] text-slate-700 text-xs">
                     {% for stock in stocks %}
-
-                    <!-- ONE ROW REPRESENTS ONE COFFEE BATCH -->
-                    <tr class="hover:bg-slate-50/50 transition duration-150">
-
-                        <!-- DATE RECEIVED -->
-                        <td class="px-6 py-4 whitespace-nowrap font-bold text-slate-900 text-xs">
-                            {{ stock.received_date|date:"d M Y" }}
+                    <tr class="hover:bg-slate-50/50 transition">
+                        <td class="px-6 py-4 text-slate-400 font-medium">{{ stock.created_at|date:"d M Y, H:i" }}</td>
+                        <td class="px-6 py-4 font-mono font-bold text-rust">
+                            <a href="{% url 'stock_detail' stock.pk %}" class="hover:underline">{{ stock.batch_number }}</a>
                         </td>
-
-
-                        <!-- BATCH CODE -->
-                        <td class="px-6 py-4 whitespace-nowrap font-bold text-slate-900 text-xs">
-                            {{ stock.batch_number }}
-                        </td>
-
-
-                        <!-- VARIETY PROFILE -->
-                        <td class="px-6 py-4 whitespace-nowrap font-semibold text-slate-800">
-                            {{ stock.variety.name }}
-                        </td>
-
-
-                        <!-- GREEN -->
-                        <td class="px-6 py-4 text-right font-medium whitespace-nowrap text-slate-500">
-                            {{ stock.quantity_green|default:"0.0" }}
-                        </td>
-
-
-                        <!-- ROASTED -->
-                        <td class="px-6 py-4 text-right font-medium whitespace-nowrap text-slate-500">
-                            {{ stock.quantity_roasted|default:"0.0" }}
-                        </td>
-
-
-                        <!-- GROUND -->
-                        <td class="px-6 py-4 text-right font-medium whitespace-nowrap text-slate-500">
-                            {{ stock.quantity_ground|default:"0.0" }}
-                        </td>
-
-
-                        <!-- QUAKERS -->
-                        <td class="px-6 py-4 text-right font-medium whitespace-nowrap text-slate-500">
-                            {{ stock.quantity_quakers|default:"0.0" }}
-                        </td>
-
-
-                        <!-- TOTAL NET -->
-                        <td class="px-6 py-4 text-right font-bold whitespace-nowrap text-slate-900">
-                            {{ stock.quantity_available|default:"0.0" }}
-                        </td>
-
-
-                        <!-- STATUS -->
+                        <td class="px-6 py-4 font-semibold text-slate-800">{{ stock.variety.name }}</td>
+                        
+                        <td class="px-6 py-4 text-right font-medium text-slate-500">{{ stock.quantity_green|floatformat:1 }}</td>
+                        <td class="px-6 py-4 text-right font-medium text-slate-500">{{ stock.quantity_roasted|floatformat:1 }}</td>
+                        <td class="px-6 py-4 text-right font-medium text-slate-500">{{ stock.quantity_ground|floatformat:1 }}</td>
+                        <td class="px-6 py-4 text-right font-medium text-slate-400 italic">{{ stock.quantity_quakers|floatformat:1 }}</td>
+                        
+                        <td class="px-6 py-4 text-right font-bold text-slate-900 bg-slate-50/30">{{ stock.quantity_available|floatformat:1 }} kg</td>
                         <td class="px-6 py-4 text-center whitespace-nowrap">
-
                             {% if stock.quantity_available <= 0 %}
-
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-md
-                                             bg-rose-50 text-rose-700 border border-rose-100
-                                             text-xs font-semibold">
-                                    Empty
-                                </span>
-
-                            {% elif stock.is_low_stock %}
-
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-md
-                                             bg-amber-50 text-amber-700 border border-amber-100
-                                             text-xs font-semibold">
-                                    Low Stock
-                                </span>
-
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-100 uppercase tracking-wider">Exhausted</span>
+                            {% elif stock.quantity_available <= stock.reorder_level %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100 uppercase tracking-wider">Low Stock</span>
                             {% else %}
-
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-md
-                                             bg-emerald-50 text-emerald-700 border border-emerald-100
-                                             text-xs font-semibold">
-                                    Available
-                                </span>
-
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase tracking-wider">Active</span>
                             {% endif %}
-
                         </td>
-
-
-                        <!-- ACTION -->
-                        <td class="px-6 py-4 text-right whitespace-nowrap">
-
-                            <a href="{% url 'stock_detail' stock.pk %}"
-                               class="inline-flex items-center gap-1 text-sm font-semibold
-                                      text-rust hover:text-rust-dark transition hover:underline">
-                                View Batch
-                            </a>
-
-                        </td>
-
                     </tr>
-
                     {% empty %}
-
-                    <!-- EMPTY STATE -->
                     <tr>
-
-                        <td colspan="10" class="px-6 py-16 text-center">
-
-                            <div class="flex flex-col items-center justify-center
-                                        max-w-sm mx-auto space-y-3">
-
-                                <div class="w-12 h-12 rounded-full bg-slate-50
-                                            border border-[#E4DECB] flex items-center
-                                            justify-center text-xl text-slate-400 shadow-sm">
-                                </div>
-
-                                <div>
-
-                                    <p class="font-display text-xl text-slate-800">
-                                        No Coffee Batches Logged
-                                    </p>
-
-                                    <p class="mt-1 text-xs text-slate-500 leading-normal">
-                                        There are currently no raw green coffee beans
-                                        registered inside the warehouse tracking ledger
-                                        for this timeline filter.
-                                    </p>
-
-                                </div>
-
-                                <a href="{% url 'stock_create' %}"
-                                   class="inline-flex items-center gap-1.5 mt-2
-                                          px-4 py-2.5 rounded-lg bg-rust
-                                          hover:bg-rust-dark text-white text-xs
-                                          font-semibold shadow-sm transition">
-                                    Receive New Coffee
-                                </a>
-
-                            </div>
-
+                        <td colspan="9" class="px-6 py-16 text-center text-slate-400 italic bg-white">
+                            No coffee batches match this selected status query filter parameters.
                         </td>
-
                     </tr>
-
                     {% endfor %}
-
                 </tbody>
-
             </table>
-
         </div>
-
     </div>
-
+</div>
 {% endblock %}

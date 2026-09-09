@@ -1,9 +1,163 @@
-
 {% extends "pipeline/base.html" %}
+
 {% block title %}Returns | Nonda{% endblock %}
 {% block breadcrumb %}Stock Control / Returns{% endblock %}
 {% block page_title %}Pack Returns{% endblock %}
-{% block content %}<div class="bg-white border border-line rounded-xl overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-olive text-white"><tr><th class="px-5 py-3 text-left">Date</th><th class="px-5 py-3 text-left">Product</th><th class="px-5 py-3 text-left">Salesperson</th><th class="px-5 py-3 text-right">Returned</th><th class="px-5 py-3 text-left">Reason</th><th class="px-5 py-3 text-left">Received by</th></tr></thead><tbody class="divide-y divide-line">{% for item in returns %}<tr><td class="px-5 py-4">{{ item.returned_at|date:"d M Y, H:i" }}</td><td class="px-5 py-4"><p class="font-semibold">{{ item.release.product.blend.name }} Â· {{ item.release.product.pack_size.label }}</p></td><td class="px-5 py-4">{{ item.release.released_to }}</td><td class="px-5 py-4 text-right font-semibold">{{ item.packs_returned }}</td><td class="px-5 py-4">{{ item.reason|default:"â€”" }}</td><td class="px-5 py-4">{{ item.received_by|default:"â€”" }}</td></tr>{% empty %}<tr><td colspan="6" class="px-5 py-12 text-center text-clay">No returns recorded.</td></tr>{% endfor %}</tbody></table></div></div>{% endblock %}
+
+{% block content %}
+
+<div class="bg-white border border-line rounded-xl overflow-hidden shadow-sm">
+
+    <div class="overflow-x-auto">
+
+        <table class="w-full text-sm text-left">
+
+            <!-- TABLE HEADER -->
+            <thead class="bg-olive text-white">
+                <tr>
+
+                    <th class="px-5 py-3 font-semibold whitespace-nowrap">
+                        Date
+                    </th>
+
+                    <th class="px-5 py-3 font-semibold whitespace-nowrap">
+                        Product
+                    </th>
+
+                    <th class="px-5 py-3 font-semibold whitespace-nowrap">
+                        Salesperson
+                    </th>
+
+                    <th class="px-5 py-3 font-semibold text-right whitespace-nowrap">
+                        Returned
+                    </th>
+
+                    <th class="px-5 py-3 font-semibold whitespace-nowrap">
+                        Reason
+                    </th>
+
+                    <th class="px-5 py-3 font-semibold whitespace-nowrap">
+                        Received By
+                    </th>
+
+                </tr>
+            </thead>
 
 
+            <!-- TABLE BODY -->
+            <tbody class="divide-y divide-line">
 
+                {% for item in returns %}
+
+                <tr class="hover:bg-slate-50 transition">
+
+                    <!-- DATE -->
+                    <td class="px-5 py-4 whitespace-nowrap text-slate-500">
+                        {{ item.returned_at|date:"d M Y, H:i" }}
+                    </td>
+
+
+                    <!-- PRODUCT -->
+                    <td class="px-5 py-4 whitespace-nowrap">
+
+                        <p class="font-semibold text-slate-800">
+                            {{ item.release.product.blend.name }}
+                            <span class="text-slate-400">·</span>
+                            {{ item.release.product.pack_size.label }}
+                        </p>
+
+                    </td>
+
+
+                    <!-- SALESPERSON / RECIPIENT -->
+                    <td class="px-5 py-4 whitespace-nowrap text-slate-700">
+
+                        {% if item.release.released_to_account %}
+
+                            {{ item.release.released_to_account.name }}
+
+                        {% elif item.release.released_to_user %}
+
+                            {% if item.release.released_to_user.get_full_name %}
+
+                                {{ item.release.released_to_user.get_full_name }}
+
+                            {% else %}
+
+                                {{ item.release.released_to_user.username }}
+
+                            {% endif %}
+
+                        {% else %}
+
+                            <span class="text-slate-400 italic">
+                                Unassigned
+                            </span>
+
+                        {% endif %}
+
+                    </td>
+
+
+                    <!-- RETURNED -->
+                    <td class="px-5 py-4 text-right whitespace-nowrap">
+
+                        <span class="font-semibold text-slate-800">
+                            {{ item.packs_returned }}
+                        </span>
+
+                    </td>
+
+
+                    <!-- REASON -->
+                    <td class="px-5 py-4 text-slate-600">
+
+                        {{ item.reason|default:"—" }}
+
+                    </td>
+
+
+                    <!-- RECEIVED BY -->
+                    <td class="px-5 py-4 whitespace-nowrap text-slate-600">
+
+                        {{ item.received_by|default:"—" }}
+
+                    </td>
+
+                </tr>
+
+
+                {% empty %}
+
+                <!-- EMPTY STATE -->
+                <tr>
+
+                    <td colspan="6" class="px-5 py-12 text-center">
+
+                        <div class="max-w-sm mx-auto">
+
+                            <p class="text-sm font-semibold text-slate-700">
+                                No returns recorded
+                            </p>
+
+                            <p class="mt-1 text-xs text-clay">
+                                Pack returns will appear here once they are recorded.
+                            </p>
+
+                        </div>
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+{% endblock %}

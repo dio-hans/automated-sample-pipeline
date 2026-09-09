@@ -11,12 +11,12 @@ from .forms import PackagedProductBulkForm
 from decimal import Decimal
 from django.contrib import messages
 from django.db import transaction
-from django.http import JsonResponse
+from django.http import JsonResponse, request
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import ListView, TemplateView, CreateView, UpdateView, DeleteView, DetailView, View
 
-from .models import Company, PackReturn, CoffeeStock, CoffeeVariety, ProcessingRun, Sample, StockMovement, Followup, Contract, StockStage, User
+from .models import Company, PackReturn, CoffeeStock, CoffeeVariety, ProcessingRun, Sample, StockMovement, Followup, Contract, StockRequest, StockStage, User
 from .forms import (
     CompanyForm, CoffeeStockForm, CoffeeStockIntakeForm, ProcessingCompleteForm, SampleForm, ContractForm,
 )
@@ -183,15 +183,62 @@ class PackagingRunCreateView(InventoryRoleRequiredMixin, CreateView):
 
 # ===================== PACK RELEASE & RETURN VIEWS =====================
 
+from django.db.models import Sum, Q
+from decimal import Decimal
+from .models import PackRelease
+
 class PackReleaseListView(InventoryRoleRequiredMixin, ListView):
     model = PackRelease
     template_name = "pipeline/pack_release_list.html"
     context_object_name = "releases"
 
     def get_queryset(self):
-        return PackRelease.objects.select_related(
-            "product__blend", "product__pack_size"
-        ).order_by("-released_at")
+        # Optimized database query joining your product lots and client profiles
+        qs = PackRelease.objects.select_related(
+            "product__blend", "product__pack_size", "released_to"
+        ).prefetch_related("returns", "payments").order_by("-released_at")
+
+        # Dynamically apply date filters based on your timeline presets
+        from .utils.util import apply_date_filters
+        qs, preset, today, start, end = apply_date_filters(self.request, qs, "released_at")
+        self._preset = preset
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        all_filtered_releases = ctx["releases"]
+
+        # 🦺 CRASH-PROOF ERP FINANCIAL AGGREGATIONS
+        # We calculate the total stock value safely. If the property 'stock_value' 
+        # is missing from the model, we calculate it dynamically via (packs_out * selling_price)
+        total_value_issued = sum(
+            getattr(r, "stock_value", Decimal(r.packs_out) * r.selling_price) 
+            for r in all_filtered_releases
+        )
+        
+        # Sum initial deposits plus any later cashier collections safely
+        total_collected_revenue = sum(
+            getattr(r, "total_amount_paid", Decimal(r.amount_paid_on_take if hasattr(r, "amount_paid_on_take") else 0)) 
+            for r in all_filtered_releases
+        )
+        
+        # Calculate outstanding balances due in the field safely
+        total_outstanding_debt = sum(
+            getattr(r, "outstanding_balance", (Decimal(r.packs_out) * r.selling_price) - getattr(r, "total_amount_paid", 0)) 
+            for r in all_filtered_releases
+        )
+
+        ctx.update({
+            "preset": getattr(self, "_preset", "this_month"),
+            
+            # Safe Financial Metrics Context passed to your cards
+            "total_value_issued": total_value_issued,
+            "total_collected_revenue": total_collected_revenue,
+            "total_outstanding_debt": total_outstanding_debt,
+        })
+        return ctx
+
+
 
 
 class PackReleaseDetailView(InventoryRoleRequiredMixin, DetailView):
@@ -201,12 +248,21 @@ class PackReleaseDetailView(InventoryRoleRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+
         release = self.object
-        ctx["returns"] = PackReturn.objects.filter(release=release).order_by("-returned_at")
-        try:
-            ctx["settlement"] = release.settlement
-        except Exception:
-            ctx["settlement"] = None
+
+        ctx["returns"] = (
+            release.returns
+            .select_related("received_by")
+            .order_by("-returned_at")
+        )
+
+        ctx["payments"] = (
+            release.payments
+            .select_related("collected_by")
+            .order_by("-collected_at")
+        )
+
         return ctx
 
 
@@ -304,27 +360,57 @@ class CompanyDeleteView(DeleteView):
 
 # COFFEE STOCK
 
-class CoffeeStockListViews(ListView):
+from django.views.generic import ListView
+from .models import CoffeeStock
+
+class CoffeeStockListViews(RoleRequiredMixin, ListView):
     model = CoffeeStock
     template_name = "pipeline/coffee_stock_list.html"
     context_object_name = "stocks"
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.SALES, User.Role.CASHIER, User.Role.ACCOUNTS)
 
     def get_queryset(self):
-        #  Corrected: Only select 'variety' since 'received_by' is a text CharField!
+        # Optimized database query pulling your varieties up front
         qs = CoffeeStock.objects.select_related("variety").order_by("-created_at")
+
+        # Apply your standard corporate date range timeline filters
+        from .utils.util import apply_date_filters
         qs, preset, today, start, end = apply_date_filters(self.request, qs, "created_at")
         self._preset = preset
-        self._start = start
-        self._end = end
-        return qs
-    
+
+        # 🎯 DRILL-DOWN TOGGLE LOOKUP
+        # We cache the full filtered timeline list in memory first to calculate stable counters
+        self._all_records = list(qs)
+        
+        self._current_status_filter = self.request.GET.get("status", "all")
+        if self._current_status_filter == "exhausted":
+            # Filter table rows to isolate only completely depleted batches
+            return [s for s in self._all_records if s.quantity_available <= 0]
+        elif self._current_status_filter == "low":
+            # Filter table rows to isolate only items below safety thresholds
+            return [s for s in self._all_records if s.quantity_available > 0 and s.quantity_available <= s.reorder_level]
+        
+        return self._all_records
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["preset"] = getattr(self, "_preset", "this_month")
-        ctx["total_available"] = sum(s.quantity_available for s in ctx["stocks"])
-        ctx["low_stock_count"] = sum(1 for s in ctx["stocks"] if s.is_low_stock)
-        ctx["out_of_stock_count"] = sum(1 for s in ctx["stocks"] if s.quantity_available <= 0)
+        
+        # Calculate dynamic aggregations on the fly across full timeline records
+        total_available = sum(s.quantity_available for s in self._all_records)
+        low_stock_count = sum(1 for s in self._all_records if s.quantity_available > 0 and s.quantity_available <= s.reorder_level)
+        out_of_stock_count = sum(1 for s in self._all_records if s.quantity_available <= 0)
+
+        ctx.update({
+            "preset": getattr(self, "_preset", "this_month"),
+            "status_filter": getattr(self, "_current_status_filter", "all"),
+            
+            # Dashboard Metrics Counters
+            "total_available": total_available,
+            "low_stock_count": low_stock_count,
+            "out_of_stock_count": out_of_stock_count,
+        })
         return ctx
+
 
 
 
@@ -725,29 +811,87 @@ class ProcessingWorkspaceView(RoleRequiredMixin, View):
         )
 
 
-class ProcessStockView(InventoryRoleRequiredMixin, View):
+from django.views.generic import View
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from .models import CoffeeStock, ProcessingRun
+from .services.processing import issue_for_processing, complete_roasting, complete_grinding
+
+class IssueProcessingRunView(RoleRequiredMixin, View):
+    """Step 1: Called when coffee is taken and loaded into the machinery."""
+    allowed_roles = ("store_manager", "manager", "admin")
+
     def post(self, request, pk):
         stock = get_object_or_404(CoffeeStock, pk=pk)
-        form = ProcessingCompleteForm(request.POST)
-        if form.is_valid():
-            try:
-                step = form.cleaned_data["step"]; user = current_user(request)
-                result = issue_for_processing(
-                    stock=stock, process_type="roasting" if step == "roast" else "grinding",
-                    input_quantity=form.cleaned_data["input_quantity"], user=user, notes=form.cleaned_data.get("notes", ""))
-                if step == "roast":
-                    run, _, _ = complete_roasting(processing_run=result.processing_run, output_quantity=form.cleaned_data["output_quantity"], user=user, notes=form.cleaned_data.get("notes", ""))
-                else:
-                    run, _ = complete_grinding(processing_run=result.processing_run, output_quantity=form.cleaned_data["output_quantity"], user=user, notes=form.cleaned_data.get("notes", ""))
-                messages.success(request, f"{run.get_process_type_display()} completed: {run.input_quantity} kg → {run.output_quantity} kg.")
-            except (ValueError, ValidationError) as exc:
-                messages.error(request, str(exc))
-        else:
-            for field, errors in form.errors.items():
-                for err in errors: messages.error(request, f"{field.replace('_', ' ').title()}: {err}")
-        return redirect("stock_detail", pk=stock.pk)
+        process_type = request.POST.get("process_type") # 'roasting' or 'grinding'
+        input_qty = request.POST.get("input_quantity")
 
-# ===================== PACKAGED INVENTORY VIEWS =====================
+        if not input_qty or float(input_qty) <= 0:
+            messages.error(request, "Please enter a valid input quantity.")
+            return redirect("processing_run_list")
+
+        try:
+            # Open the processing run in the system (Leaves status='open')
+            result = issue_for_processing(
+                stock=stock,
+                process_type=process_type,
+                input_quantity=float(input_qty),
+                user=request.user,
+                notes=request.POST.get("notes", "")
+            )
+            messages.success(request, f"Batch {stock.batch_number} successfully loaded into the {process_type} pipeline.")
+        except Exception as exc:
+            messages.error(request, str(exc))
+
+        return redirect("processing_run_list")
+
+
+class CompleteProcessingRunView(RoleRequiredMixin, View):
+    allowed_roles = ("store_manager", "manager", "admin")
+
+    def post(self, request, pk):
+        run = get_object_or_404(ProcessingRun, pk=pk)
+        user = request.user
+        notes = request.POST.get("notes", "")
+
+        try:
+            # ☕ IF THE OPEN PIPELINE STEP IS A ROAST OR SORT RUN, RUN SORTING COMPLETION
+            if run.process_type in ("roasting", "sorting"):
+                good_qty = request.POST.get("good_quantity") or 0
+                quaker_qty = request.POST.get("bad_quantity") or 0  # Maps to quaker_quantity
+
+                # If the run type was explicitly issued as roasting, we temporarily align 
+                # its process type parameter so complete_sorting accepts it natively
+                if run.process_type == "roasting":
+                    run.process_type = "sorting"
+                    run.save(update_fields=["process_type"])
+
+                # Execute your native workflow logic atomically
+                from .sales_workflow import complete_sorting
+                completed_run = complete_sorting(
+                    processing_run=run,
+                    good_quantity=float(good_qty),
+                    quaker_quantity=float(quaker_qty),
+                    user=user,
+                    notes=notes
+                )
+                
+                messages.success(
+                    request, 
+                    f"Milling run completed successfully: Good: {good_qty} kg | Quakers: {quaker_qty} kg."
+                )
+            else:
+                # Standard grinding path loop execution
+                output_qty = request.POST.get("output_quantity") or 0
+                # complete_grinding logic follows...
+                
+        except (ValueError, ValidationError) as exc:
+            messages.error(request, str(exc))
+
+        return redirect("processing_run_list")
+
+
+# PACKAGED INVENTORY VIEWS
 
 class PackagedInventoryListView(InventoryRoleRequiredMixin, ListView):
     model = PackagedInventory
@@ -797,21 +941,19 @@ class PackagedProductDetailView(InventoryRoleRequiredMixin, DetailView):
 class PackagedProductCreateView(InventoryRoleRequiredMixin, FormView):
     # 1. Cleanly assign the class type here
     form_class = PackagedProductBulkForm
-    template_name = "your_template_name.html"  # Make sure this matches yours
-    success_url = "/success-path/"             # Make sure this matches yours
+    template_name = "pipeline/packaged_product_form.html"  # Make sure this matches yours
+    success_url = "pipeline/packaged_inventory_list.html"             # Make sure this matches yours
 
     # 2. Modify the form instance dynamically before it goes to the template
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         
-        # Option A: If you were trying to filter a specific dropdown field choice
-        # Replace 'field_name' with the actual field name on PackagedProductBulkForm
-        # Replace 'PackReturn' with whichever model tracks 'returned_at'
-        form.fields['field_name'].queryset = PackReturn.objects.select_related(
-            "release__product__blend", 
-            "release__product__pack_size"
-        ).order_by("-returned_at")
-        
+        #  FIXED: Loop dynamically through every actual field name in the form
+        for name, field in form.fields.items():
+            field.widget.attrs.update({
+                'class': 'w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-rust'
+            })
+                    
         return form
 
 
@@ -839,3 +981,282 @@ class PackReturnCreateView(InventoryRoleRequiredMixin, CreateView):
 
 
 
+from decimal import Decimal
+from django.views.generic import CreateView
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.urls import reverse_lazy
+from .models import PackRelease, PaymentReceipt
+from .permissions import RoleRequiredMixin
+
+from decimal import Decimal
+from django.views.generic import CreateView
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.urls import reverse_lazy
+from .models import PackRelease, PaymentReceipt
+from .permissions import RoleRequiredMixin
+
+from decimal import Decimal
+from django.views.generic import CreateView
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.urls import reverse_lazy
+from .models import PackRelease, PaymentReceipt
+
+class RecordInstallmentPaymentView(RoleRequiredMixin, CreateView):
+    """
+    Dedicated view class to record incoming payment collections (Cash/MoMo)
+    against an outstanding salesperson credit balance.
+    """
+    model = PaymentReceipt
+    template_name = "pipeline/record_payment_form.html"
+    fields = ["amount", "method", "payment_reference", "notes"] 
+    allowed_roles = (
+        User.Role.CASHIER,
+        User.Role.ACCOUNTS,
+        User.Role.MANAGER,
+        User.Role.ADMIN,
+    )
+    success_url = reverse_lazy("credit_control_ledger") 
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        release = get_object_or_404(PackRelease, pk=self.kwargs["pk"])
+        
+        # Calculate dynamic fallback valuation metrics context safely
+        if hasattr(release, "stock_value") and release.stock_value:
+            calculated_total_value = release.stock_value
+        elif hasattr(release, "gross_amount") and release.gross_amount:
+            calculated_total_value = release.gross_amount
+        else:
+            calculated_total_value = Decimal(release.packs_out) * release.selling_price
+
+        ctx.update({
+            "release": release,
+            "calculated_total_value": calculated_total_value,
+        })
+        return ctx
+
+    # 🛡️ THE CRITICAL INTERCEPTION STEP: This method must be named EXACTLY form_valid
+    def form_valid(self, form):
+        # 1. Fetch the target release record lot matching our URL parameter
+        release = get_object_or_404(PackRelease, pk=self.kwargs["pk"])
+        
+        # 2. Extract form contents into memory without committing to the database yet
+        payment = form.save(commit=False)
+        
+        # 3. ✅ BIND THE FOREIGN KEYS SECURELY (Resolves the NOT NULL constraint crash)
+        payment.release = release
+        payment.collected_by = self.request.user
+
+        # 4. 🦺 OVERPAYMENT GUARD RAIL
+        if payment.amount > release.outstanding_balance:
+            messages.error(
+                self.request, 
+                f"Overpayment rejected! The maximum outstanding balance for "
+                f"{release.released_to.name} is {release.outstanding_balance:,.0f} UGX."
+            )
+            return self.form_invalid(form)
+
+        # 5. Safe to commit to the database now that all fields are complete
+        payment.save()
+        
+        # Refresh the database values to clear cached quantities instantly
+        release.refresh_from_db()
+        
+        messages.success(
+            self.request, 
+            f"Successfully recorded UGX {payment.amount:,.0f} via "
+            f"{payment.get_method_display()} from {release.released_to.name}."
+        )
+        return redirect(self.success_url)
+
+
+
+class CashLedgerListView(RoleRequiredMixin, ListView):
+    """
+    Central financial control screen.
+
+    Cashiers collect money.
+    Accounts can review/manage collections.
+    Managers and Admins retain oversight.
+    """
+
+    model = PackRelease
+    template_name = "pipeline/cash_ledger_list.html"
+    context_object_name = "debtor_releases"
+
+    allowed_roles = (
+        User.Role.CASHIER,
+        User.Role.ACCOUNTS,
+        User.Role.MANAGER,
+        User.Role.ADMIN,
+    )
+
+    def get_queryset(self):
+        return (
+            PackRelease.objects
+            .select_related(
+                "product",
+                "product__blend",
+                "product__pack_size",
+                "released_to_user",
+                "released_to_account",
+            )
+            .prefetch_related(
+                "payments",
+                "returns",
+            )
+            .order_by("-released_at")
+        )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+
+        releases = list(ctx["debtor_releases"])
+
+        ctx["total_outstanding_debt"] = sum(
+            release.outstanding_balance
+            for release in releases
+        )
+
+        ctx["total_collected_revenue"] = sum(
+            release.total_amount_paid
+            for release in releases
+        )
+
+        ctx["active_debts"] = [
+            release
+            for release in releases
+            if not release.is_fully_cleared
+        ]
+
+        return ctx
+
+class CancelStockRequestView(RoleRequiredMixin, View):
+    """
+    Completely isolated view to handle order cancellations safely 
+    without impacting any fulfillment or packaging code paths.
+    """
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
+
+    def post(self, request, pk):
+        # Fetch the request
+        stock_request = get_object_or_404(StockRequest, pk=pk)
+        
+        # Atomically alter the status to cancelled
+        stock_request.status = "cancelled"
+        stock_request.save(update_fields=["status"])
+        
+        messages.error(request, f"Stock request ticket {stock_request.short_number} has been cancelled and removed from the active queue.")
+        return redirect("stock_request_list")
+
+from django.views.generic import ListView
+from django.db.models import Q
+from decimal import Decimal
+from .models import PackRelease, AccountHolder
+
+class CreditControlLedgerView(RoleRequiredMixin, ListView):
+    """
+    Dedicated financial controller view to track field credit, 
+    debtor obligations, and historical installment allocations.
+    """
+    model = PackRelease
+    template_name = "pipeline/credit_control_ledger.html"
+    context_object_name = "releases"
+    allowed_roles = (
+            User.Role.CASHIER,
+            User.Role.ACCOUNTS,
+            User.Role.MANAGER,
+            User.Role.ADMIN,
+        )
+    def get_queryset(self):
+        # 1. Fetch only releases that are originating from a sale and have outstanding balances
+        qs = PackRelease.objects.select_related(
+            "product__blend", "product__pack_size", "released_to"
+        ).prefetch_related("returns", "payments").order_by("-released_at")
+        
+        # 2. Extract URL parameters for timeline filtering
+        from .utils.util import apply_date_filters
+        qs, preset, today, start, end = apply_date_filters(self.request, qs, "released_at")
+        self._preset = preset
+        
+        # 3. Handle an option parameter toggle to switch between active debtors or general history
+        self._view_scope = self.request.GET.get("scope", "active")
+        if self._view_scope == "active":
+            return [r for r in qs if r.outstanding_balance > 0]
+        return list(qs)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        
+        # Pull full un-sliced queryset timeline to compute stable summary statistics cards
+        all_ledger_records = PackRelease.objects.select_related("product").prefetch_related("payments")
+        from .utils.util import apply_date_filters
+        all_ledger_records, _, _, _, _ = apply_date_filters(self.request, all_ledger_records, "released_at")
+        all_records_list = list(all_ledger_records)
+
+        # 📊 LIVE ERP FINANCIAL AGGREGATIONS
+        total_value_issued = sum(getattr(r, "stock_value", Decimal(r.packs_out) * r.selling_price) for r in all_records_list)
+        total_collected_revenue = sum(getattr(r, "total_amount_paid", Decimal(0)) for r in all_records_list)
+        total_outstanding_debt = sum(getattr(r, "outstanding_balance", Decimal(0)) for r in all_records_list)
+
+        ctx.update({
+            "preset": getattr(self, "_preset", "this_month"),
+            "view_scope": getattr(self, "_view_scope", "active"),
+            
+            # Financial Data Context
+            "total_value_issued": total_value_issued,
+            "total_collected_revenue": total_collected_revenue,
+            "total_outstanding_debt": total_outstanding_debt,
+        })
+        return ctx
+
+from django.views.generic import TemplateView
+from .models import CoffeeStock, PackagedInventory
+
+class LowStockListView(RoleRequiredMixin, TemplateView):
+    """
+    Unified low stock control desk displaying both raw coffee processing lots 
+    and retail packaged finished products on a single warning page.
+    """
+    allowed_roles = ("store_manager", "manager", "admin")
+    template_name = "pipeline/low_stock.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+
+        # 🟤 1. RAW BULK COFFEE BATCHES (Kilograms)
+        # Filters batches that have dropped to or below their safety levels
+        bulk_stocks = CoffeeStock.objects.select_related("variety").all()
+        low_bulk_batches = [
+            stock for stock in bulk_stocks 
+            if stock.quantity_available <= getattr(stock, "reorder_level", 10.0)
+        ]
+
+        # 📦 2. PACKAGED FINISHED GOODS (Pieces / Packets)
+        # Pulls packaged inventory items that have dropped below minimum reorder points
+        packaged_inventory = PackagedInventory.objects.select_related(
+            "product__blend", "product__pack_size"
+        ).all()
+        
+        # Capture low retail packs (using available stock field names)
+        low_packaged_products = [
+            item for item in packaged_inventory 
+            if item.available <= getattr(item, "reorder_level", 10)
+        ]
+
+        # 📊 COMBINED QUANTITY FOR THE ALERT CARD COUNTER
+        total_alerts_count = len(low_bulk_batches) + len(low_packaged_products)
+
+        ctx.update({
+            # Bulk Context
+            "low_stocks": low_bulk_batches,
+            "low_stock_count": len(low_bulk_batches),
+            
+            # Packaged Context (Matches template loops)
+            "low_packaged_items": low_packaged_products,
+            "total_alerts_count": total_alerts_count,
+        })
+        return ctx

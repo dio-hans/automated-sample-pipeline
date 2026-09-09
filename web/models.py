@@ -1061,12 +1061,61 @@ class PackagedInventory(models.Model):
         )
 
 # 7. PACK RELEASE  (store keeper â†’ salesperson)
-class PackRelease(models.Model):
+from decimal import Decimal
+from django.db import models
+from django.conf import settings
 
+
+class AccountHolder(models.Model):
+    TYPE_CHOICES = (
+        ("field_agent", "Field Agent"),
+        ("salesperson", "Salesperson"),
+        ("customer", "Customer"),
+        ("walk_in", "Walk-in Customer"),
+        ("other", "Other"),
+    )
+
+    name = models.CharField(max_length=150)
+    phone_number = models.CharField(max_length=30, blank=True)
+    account_type = models.CharField(
+        max_length=30,
+        choices=TYPE_CHOICES,
+        default="field_agent",
+    )
+
+    system_user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="business_account",
+    )
+
+    is_active = models.BooleanField(default=True)
+
+    notes = models.TextField(blank=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+class PackRelease(models.Model):
     STATUS_CHOICES = (
         ("released", "Released"),
         ("partially_returned", "Partially Returned"),
         ("fully_returned", "Fully Returned"),
+    )
+
+    PAYMENT_METHOD_CHOICES = (
+        ("cash", "Cash"),
+        ("mobile_money", "Mobile Money"),
+        ("bank", "Bank Transfer"),
+        ("other", "Other"),
     )
 
     product = models.ForeignKey(
@@ -1084,19 +1133,20 @@ class PackRelease(models.Model):
     )
 
     released_to = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
+        AccountHolder,
+        on_delete=models.PROTECT,
+        related_name="pack_releases",
         null=True,
         blank=True,
-        related_name="pack_releases",
     )
 
     packs_out = models.PositiveIntegerField()
 
     selling_price = models.DecimalField(
-        max_digits=10, 
+        max_digits=12,
         decimal_places=2,
-        default=Decimal('0.00'),)
+        default=Decimal("0.00"),
+    )
 
     status = models.CharField(
         max_length=30,
@@ -1104,13 +1154,8 @@ class PackRelease(models.Model):
         default="released",
     )
 
-    released_at = models.DateTimeField(
-        auto_now_add=True,
-    )
-
-    updated_at = models.DateTimeField(
-        auto_now=True,
-    )
+    released_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -1120,19 +1165,33 @@ class PackRelease(models.Model):
         related_name="pack_releases_created",
     )
 
-    notes = models.TextField(
-        blank=True,
-        default=''
+    notes = models.TextField(blank=True, default="")
 
-    )
+    @property
+    def released_to_user(self):
+        if self.released_to and self.released_to.system_user:
+            return self.released_to.system_user
+        return None
+
+    # 💼 PROPERTY 2: Returns the parent AccountHolder instance directly
+    @property
+    def released_to_account(self):
+        return self.released_to
+
+    # 🔗 HELPER FOR BACKEND SCRIPTS
+    @property
+    def recipient_name(self):
+        """Returns the human-readable text name of whoever took the coffee."""
+        if self.released_to:
+            return self.released_to.name
+        return "Unknown Salesperson"
 
     class Meta:
         ordering = ["-released_at"]
 
     def __str__(self):
         return (
-            f"{self.product} Ã— "
-            f"{self.packs_out} â†’ "
+            f"{self.product} × {self.packs_out} → "
             f"{self.released_to}"
         )
 
@@ -1141,23 +1200,124 @@ class PackRelease(models.Model):
         return sum(
             ret.packs_returned
             for ret in self.returns.all()
+            if ret.counts_against_release
         )
 
     @property
     def packs_outstanding(self):
-        return (
-            self.packs_out
-            - self.packs_returned
+        return max(
+            self.packs_out - self.packs_returned,
+            0,
         )
 
     @property
-    def stock_value(self):
+    def gross_amount(self):
         return Decimal(self.packs_out) * self.selling_price
 
-# 8. PACK RETURN  (salesperson â†’ store)
+    @property
+    def return_credit(self):
+        return sum(
+            ret.financial_credit
+            for ret in self.returns.all()
+        )
+
+    @property
+    def net_amount_due(self):
+        return max(
+            self.gross_amount - self.return_credit,
+            Decimal("0.00"),
+        )
+
+    @property
+    def total_amount_paid(self):
+        total = self.payments.aggregate(
+            total=models.Sum("amount")
+        )["total"]
+
+        return total or Decimal("0.00")
+
+    @property
+    def outstanding_balance(self):
+        return max(
+            self.net_amount_due - self.total_amount_paid,
+            Decimal("0.00"),
+        )
+
+    @property
+    def payment_status(self):
+        if self.outstanding_balance <= Decimal("0.00"):
+            return "cleared"
+
+        if self.total_amount_paid > Decimal("0.00"):
+            return "partial"
+
+        return "credit"
+
+    @property
+    def is_fully_cleared(self):
+        return self.outstanding_balance <= Decimal("0.00")
+
+
+class PaymentReceipt(models.Model):
+
+    PAYMENT_METHOD_CHOICES = (
+        ("cash", "Cash"),
+        ("mobile_money", "Mobile Money"),
+        ("bank", "Bank Transfer"),
+        ("other", "Other"),
+    )
+
+    release = models.ForeignKey(
+        PackRelease,
+        on_delete=models.PROTECT,
+        related_name="payments",
+    )
+
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+    )
+
+    method = models.CharField(
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES,
+    )
+
+    payment_reference = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+    )
+
+    collected_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    collected_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payments_collected",
+    )
+
+    notes = models.TextField(
+        blank=True,
+        default="",
+    )
+
+    class Meta:
+        ordering = ["-collected_at"]
+
+    def __str__(self):
+        return (
+            f"{self.release.released_to} — "
+            f"{self.amount} — "
+            f"{self.get_method_display()}"
+        )
+    # 8. PACK RETURN  (salesperson â†’ store)
 from django.conf import settings
 from django.db import models
-from django.utils import timezone
 
 
 class PackReturn(models.Model):
@@ -1168,6 +1328,13 @@ class PackReturn(models.Model):
         ("opened", "Opened"),
         ("expired", "Expired"),
         ("other", "Other"),
+    )
+
+    DISPOSITION_CHOICES = (
+        ("accepted", "Accept"),
+        ("accepted_charged", "Accept & Charge Agent"),
+        ("refused", "Refuse"),
+        ("written_off", "Write Off"),
     )
 
     release = models.ForeignKey(
@@ -1184,6 +1351,12 @@ class PackReturn(models.Model):
         default="good",
     )
 
+    disposition = models.CharField(
+        max_length=30,
+        choices=DISPOSITION_CHOICES,
+        default="accepted",
+    )
+
     reason = models.CharField(
         max_length=200,
         blank=True,
@@ -1194,8 +1367,8 @@ class PackReturn(models.Model):
     )
 
     notes = models.TextField(
-        max_length=150,
         blank=True,
+        default="",
     )
 
     received_by = models.ForeignKey(
@@ -1215,6 +1388,32 @@ class PackReturn(models.Model):
             f"from {self.release}"
         )
 
+    @property
+    def counts_against_release(self):
+        return self.disposition in (
+            "accepted",
+            "accepted_charged",
+        )
+
+    @property
+    def returns_to_stock(self):
+        return self.disposition == "accepted"
+
+    @property
+    def financial_credit(self):
+        """
+        Only an accepted return creates financial credit.
+
+        'Accept & Charge Agent' returns the physical stock
+        but does not reduce what the account holder owes.
+        """
+        if self.disposition == "accepted":
+            return (
+                Decimal(self.packs_returned)
+                * self.release.selling_price
+            )
+
+        return Decimal("0.00")
 
 # 9. INTERNAL SALES STOCK REQUEST
 class StockRequest(models.Model):

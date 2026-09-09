@@ -1,0 +1,140 @@
+{% extends "pipeline/base.html" %}
+{% load static humanize %}
+
+{% block title %}Record Payment | Nonda{% endblock %}
+{% block breadcrumb %}Accounts / Receive Payment{% endblock %}
+{% block page_title %}Record Cashier Collection{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Record a partial or full payment installment received against this active distribution account.
+</p>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+
+    <!-- LIVE METRICS DEBIT ACCOUNT OVERVIEW CARD -->
+    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden animate-pageEnter">
+        <div class="px-6 py-5 border-b border-[#E4DECB] bg-slate-50/50">
+            <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Account Debtor Profile</p>
+            <h2 class="mt-1 font-display text-xl font-bold text-slate-800">
+                {{ release.released_to.name }}
+            </h2>
+
+            <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                <!-- Total Release Value Card -->
+                                <!-- Total Release Value Card -->
+                <div class="p-3 bg-white border border-[#E4DECB]/60 rounded-xl">
+                    <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Total Release Value</p>
+                    <p class="mt-1 text-sm font-bold text-slate-800">
+                        <!-- ✅ FIXED: Using the computed context variable with native intcomma -->
+                        UGX {{ calculated_total_value|intcomma|default:"0" }}
+                    </p>
+                </div>
+
+                
+                <!-- Paid So Far Card -->
+                <div class="p-3 bg-white border border-[#E4DECB]/60 rounded-xl">
+                    <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Total Paid So Far</p>
+                    <p class="mt-1 text-sm font-bold text-emerald-600">
+                        UGX {{ release.total_amount_paid|intcomma|default:"0" }}
+                    </p>
+                </div>
+                
+                <!-- Outstanding Balance Card -->
+                <div class="p-3 bg-rose-50/50 border border-rose-100 rounded-xl">
+                    <p class="text-[10px] uppercase tracking-wider font-bold text-rose-500">Outstanding Balance</p>
+                    <p class="mt-1 text-sm font-black text-rose-600">
+                        UGX {{ release.outstanding_balance|intcomma|default:"0" }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- TRANSACTION COLLECTION INPUT FORM -->
+        <form method="post" class="p-6 space-y-5">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700 animate-fade-in">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            <!-- Amount Input Box -->
+            <div>
+                <label for="{{ form.amount.id_for_label }}" class="block text-xs uppercase tracking-wider font-bold text-slate-600 mb-1.5">
+                    Amount Received (UGX)
+                </label>
+                {{ form.amount }}
+                {% for error in form.amount.errors %}
+                    <p class="mt-1 text-xs text-rose-600 font-medium">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <!-- Payment Method Input Box -->
+            <div>
+                <label for="{{ form.method.id_for_label }}" class="block text-xs uppercase tracking-wider font-bold text-slate-600 mb-1.5">
+                    Collection Channel / Method
+                </label>
+                {{ form.method }}
+                {% for error in form.method.errors %}
+                    <p class="mt-1 text-xs text-rose-600 font-medium">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <!-- Transaction Reference Input Box -->
+            <div>
+                <label for="{{ form.payment_reference.id_for_label }}" class="block text-xs uppercase tracking-wider font-bold text-slate-600 mb-1.5">
+                    MoMo Reference / Bank Receipt Number
+                </label>
+                {{ form.payment_reference }}
+                {% for error in form.payment_reference.errors %}
+                    <p class="mt-1 text-xs text-rose-600 font-medium">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <!-- Internal Cashier Notes Input Box -->
+            <div>
+                <label for="{{ form.notes.id_for_label }}" class="block text-xs uppercase tracking-wider font-bold text-slate-600 mb-1.5">
+                    Internal Cashier Remarks
+                </label>
+                {{ form.notes }}
+                {% for error in form.notes.errors %}
+                    <p class="mt-1 text-xs text-rose-600 font-medium">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <!-- Automation Threshold Alert Rule Info Banner Box -->
+            <div class="rounded-xl border border-dashed border-[#E4DECB] bg-slate-50/50 p-4 flex justify-between items-center text-xs text-slate-500 font-medium">
+                <span>Maximum valid collection limit permitted:</span>
+                <strong class="text-slate-800 text-sm font-black">UGX {{ release.outstanding_balance|intcomma|default:"0" }}</strong>
+            </div>
+
+            <!-- Action Controls Buttons Row -->
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <a href="{% url 'credit_control_ledger' %}"
+                   class="px-4 py-2.5 rounded-lg border border-[#E4DECB] bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+                    Cancel
+                </a>
+                <button type="submit"
+                        class="px-5 py-2.5 rounded-lg bg-rust hover:bg-rust-dark text-white text-xs font-bold shadow-sm transition active:scale-95">
+                     Post Payment Receipt
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Dynamic Form Widget Styles Overrides Script Block -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Automatically apply our beautiful form classes onto native Django inputs
+    const inputs = document.querySelectorAll('form input[type="text"], form input[type="number"], form select, form textarea');
+    inputs.forEach(input => {
+        input.className = "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-rust focus:border-rust transition duration-150";
+    });
+});
+</script>
+{% endblock %}

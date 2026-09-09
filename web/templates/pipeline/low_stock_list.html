@@ -1,222 +1,160 @@
 {% extends "pipeline/base.html" %}
+{% load static humanize %}
 
-{% block title %}Low Stock | Nonda{% endblock %}
+{% block title %}Low Stock Warnings | Nonda{% endblock %}
+{% block breadcrumb %}Inventory / Low Stock{% endblock %}
+{% block page_title %}Low Stock Alert Workspace{% endblock %}
 
-{% block breadcrumb %}
-Inventory / Low Stock
-{% endblock %}
-
-{% block page_title %}
-Low Stock
-{% endblock %}
-
-{% block header_action %} <a href="{% url 'stock_list' %}"
-class="inline-flex items-center gap-2 px-4 py-2.5
-       rounded-md border border-[#E4DECB]
-       bg-white text-ink text-sm font-medium
-       hover:bg-paper transition">
-← Coffee Stock </a>
+{% block header_action %} 
+<a href="{% url 'stock_list' %}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#E4DECB] bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 transition shadow-sm">
+    ← Back to Stock
+</a>
 {% endblock %}
 
 {% block content %}
-
 <div class="space-y-6">
 
-```
-<!-- ALERT -->
-<div class="rounded-xl border border-gold/30
-            bg-gold/10 px-5 py-4">
-
-    <p class="font-medium text-gold">
-
-        {{ low_stock_count }}
-        batch{{ low_stock_count|pluralize }}
-        need attention
-
-    </p>
-
-    <p class="text-sm text-clay mt-1">
-        These coffee batches are at or below their configured
-        reorder threshold.
-    </p>
-
-</div>
-
-
-<!-- TABLE -->
-<div class="bg-white border border-[#E4DECB]
-            rounded-xl shadow-sm overflow-hidden">
-
-    <div class="px-6 py-5 border-b border-[#E4DECB]">
-
-        <p class="eyebrow text-clay">
-            Raw &amp; processed coffee
+    <!-- 1. SYSTEM METRICS ALERT COUNTER BOX -->
+    <div class="rounded-xl border border-rose-200 bg-rose-50/40 px-5 py-4 shadow-sm animate-pageEnter">
+        <p class="font-bold text-rose-700 text-sm flex items-center gap-1.5">
+            ⚠️ {{ total_alerts_count }} Inventory Variant{{ total_alerts_count|pluralize }} Need Attention
         </p>
-
-        <h2 class="font-display text-xl text-ink mt-1">
-            Batches requiring attention
-        </h2>
-
+        <p class="text-xs text-slate-500 mt-1">
+            The items listed below have dropped to or below their configured minimum safety reorder thresholds. Immediate restocking or factory processing is recommended.
+        </p>
     </div>
 
+    <!-- 2. RETAIL READY STORE INVENTORY TABLE CARD -->
+    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+            <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Retail Ready Store Inventory</p>
+            <h2 class="text-sm font-semibold text-slate-800 mt-0.5">Packaged Finished Goods Alert Queue</h2>
+        </div>
 
-    <div class="overflow-x-auto">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left border-collapse bg-white">
+                <thead>
+                    <tr class="bg-slate-50/50 border-b border-[#E4DECB] text-slate-600 font-semibold text-xs uppercase tracking-wider">
+                        <th class="px-6 py-4">Product Variant Description</th>
+                        <th class="px-6 py-4">Grind / Form</th>
+                        <th class="px-6 py-4 text-right">Available Physical Balance</th>
+                        <th class="px-6 py-4 text-right">Minimum Level</th>
+                        <th class="px-6 py-4 text-center">Status</th>
+                        <th class="px-6 py-4 text-right">Action Desk</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#E4DECB] text-slate-700 text-xs">
+                    {% for item in low_packaged_items %}
+                    <tr class="hover:bg-slate-50/50 transition duration-150">
+                        <!-- Variant -->
+                        <td class="px-6 py-4 font-bold text-slate-900">
+                            {{ item.product.blend.name }} · {{ item.product.pack_size.label }}
+                        </td>
+                        <!-- Form -->
+                        <td class="px-6 py-4 font-medium text-slate-500 capitalize">
+                            {{ item.product.get_form_display }}
+                        </td>
+                        <!-- Current Stock -->
+                        <td class="px-6 py-4 text-right font-black text-rose-600 bg-rose-50/10">
+                            {{ item.available }} Pcs
+                        </td>
+                        <!-- Reorder Point -->
+                        <td class="px-6 py-4 text-right font-medium text-slate-400">
+                            {{ item.reorder_level|default:"10" }} Pcs
+                        </td>
+                        <!-- Status Badge -->
+                        <td class="px-6 py-4 text-center whitespace-nowrap">
+                            {% if item.available <= 0 %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200 uppercase tracking-wider">Out of Stock</span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 uppercase tracking-wider">Low Threshold</span>
+                            {% endif %}
+                        </td>
+                        <!-- View button trigger -->
+                        <td class="px-6 py-4 text-right whitespace-nowrap">
+                            <a href="{% url 'packaging_run_create' %}" class="text-xs font-bold text-rust hover:text-rust-dark hover:underline">
+                                Schedule Packaging →
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-slate-400 italic bg-white">
+                            ✓ Excellent! No packaged retail variants are currently running low in store.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-        <table class="w-full text-sm">
+    <!-- 3. RAW & FACTORY STORAGE LOTS TABLE CARD -->
+    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+            <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Raw & Factory Storage Lots</p>
+            <h2 class="text-sm font-semibold text-slate-800 mt-0.5">Bulk Mass Coffee Batches Requiring Attention</h2>
+        </div>
 
-            <thead class="bg-paper border-b border-[#E4DECB]">
-
-                <tr class="text-left text-xs uppercase
-                           tracking-wider text-clay">
-
-                    <th class="px-6 py-3">
-                        Batch
-                    </th>
-
-                    <th class="px-6 py-3">
-                        Coffee
-                    </th>
-
-                    <th class="px-6 py-3">
-                        Type
-                    </th>
-
-                    <th class="px-6 py-3 text-right">
-                        Available
-                    </th>
-
-                    <th class="px-6 py-3 text-right">
-                        Reorder At
-                    </th>
-
-                    <th class="px-6 py-3 text-right">
-                        Shortfall
-                    </th>
-
-                    <th class="px-6 py-3 text-center">
-                        Status
-                    </th>
-
-                    <th class="px-6 py-3">
-                    </th>
-
-                </tr>
-
-            </thead>
-
-
-            <tbody class="divide-y divide-[#EEE9DB]">
-
-                {% for stock in low_stocks %}
-
-                <tr class="hover:bg-paper/50">
-
-                    <td class="px-6 py-4">
-
-                        <a href="{% url 'stock_detail' stock.pk %}"
-                           class="font-mono text-xs font-semibold
-                                  text-rust hover:underline">
-                            {{ stock.batch_number }}
-                        </a>
-
-                    </td>
-
-                    <td class="px-6 py-4 font-medium text-ink">
-                        {{ stock.variety_name }}
-                    </td>
-
-                    <td class="px-6 py-4">
-
-                        <span class="px-2.5 py-1 rounded-full
-                                     bg-olive/10 text-olive
-                                     text-xs font-medium">
-                            {{ stock.get_coffee_type_display }}
-                        </span>
-
-                    </td>
-
-                    <td class="px-6 py-4 text-right font-semibold">
-                        {{ stock.quantity_available|floatformat:2 }}
-                        <span class="text-xs text-clay">kg</span>
-                    </td>
-
-                    <td class="px-6 py-4 text-right text-clay">
-                        {{ stock.reorder_level|floatformat:2 }}
-                        <span class="text-xs">kg</span>
-                    </td>
-
-                    <td class="px-6 py-4 text-right
-                               font-semibold text-rust">
-
-                        {{ stock.shortfall|floatformat:2 }}
-                        <span class="text-xs">kg</span>
-
-                    </td>
-
-                    <td class="px-6 py-4 text-center">
-
-                        {% if stock.quantity_available <= 0 %}
-
-                            <span class="px-2.5 py-1 rounded-full
-                                         bg-rust/10 text-rust
-                                         text-xs font-semibold">
-                                Out of stock
-                            </span>
-
-                        {% else %}
-
-                            <span class="px-2.5 py-1 rounded-full
-                                         bg-gold/10 text-gold
-                                         text-xs font-semibold">
-                                Low stock
-                            </span>
-
-                        {% endif %}
-
-                    </td>
-
-                    <td class="px-6 py-4 text-right">
-
-                        <a href="{% url 'stock_detail' stock.pk %}"
-                           class="text-rust font-medium hover:underline">
-                            View
-                        </a>
-
-                    </td>
-
-                </tr>
-
-                {% empty %}
-
-                <tr>
-
-                    <td colspan="8"
-                        class="px-6 py-16 text-center">
-
-                        <p class="font-display text-xl text-ink">
-                            Everything looks good
-                        </p>
-
-                        <p class="text-sm text-clay mt-2">
-                            No coffee batches are currently below
-                            their reorder threshold.
-                        </p>
-
-                    </td>
-
-                </tr>
-
-                {% endfor %}
-
-            </tbody>
-
-        </table>
-
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left border-collapse bg-white">
+                <thead>
+                    <tr class="bg-slate-50/50 border-b border-[#E4DECB] text-slate-600 font-semibold text-xs uppercase tracking-wider">
+                        <th class="px-6 py-4">Batch Code</th>
+                        <th class="px-6 py-4">Coffee Variety</th>
+                        <th class="px-6 py-4 text-right">Available Weight</th>
+                        <th class="px-6 py-4 text-right">Reorder Point</th>
+                        <th class="px-6 py-4 text-center">Status</th>
+                        <th class="px-6 py-4 text-right">Action Desk</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#E4DECB] text-slate-700 text-xs">
+                    {% for stock in low_stocks %}
+                    <tr class="hover:bg-slate-50/50 transition duration-150">
+                        <!-- Batch -->
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <a href="{% url 'stock_detail' stock.pk %}" class="font-mono font-bold text-rust hover:underline">
+                                {{ stock.batch_number }}
+                            </a>
+                        </td>
+                        <!-- Variety -->
+                        <td class="px-6 py-4 font-semibold text-slate-800">
+                            {{ stock.variety.name }}
+                        </td>
+                        <!-- Weight -->
+                        <td class="px-6 py-4 text-right font-bold text-slate-800">
+                            {{ stock.quantity_available|floatformat:1 }} <span class="text-[10px] text-slate-400 font-normal">Kg</span>
+                        </td>
+                        <!-- Threshold -->
+                        <td class="px-6 py-4 text-right font-medium text-slate-400">
+                            {{ stock.reorder_level|floatformat:1 }} <span class="text-[10px] text-slate-400 font-normal">Kg</span>
+                        </td>
+                        <!-- Status Badge -->
+                        <td class="px-6 py-4 text-center whitespace-nowrap">
+                            {% if stock.quantity_available <= 0 %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200 uppercase tracking-wider">Depleted</span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 uppercase tracking-wider">Low Mass</span>
+                            {% endif %}
+                        </td>
+                        <!-- Action -->
+                        <td class="px-6 py-4 text-right whitespace-nowrap">
+                            <a href="{% url 'stock_detail' stock.pk %}" class="text-xs font-bold text-rust hover:text-rust-dark hover:underline">
+                                Process Run →
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-slate-400 italic bg-white">
+                            ✓ No bulk mass coffee batches are currently dropping below safety levels.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
 </div>
-```
-
-</div>
-
 {% endblock %}

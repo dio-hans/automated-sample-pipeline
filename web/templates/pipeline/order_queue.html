@@ -1,6 +1,138 @@
 {% extends "pipeline/base.html" %}
+{% load humanize %}
+
 {% block title %}Cashier Queue | Nonda{% endblock %}
 {% block breadcrumb %}Cashier / Order Queue{% endblock %}
 {% block page_title %}Cashier Queue{% endblock %}
-{% block page_subtitle %}<p class="mt-1 text-sm text-clay">Sales releases awaiting money clearance.</p>{% endblock %}
-{% block content %}<div class="bg-white border border-line rounded-xl overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-olive text-white"><tr><th class="px-5 py-3 text-left">Salesperson</th><th class="px-5 py-3 text-left">Product</th><th class="px-5 py-3 text-right">Issued</th><th class="px-5 py-3 text-right">Returned</th><th class="px-5 py-3 text-right">Price / pack</th><th class="px-5 py-3 text-right">Value</th><th class="px-5 py-3"></th></tr></thead><tbody class="divide-y divide-line">{% for release in releases %}<tr class="hover:bg-paper"><td class="px-5 py-4 font-semibold">{{ release.released_to }}</td><td class="px-5 py-4"><p class="font-semibold">{{ release.product.blend.name }}</p><p class="text-xs text-clay">{{ release.product.pack_size.label }} · {{ release.released_at|date:"d M Y" }}</p></td><td class="px-5 py-4 text-right">{{ release.packs_out }}</td><td class="px-5 py-4 text-right">{{ release.packs_returned }}</td><td class="px-5 py-4 text-right">UGX {{ release.selling_price|floatformat:0 }}</td><td class="px-5 py-4 text-right font-semibold">UGX {{ release.stock_value|floatformat:0 }}</td><td class="px-5 py-4 text-right"><a href="{% url 'cashier_clearance' release.pk %}" class="px-3 py-2 bg-rust text-white rounded-lg text-xs font-semibold">Clear</a></td></tr>{% empty %}<tr><td colspan="7" class="px-5 py-12 text-center text-clay">Nothing is waiting for cashier clearance.</td></tr>{% endfor %}</tbody></table></div></div>{% endblock %}
+{% block page_subtitle %}<p class="mt-1 text-sm text-slate-500">Sales releases awaiting money clearance.</p>{% endblock %}
+
+{% block content %}
+<div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left border-collapse bg-white min-w-[1000px]">
+            <thead>
+                <tr class="bg-slate-50 border-b border-[#E4DECB] text-slate-600 font-semibold text-xs uppercase tracking-wider">
+                    <th class="px-6 py-4">Salesperson / Account</th>
+                    <th class="px-6 py-4">Product Variant</th>
+                    <th class="px-6 py-4 text-center">Issued</th>
+                    <th class="px-6 py-4 text-center">Returned</th>
+                    <th class="px-6 py-4 text-right">Price / Pack UGX</th>
+                    <th class="px-6 py-4 text-right">Outstanding Debt</th>
+                    <th class="px-6 py-4 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-[#E4DECB] text-slate-700 text-xs">
+                {% for release in releases %}
+                <tr class="hover:bg-slate-50/50 transition duration-150">
+                    
+                    <!-- Col 1: Account Holder/Agent Profile Name -->
+                    <td class="px-6 py-4 font-bold text-slate-900 whitespace-nowrap">
+                        {% if release.released_to %}
+                            {{ release.released_to.name }}
+                        {% else %}
+                            <span class="text-slate-400 font-normal italic">Cleared Base Test Row</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Col 2: Product variant metrics lot data -->
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <p class="font-bold text-slate-800">{{ release.product.blend.name }}</p>
+                        <p class="text-[11px] text-slate-400 font-medium mt-0.5">{{ release.product.pack_size.label }} · {{ release.released_at|date:"d M Y" }}</p>
+                    </td>
+                    
+                    <!-- Col 3: Issued Quantities (Aligned Centered) -->
+                    <td class="px-6 py-4 text-center font-medium text-slate-500 whitespace-nowrap">
+                        {{ release.packs_out|floatformat:0|intcomma }}
+                    </td>
+                    
+                    <!-- Col 4: Returned Quantities (Aligned Centered) -->
+                    <td class="px-6 py-4 text-center font-medium text-slate-500 whitespace-nowrap">
+                        {{ release.packs_returned|floatformat:0|intcomma }}
+                    </td>
+                    
+                    <!-- Col 5: Selling Unit Price (Clean Humanize Comma Formatting) -->
+                    <td class="px-6 py-4 text-right font-medium text-slate-600 whitespace-nowrap">
+                        {{ release.selling_price|floatformat:0|intcomma }} <span class="text-[10px] text-slate-400">UGX</span>
+                    </td>
+                    
+                    <!-- Col 6: Debt Valuation Balances Owed -->
+                    <td class="px-6 py-4 text-right font-black text-rose-600 bg-rose-50/10 whitespace-nowrap">
+                        {{ release.outstanding_balance|floatformat:0|intcomma }} <span class="text-[10px] text-rose-400">UGX</span>
+                    </td>
+                    
+                    <!-- Col 7: Cleaned, Consolidated Actions Column Cell Block -->
+                    <td class="px-6 py-4 text-right whitespace-nowrap space-x-1.5">
+                        {% if release.packs_outstanding > 0 and not release.is_fully_cleared %}
+                            <!-- A. Main collection desk shortcut button -->
+                            <a href="{% url 'record_installment' release.pk %}" 
+                               class="inline-flex items-center px-3 py-1.5 bg-rust hover:bg-rust-dark text-white rounded-lg text-xs font-bold shadow-sm transition active:scale-95">
+                                Clear Balance
+                            </a>
+                        {% endif %}
+
+                        <!-- B. Secondary return ledger action button link shortcut -->
+                        <a href="{% url 'pack_return_form' %}" 
+                           class="inline-flex px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-[11px] font-bold shadow-sm transition">
+                            Log Return
+                        </a>
+
+                        <!-- C. Receipts historical archive subpanel modal button -->
+                        <button type="button" onclick="toggleReceipts('drawer_{{ release.pk }}')"
+                                class="inline-flex px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-lg text-[11px] font-semibold transition">
+                            Receipts ({{ release.payments.count|default:"0" }})
+                        </button>
+                    </td>
+                </tr>
+
+                <!-- HIDDEN EMBEDDED RECEIPT LOG SLIDE PANEL DRAWER GRID -->
+                <tr id="drawer_{{ release.pk }}" class="hidden bg-slate-50/50">
+                    <td colspan="7" class="px-8 py-3.5 border-l-2 border-slate-400">
+                        <div class="space-y-2">
+                            <p class="font-bold text-slate-400 uppercase tracking-wider text-[10px]"> Collection History Installments Logs:</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 max-w-2xl text-xs">
+                                <div class="flex justify-between items-center py-1 border-b border-slate-200">
+                                    <span class="text-slate-400 font-medium">Initial Collection Deposit:</span>
+                                    <span class="font-semibold text-slate-800">{{ release.amount_paid_on_take|floatformat:0|intcomma }} UGX</span>
+                                </div>
+                                {% for receipt in release.payments.all %}
+                                    <div class="flex justify-between items-center py-1 border-b border-slate-200">
+                                        <span class="text-slate-500 font-medium">Payment Received ({{ receipt.collected_at|date:"d M Y" }}):</span>
+                                        <span class="font-bold text-emerald-600">{{ receipt.amount|floatformat:'0'|intcomma }} UGX</span>
+                                    </div>
+                                {% empty %}
+                                    {% if release.amount_paid_on_take == 0 %}
+                                        <p class="text-slate-400 italic text-[11px] py-1">No payment installments have been submitted on this dispatch account yet.</p>
+                                    {% endif %}
+                                {% endfor %}        
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-6 py-16 text-center text-slate-400">
+                        <div class="flex flex-col items-center justify-center space-y-2 max-w-xs mx-auto">
+                            <svg class="w-8 h-8 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                            </svg>
+                            <p class="text-xs font-bold text-slate-800">Queue is Empty</p>
+                            <p class="text-[11px] text-slate-400 leading-normal">Excellent! There are currently no outstanding salesperson field balances waiting for cashier payment collection.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function toggleReceipts(drawerId) {
+    const el = document.getElementById(drawerId);
+    if(el) el.classList.toggle("hidden");
+}
+</script>
+{% endblock %}
+on top of the modern modern and the church you family as you are taking very onhello

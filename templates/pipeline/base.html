@@ -15,9 +15,7 @@
         {% endblock %}
     </title>
 
-    <!-- =========================================================
-         FONTS
-         ========================================================= -->
+    <!--  FONTS -->
 
     <link rel="preconnect"
           href="https://fonts.googleapis.com">
@@ -30,9 +28,7 @@
           rel="stylesheet">
 
 
-    <!-- =========================================================
-         TAILWIND
-         ========================================================= -->
+    <!--  TAILWIND-->
 
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -215,7 +211,8 @@
     <aside id="mainSidebar"
            class="fixed inset-y-0 left-0 z-50
                   w-64
-                  bg-olive
+                  bg-green-700
+                  border-r border-white/10
                   text-white
                   transform -translate-x-full
                   lg:translate-x-0
@@ -300,12 +297,13 @@
                 <!-- User information -->
 
                 <div class="min-w-0">
-
                     <p class="text-sm
                               font-semibold
                               truncate">
 
-                        {{ request.user.username }}
+                        <!-- 🌟 Best Approach: Displays full name capitalized, falls back to capitalized username -->
+                        {{request.user.username|capfirst }}
+
 
                     </p>
 
@@ -328,329 +326,275 @@
              NAVIGATION
              ===================================================== -->
 
-        <nav class="flex-1
-                    overflow-y-auto
-                    px-3
-                    py-5
-                    space-y-6">
+       <!-- =========================================================
+     NAVIGATION
+     ========================================================= -->
+<nav class="flex-1
+            overflow-y-auto
+            px-3
+            py-5
+            space-y-6">
 
+    <!-- =====================================================
+         STORE MANAGER
+         ===================================================== -->
+    {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" %}
 
-            <!-- =================================================
-                 MANAGER / ADMIN
-                 ================================================= -->
+        <!-- OVERVIEW -->
+        <div>
+            <p class="nav-section-title">
+                Overview
+            </p>
 
-           
+            <div class="space-y-1">
 
-
-            <!-- OVERVIEW -->
-
-            <div>
-
-                <p class="nav-section-title">
-                    Overview
-                </p>
-
-                <div class="space-y-1">
-
-
-                    <a href="{% url 'dashboard' %}"
-                       class="nav-link">
-
-                        <span class="nav-icon">⌂</span>
-
-                        <span>
-                            Dashboard
-                        </span>
-
-                    </a>
-
-                </div>
+                <a href="{% url 'dashboard' %}"
+                   class="nav-link">
+                    <span class="nav-icon">⌂</span>
+                    <span>Dashboard</span>
+                </a>
 
             </div>
+        </div>
 
 
-            <!-- =
-              INVENTORY= -->
+        <!-- INVENTORY -->
+        <div>
+            <p class="nav-section-title">
+                Inventory
+            </p>
 
-            <div>
+            <div class="space-y-1">
 
-                <p class="nav-section-title">
-                    Inventory
-                </p>
+                <!-- Coffee stock -->
+                <a href="{% url 'stock_list' %}"
+                   class="nav-link">
+                    <span class="nav-icon">●</span>
+                    <span>Coffee Stock</span>
+                </a>
 
+                <!-- Packaged products -->
+                <a href="{% url 'packaged_inventory_list' %}"
+                   class="nav-link">
+                   
+                    <span>Packaged Coffee</span>
+                </a>
 
-                <div class="space-y-1">
+                <!-- Low stock -->
+                <a href="{% url 'stock_low' %}"
+                   class="nav-link">
+                    <span class="nav-icon"></span>
+                    <span>Low Stock</span>
+                </a>
 
-
-                    <!-- Coffee stock -->
-
-                    <a href="{% url 'stock_list' %}"
-                       class="nav-link">
-
-                        <span class="nav-icon">▣</span>
-
-                        <span>
-                            Coffee Stock
-                        </span>
-
-                    </a>
-
-
-                    <!-- Packaged products -->
-
-                    <a href="{% url 'packaged_inventory_list' %}"
-                       class="nav-link">
-
-                        <span class="nav-icon">▤</span>
-
-                        <span>
-                            Packaged Coffee
-                        </span>
-
-                    </a>
-
-
-                    <!-- Low stock -->
-
-                    <a href="{% url 'stock_low' %}"
-                       class="nav-link">
-
-                        <span class="nav-icon">!</span>
-
-                        <span>
-                            Low Stock
-                        </span>
-
-                    </a>
-
-
-                    <!-- Ledger -->
-
-                    <a href="{% url 'stock_ledger' %}"
-                       class="nav-link">
-
-                        <span class="nav-icon">≡</span>
-
-                        <span>
-                            Movement Ledger
-                        </span>
-
-                    </a>
-
-                </div>
-
-            </div>
-
-
-
-     PROCESSING
-    
-            <div>
-
-                <p class="nav-section-title">
-                    Processing
-                </p>
-
-
-                <div class="space-y-1">
-
-
-                    <a href="#"
-                       class="nav-link">
-
-                        <span class="nav-icon"></span>
-
-                        <span>
-                            Processing
-                        </span>
-
-                    </a>
-
-
-                    <a href="{% url 'packaging_run_list' %}"
-                       class="nav-link">
-
-                        <span class="nav-icon">□</span>
-
-                        <span>
-                            Packaging
-                        </span>
-
-                    </a>
-
-                </div>
-
-            </div>
-
-
-          
-    STOCK MOVEMENT
+                <!-- Stock ledger -->
+                <a href="{% url 'stock_ledger' %}"
+                   class="nav-link">
                 
-
-            <div>
-
-                <p class="nav-section-title">
-                    Stock Movement
-                </p>
-
-
-                <div class="space-y-1">
-
-
-                    <a href="{% url 'pack_release_list' %}"
-                       class="nav-link">
-
-                        <span class="nav-icon">→</span>
-
-                        <span>
-                            Releases
-                        </span>
-
-                    </a>
-
-
-                    <a href="{% url 'pack_return_list' %}"
-                       class="nav-link">
-
-                        <span class="nav-icon"></span>
-
-                        <span>
-                            Returns
-                        </span>
-
-                    </a>
-
-                </div>
+                    <span>Movement Ledger</span>
+                </a>
 
             </div>
+        </div>
 
 
-           
+        <!-- PROCESSING -->
+        <div>
+            <p class="nav-section-title">
+                Processing
+            </p>
 
-    SALES
-               
+            <div class="space-y-1">
 
-            <div>
+                <a href="{% url 'processing_workspace' %}"
+                   class="nav-link">
+                    <span class="nav-icon">◈</span>
+                    <span>Processing</span>
+                </a>
 
-                <p class="nav-section-title">
-                    Sales
-                </p>
-
-
-                <div class="space-y-1">
-
-                    <a href="{% url 'pack_release_list' %}"
-                       class="nav-link">
-
-                        <span class="nav-icon"></span>
-
-                        <span>
-                            Record Sale
-                        </span>
-
-                    </a>
-
-                </div>
+                <a href="{% url 'packaging_run_list' %}"
+                   class="nav-link">
+                  
+                    <span>Packaging</span>
+                </a>
 
             </div>
+        </div>
 
 
-            <!-- =================================================
-                 COMMERCIAL / CRM
-                 ================================================= -->
+        <!-- STOCK MOVEMENT -->
+        <div>
+            <p class="nav-section-title">
+                Stock Movement
+            </p>
 
-            
-            <div>
+            <div class="space-y-1">
 
-                <p class="nav-section-title">
-                    Commercial
-                </p>
+                <a href="{% url 'pack_release_list' %}"
+                   class="nav-link">
+                    <span class="nav-icon"></span>
+                    <span>Releases</span>
+                </a>
+                
+            </div>
+        </div>
 
-
-                <div class="space-y-1">
-
-
-                    <a href="{% url 'company_list' %}"
-                       class="nav-link">
-
-                        <span class="nav-icon">○</span>
-
-                        <span>
-                            Companies
-                        </span>
-
-                    </a>
-
-
-                    <a href="{% url 'sample_list' %}"
-                       class="nav-link">
-
-                        <span class="nav-icon">□</span>
-
-                        <span>
-                            Samples
-                        </span>
-
-                    </a>
+    {% endif %}
+    {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" or request.user.role == "CASHIER" %}
+                <a href="{% url 'pack_return_list' %}"
+                   class="nav-link">
+                    
+                    <span>Returns</span>
+                </a>
+                {% endif %}
 
 
-                    <a href="{% url 'followup_list' %}"
-                       class="nav-link">
 
-                        <span class="nav-icon">↻</span>
+    <!-- =====================================================
+         SALES
+         ===================================================== -->
+    {% if request.user.role == "SALES" %}
 
-                        <span>
-                            Follow-ups
-                        </span>
+        <div>
+            <p class="nav-section-title">
+                Sales
+            </p>
 
-                    </a>
+            <div class="space-y-1">
 
+                <a href="{% url 'record_sale' %}"
+                   class="nav-link">
+                    <span class="nav-icon">₵</span>
+                    <span>Record Sale</span>
+                </a>
 
-                    <a href="{% url 'contract_list' %}"
-                       class="nav-link">
+                <a href="{% url 'stock_request_list' %}"
+                   class="nav-link">
+                    <span class="nav-icon">▣</span>
+                    <span>My Stock Requests</span>
+                </a>
 
-                        <span class="nav-icon">▱</span>
-
-                        <span>
-                            Contracts
-                        </span>
-
-                    </a>
-
-                </div>
+                <a href="{% url 'my_stock' %}"
+                   class="nav-link">
+                    <span class="nav-icon">□</span>
+                    <span>My Issued Stock</span>
+                </a>
 
             </div>
+        </div>
 
-                        <!-- =================================================
-                 ADMINISTRATION
-                 ================================================= -->
-
-                        <div>
-
-                <p class="nav-section-title">
-                    Administration
-                </p>
+    {% endif %}
 
 
-                <div class="space-y-1">
+    <!-- =====================================================
+         CASHIER
+         ===================================================== -->
+    {% if request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" %}
 
+        <div>
+            <p class="nav-section-title">
+                Cash Control
+            </p>
 
-                    <a href="{% url 'register' %}"
-                       class="nav-link">
+            <div class="space-y-1">
 
-                        <span class="nav-icon">+</span>
+                <a href="{% url 'order_queue' %}"
+                   class="nav-link">
+                    <span class="nav-icon">▣</span>
+                    <span>Order Queue</span>
+                </a>
 
-                        <span>
-                            User Management
-                        </span>
-
-                    </a>
-
-                </div>
+                <a href="{% url 'cash_ledger_list' %}"
+                   class="nav-link">
+                    <span class="nav-icon">₵</span>
+                    <span>Cash Book</span>
+                </a>
 
             </div>
+        </div>
 
-        </nav>
+        <!-- CASHIER SELECTION DESK SECTION --> 
+<div> 
+    <p class="nav-section-title">Cashier Desk</p> 
+    <div class="space-y-1"> 
+        <a href="{% url 'order_queue' %}" class="nav-link">Order Queue</a> 
+        
+        <!-- 🪙 New Standalone Credit Book Link Element -->
+        <a href="{% url 'credit_control_ledger' %}" class="nav-link">
+            <span class="nav-icon">🪙</span>
+            <span>Credit Book Ledger</span>
+        </a>
+        
+        <a href="{% url 'stock_request_create' %}" class="nav-link">Request Stock</a> 
+        <a href="{% url 'pack_return_list' %}" class="nav-link">Log Returns</a> 
+    </div> 
+</div> 
+
+    {% endif %}
+
+
+    <!-- =====================================================
+         COMMERCIAL / CRM
+         ===================================================== -->
+    {% if request.user.role == "ADMIN" %}
+
+        <div>
+            <p class="nav-section-title">
+                Commercial
+            </p>
+
+            <div class="space-y-1">
+
+                <a href="{% url 'company_list' %}"
+                   class="nav-link">
+                    <span class="nav-icon">○</span>
+                    <span>Companies</span>
+                </a>
+
+                <a href="{% url 'sample_list' %}"
+                   class="nav-link">
+                    <span class="nav-icon">□</span>
+                    <span>Samples</span>
+                </a>
+
+                <a href="{% url 'followup_list' %}"
+                   class="nav-link">
+                    <span class="nav-icon">↻</span>
+                    <span>Follow-ups</span>
+                </a>
+
+                <a href="{% url 'contract_list' %}"
+                   class="nav-link">
+                    <span class="nav-icon">▤</span>
+                    <span>Contracts</span>
+                </a>
+
+            </div>
+        </div>
+
+
+        <!-- =================================================
+             ADMINISTRATION
+             ================================================= -->
+        <div>
+            <p class="nav-section-title">
+                Administration
+            </p>
+
+            <div class="space-y-1">
+
+                <a href="{% url 'register' %}"
+                   class="nav-link">
+                    <span class="nav-icon">+</span>
+                    <span>User Management</span>
+                </a>
+
+            </div>
+        </div>
+
+    {% endif %}
+
+</nav>
 
 
         <!--=SIDEBAR FOOTER= -->
@@ -664,10 +608,6 @@
 
             <a href="#"
                class="nav-link">
-
-                <span class="nav-icon">
-                    ⚙
-                </span>
 
                 <span>
                     Account
@@ -686,10 +626,6 @@
 
                 <button type="submit"
                         class="nav-link text-left">
-
-                    <span class="nav-icon">
-                        ↪
-                    </span>
 
                     <span>
                         Logout
@@ -836,9 +772,7 @@
 
             </div>
 
-            <!-- =================================================
-                 SYSTEM MESSAGES
-                 ================================================= -->
+            <!-- SYSTEM MESSAGES -->
 
             {% if messages %}
 
@@ -890,7 +824,7 @@
             {% endif %}
 
 
-            <!-- =PAGE BODY= -->
+            <!-- PAGE BODY -->
 
             {% block content %}
             {% endblock %}
