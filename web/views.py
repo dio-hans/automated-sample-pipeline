@@ -1084,8 +1084,8 @@ class CashLedgerListView(RoleRequiredMixin, ListView):
     """
 
     model = PackRelease
-    template_name = "pipeline/cash_ledger_list.html"
-    context_object_name = "debtor_releases"
+    template_name = "pipeline/credit_control_ledger.html"
+    context_object_name = "releases"
 
     allowed_roles = (
         User.Role.CASHIER,
@@ -1101,8 +1101,8 @@ class CashLedgerListView(RoleRequiredMixin, ListView):
                 "product",
                 "product__blend",
                 "product__pack_size",
-                "released_to_user",
-                "released_to_account",
+                "released_to",
+                
             )
             .prefetch_related(
                 "payments",
@@ -1114,7 +1114,7 @@ class CashLedgerListView(RoleRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
 
-        releases = list(ctx["debtor_releases"])
+        releases = list(ctx["releases"])
 
         ctx["total_outstanding_debt"] = sum(
             release.outstanding_balance
