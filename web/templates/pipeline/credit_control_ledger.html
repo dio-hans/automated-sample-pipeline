@@ -29,7 +29,8 @@
             </p>
 
             <p class="font-semibold text-2xl mt-2 text-slate-800">
-                {{ total_value_issued|floatformat:0|intcomma }}
+                <!-- ✅ FIXED: Use intcomma directly so it processes the number correctly -->
+                {{ total_value_issued|intcomma }}
                 <span class="text-xs font-normal text-slate-400">UGX</span>
             </p>
 
@@ -311,7 +312,7 @@
                                         
                                         <!-- 🔄 THE NEW LOG RETURN TRIGGER BUTTON -->
                                         {% if release.packs_outstanding > 0 %}
-                                            <a href="{% url 'pack_return_form' %}" 
+                                            <a href="{% url 'pack_return_form' release.pk %}" 
                                             class="inline-flex px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded text-[11px] font-bold shadow-sm transition">
                                                 Log Return
                                             </a>

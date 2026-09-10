@@ -139,9 +139,8 @@ def issue_for_processing(
 # ============================================================
 
 from decimal import Decimal
-from django.utils import timezone
 from django.core.exceptions import ValidationError
-from ..models import StockStage, StockMovement
+from ..models import StockMovement
 
 def complete_roasting(processing_run, good_quantity, bad_quantity, user, notes=""):
     """

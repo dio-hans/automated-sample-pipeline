@@ -1,39 +1,70 @@
-from django.views.generic import FormView
-from .permissions import RoleRequiredMixin
-from .forms import (PackagingRunForm, PackReleaseForm, PackReturnForm
-)
-from .services.packaging import (
-    execute_packaging_run, execute_pack_release, execute_pack_return
-)
-from .services.processing import issue_for_processing, complete_roasting, complete_grinding
-# Adjust this import to match where your mixin resides
-from .forms import PackagedProductBulkForm
 from decimal import Decimal
+from .services.processing import complete_sorting
+from django.views.generic import TemplateView
+from .models import CoffeeStock, PackagedInventory
 from django.contrib import messages
-from django.db import transaction
-from django.http import JsonResponse, request
-from django.shortcuts import redirect, get_object_or_404
-from django.urls import reverse_lazy
-from django.views.generic import ListView, TemplateView, CreateView, UpdateView, DeleteView, DetailView, View
-
-from .models import Company, PackReturn, CoffeeStock, CoffeeVariety, ProcessingRun, Sample, StockMovement, Followup, Contract, StockRequest, StockStage, User
-from .forms import (
-    CompanyForm, CoffeeStockForm, CoffeeStockIntakeForm, ProcessingCompleteForm, SampleForm, ContractForm,
-)
-from .services.intake import record_intake
-from django.shortcuts import render
-from .services.inventory import get_stage_inventory
-from .services.followup import (
-    create_followup_for_sample, mark_guide_sent, mark_contract_sent, convert_to_contract,
-)
-from .utils.util import apply_date_filters
-from .forms import UserRegistrationForm, UserLoginForm
 from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError
-
-from .models import ( PackagedProduct, PackagingRun, 
-    PackagedInventory, PackRelease)
-from .decorators import role_required
+from django.db import transaction
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse_lazy
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    DetailView,
+    FormView,
+    ListView,
+    UpdateView,
+    View,
+)
+# Adjust this import to match where your mixin resides
+from .forms import (
+    CoffeeStockForm,
+    CoffeeStockIntakeForm,
+    CompanyForm,
+    ContractForm,
+    PackagedProductBulkForm,
+    PackagingRunForm,
+    PackReleaseForm,
+    PackReturnForm,
+    SampleForm,
+    UserLoginForm,
+    UserRegistrationForm,
+)
+from .models import (
+    CoffeeVariety,
+    Company,
+    Contract,
+    Followup,
+    PackagedProduct,
+    PackagingRun,
+    PackRelease,
+    PackReturn,
+    ProcessingRun,
+    Sample,
+    StockMovement,
+    StockRequest,
+    User,
+)
+from .permissions import RoleRequiredMixin
+from .services.followup import (
+    convert_to_contract,
+    create_followup_for_sample,
+    mark_contract_sent,
+    mark_guide_sent,
+)
+from .services.intake import record_intake
+from .services.inventory import get_stage_inventory
+from .services.packaging import (
+    execute_pack_release,
+    execute_pack_return,
+    execute_packaging_run,
+)
+from .services.processing import (
+    issue_for_processing,
+)
+from .utils.util import apply_date_filters
 
 
 def redirect_user_by_role(user):
@@ -124,7 +155,7 @@ def toggle_user_status(request, user_id):
 
 # AUTH & USER CONTROL    
 class InventoryRoleRequiredMixin:
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER, User.Role.ACCOUNTS)
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect("login")
@@ -182,10 +213,6 @@ class PackagingRunCreateView(InventoryRoleRequiredMixin, CreateView):
 
 
 # ===================== PACK RELEASE & RETURN VIEWS =====================
-
-from django.db.models import Sum, Q
-from decimal import Decimal
-from .models import PackRelease
 
 class PackReleaseListView(InventoryRoleRequiredMixin, ListView):
     model = PackRelease
@@ -777,16 +804,15 @@ def low_stock_list(request):
 
 # PROCESS STOCK VIEW
 
-
-
 class ProcessingWorkspaceView(RoleRequiredMixin, View):
     allowed_roles = (
         User.Role.MANAGER,
         User.Role.ADMIN,
+        User.Role.CASHIER,
+        User.Role.ACCOUNTS,
     )
 
     template_name = "pipeline/processing_workspace.html"
-
     def get(self, request):
         stocks = (
             CoffeeStock.objects
@@ -811,15 +837,9 @@ class ProcessingWorkspaceView(RoleRequiredMixin, View):
         )
 
 
-from django.views.generic import View
-from django.shortcuts import get_object_or_404, redirect
-from django.contrib import messages
-from .models import CoffeeStock, ProcessingRun
-from .services.processing import issue_for_processing, complete_roasting, complete_grinding
-
 class IssueProcessingRunView(RoleRequiredMixin, View):
     """Step 1: Called when coffee is taken and loaded into the machinery."""
-    allowed_roles = ("store_manager", "manager", "admin")
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER, User.Role.ACCOUNTS)
 
     def post(self, request, pk):
         stock = get_object_or_404(CoffeeStock, pk=pk)
@@ -843,11 +863,11 @@ class IssueProcessingRunView(RoleRequiredMixin, View):
         except Exception as exc:
             messages.error(request, str(exc))
 
-        return redirect("processing_run_list")
+        return redirect("processing_workspace")
 
 
 class CompleteProcessingRunView(RoleRequiredMixin, View):
-    allowed_roles = ("store_manager", "manager", "admin")
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS)
 
     def post(self, request, pk):
         run = get_object_or_404(ProcessingRun, pk=pk)
@@ -867,7 +887,6 @@ class CompleteProcessingRunView(RoleRequiredMixin, View):
                     run.save(update_fields=["process_type"])
 
                 # Execute your native workflow logic atomically
-                from .sales_workflow import complete_sorting
                 completed_run = complete_sorting(
                     processing_run=run,
                     good_quantity=float(good_qty),
@@ -888,7 +907,7 @@ class CompleteProcessingRunView(RoleRequiredMixin, View):
         except (ValueError, ValidationError) as exc:
             messages.error(request, str(exc))
 
-        return redirect("processing_run_list")
+        return redirect("processing_workspace")
 
 
 # PACKAGED INVENTORY VIEWS
@@ -905,11 +924,19 @@ class PackagedInventoryListView(InventoryRoleRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        
+        # 1. Turn the inventory queryset into a list
         inv = list(ctx["inventory"])
-        ctx["products"] = [item.product for item in inv]
-        ctx["total_available"] = sum(i.available for i in inv)
-        ctx["total_released"] = sum(i.packs_released for i in inv)
-        ctx["total_returned"] = sum(i.packs_returned for i in inv)
+        
+        # 2. 📊 Sort the list in memory using your 'available' property (lowest stock first)
+        inv_sorted = sorted(inv, key=lambda i: i.available)
+        
+        # 3. Save the newly sorted list back into the context for your HTML table template
+        ctx["inventory"] = inv_sorted
+        ctx["products"] = [item.product for item in inv_sorted]
+        ctx["total_available"] = sum(i.available for i in inv_sorted)
+        ctx["total_released"] = sum(i.packs_released for i in inv_sorted)
+        ctx["total_returned"] = sum(i.packs_returned for i in inv_sorted)
         return ctx
 
 
@@ -955,8 +982,7 @@ class PackagedProductCreateView(InventoryRoleRequiredMixin, FormView):
             })
                     
         return form
-
-
+  
 
 class PackReturnCreateView(InventoryRoleRequiredMixin, CreateView):
     model = PackReturn
@@ -964,45 +990,70 @@ class PackReturnCreateView(InventoryRoleRequiredMixin, CreateView):
     template_name = "pipeline/pack_return_form.html"
     success_url = reverse_lazy("pack_return_list")
 
+    allowed_roles = (
+        User.Role.CASHIER,
+        User.Role.ACCOUNTS,
+        User.Role.MANAGER,
+        User.Role.ADMIN,
+    )
+
+    def get_release(self):
+        return get_object_or_404(
+            PackRelease.objects.select_related(
+                "product__blend",
+                "product__pack_size",
+                "released_to",
+            ),
+            pk=self.kwargs["pk"],
+        )
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+
+        # The release is determined by the URL, not chosen by the user.
+        form.fields["release"].required = False
+        form.fields["release"].disabled = True
+        form.fields["release"].initial = self.get_release()
+
+        return form
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["release"] = self.get_release()
+        return context
+
     def form_valid(self, form):
+        release = self.get_release()
+
         try:
             execute_pack_return(
-                release=form.cleaned_data["release"],
+                release=release,
                 packs_returned=form.cleaned_data["packs_returned"],
                 reason=form.cleaned_data.get("reason", ""),
-                user=current_user(self.request),
-                notes=form.cleaned_data.get("notes", "")
+                user=self.request.user,
+                notes=form.cleaned_data.get("notes", ""),
             )
-            messages.success(self.request, "Pack return recorded successfully.")
+
+            messages.success(
+                self.request,
+                "Pack return recorded successfully.",
+            )
+
             return redirect(self.success_url)
-        except ValidationError as e:
-            form.add_error(None, e.message)
+
+        except ValidationError as exc:
+            form.add_error(None, str(exc))
             return self.form_invalid(form)
 
 
-
-from decimal import Decimal
 from django.views.generic import CreateView
-from django.shortcuts import get_object_or_404, redirect
-from django.contrib import messages
-from django.urls import reverse_lazy
 from .models import PackRelease, PaymentReceipt
 from .permissions import RoleRequiredMixin
-
-from decimal import Decimal
 from django.views.generic import CreateView
-from django.shortcuts import get_object_or_404, redirect
-from django.contrib import messages
-from django.urls import reverse_lazy
-from .models import PackRelease, PaymentReceipt
 from .permissions import RoleRequiredMixin
-
-from decimal import Decimal
 from django.views.generic import CreateView
-from django.shortcuts import get_object_or_404, redirect
-from django.contrib import messages
 from django.urls import reverse_lazy
-from .models import PackRelease, PaymentReceipt
+from .models import PackRelease
 
 class RecordInstallmentPaymentView(RoleRequiredMixin, CreateView):
     """
@@ -1095,14 +1146,15 @@ class CashLedgerListView(RoleRequiredMixin, ListView):
     )
 
     def get_queryset(self):
-        return (
+        from .utils.util import apply_date_filters
+
+        qs = (
             PackRelease.objects
             .select_related(
                 "product",
                 "product__blend",
                 "product__pack_size",
                 "released_to",
-                
             )
             .prefetch_related(
                 "payments",
@@ -1111,26 +1163,116 @@ class CashLedgerListView(RoleRequiredMixin, ListView):
             .order_by("-released_at")
         )
 
+        # Apply timeline filter
+        qs, preset, today, start, end = apply_date_filters(
+            self.request,
+            qs,
+            "released_at",
+        )
+
+        self._preset = preset
+
+        # Active debtors / historical records
+        self._view_scope = self.request.GET.get(
+            "scope",
+            "active",
+        )
+
+        if self._view_scope == "active":
+            qs = [
+                release
+                for release in qs
+                if release.outstanding_balance > 0
+            ]
+
+        return qs
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
 
-        releases = list(ctx["releases"])
+        from .utils.util import apply_date_filters
 
-        ctx["total_outstanding_debt"] = sum(
-            release.outstanding_balance
-            for release in releases
+        # ---------------------------------------------------------
+        # ALL RELEASES FOR THE SELECTED TIMELINE
+        # Used for the summary cards.
+        # ---------------------------------------------------------
+        all_records_qs = (
+            PackRelease.objects
+            .select_related(
+                "product",
+                "product__blend",
+                "product__pack_size",
+                "released_to",
+            )
+            .prefetch_related(
+                "payments",
+                "returns",
+            )
+            .order_by("-released_at")
         )
 
-        ctx["total_collected_revenue"] = sum(
+        all_records_qs, _, _, _, _ = apply_date_filters(
+            self.request,
+            all_records_qs,
+            "released_at",
+        )
+
+        all_records = list(all_records_qs)
+
+        # ---------------------------------------------------------
+        # SUMMARY CARDS
+        # ---------------------------------------------------------
+
+        # Gross value of all stock dispatched
+        total_value_issued = sum(
+            release.gross_amount
+            for release in all_records
+        )
+
+        # All payments collected
+        total_collected_revenue = sum(
             release.total_amount_paid
-            for release in releases
+            for release in all_records
         )
 
-        ctx["active_debts"] = [
+        # Remaining amount owed
+        total_outstanding_debt = sum(
+            release.outstanding_balance
+            for release in all_records
+        )
+
+        # Active debts
+        active_debts = [
             release
-            for release in releases
-            if not release.is_fully_cleared
+            for release in all_records
+            if release.outstanding_balance > 0
         ]
+
+        ctx.update({
+            "preset": getattr(
+                self,
+                "_preset",
+                self.request.GET.get(
+                    "preset",
+                    "this_month",
+                ),
+            ),
+
+            "view_scope": getattr(
+                self,
+                "_view_scope",
+                self.request.GET.get(
+                    "scope",
+                    "active",
+                ),
+            ),
+
+            "total_value_issued": total_value_issued,
+            "total_collected_revenue": total_collected_revenue,
+            "total_outstanding_debt": total_outstanding_debt,
+
+            "active_debts": active_debts,
+        })
 
         return ctx
 
@@ -1152,10 +1294,7 @@ class CancelStockRequestView(RoleRequiredMixin, View):
         messages.error(request, f"Stock request ticket {stock_request.short_number} has been cancelled and removed from the active queue.")
         return redirect("stock_request_list")
 
-from django.views.generic import ListView
-from django.db.models import Q
-from decimal import Decimal
-from .models import PackRelease, AccountHolder
+
 
 class CreditControlLedgerView(RoleRequiredMixin, ListView):
     """
@@ -1213,15 +1352,12 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
         })
         return ctx
 
-from django.views.generic import TemplateView
-from .models import CoffeeStock, PackagedInventory
-
 class LowStockListView(RoleRequiredMixin, TemplateView):
     """
     Unified low stock control desk displaying both raw coffee processing lots 
-    and retail packaged finished products on a single warning page.
+    and retail packaged finished prcoducts on a single warning page.
     """
-    allowed_roles = ("store_manager", "manager", "admin")
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER)
     template_name = "pipeline/low_stock.html"
 
     def get_context_data(self, **kwargs):

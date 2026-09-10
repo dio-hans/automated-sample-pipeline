@@ -21,7 +21,7 @@ Processing Workspace
 
 <div class="space-y-8">
 
-```
+
 <!-- =========================================================
      1. ACTIVE PROCESSING RUNS
      ========================================================= -->
@@ -150,7 +150,7 @@ Processing Workspace
                                 '{{ run.stock.batch_number|escapejs }}',
                                 '{{ run.process_type }}',
                                 '{{ run.input_quantity }}',
-                                '{% url 'processing_complete' run.pk %}'
+                                '{% url 'complete_processing' pk=run.pk %}',
                             )"
                             class="px-3 py-1.5
                                    bg-emerald-50
@@ -299,7 +299,7 @@ Processing Workspace
                                     '{{ stock.pk }}',
                                     '{{ stock.batch_number|escapejs }}',
                                     '{{ stock.quantity_green }}',
-                                    '{% url 'process_stock' stock.pk %}'
+                                    '{% url 'issue_processing' stock.pk %}',
                                 )"
                                 class="px-2.5 py-1.5
                                        bg-amber-50
@@ -342,7 +342,7 @@ Processing Workspace
                                     '{{ stock.pk }}',
                                     '{{ stock.batch_number|escapejs }}',
                                     '{{ stock.quantity_roasted }}',
-                                    '{% url 'process_stock' stock.pk %}'
+                                    '{% url 'issue_processing' stock.pk %}',
                                 )"
                                 class="px-2.5 py-1.5
                                        bg-blue-50
@@ -385,7 +385,7 @@ Processing Workspace
                                     '{{ stock.pk }}',
                                     '{{ stock.batch_number|escapejs }}',
                                     '{{ stock.quantity_roasted }}',
-                                    '{% url 'process_stock' stock.pk %}'
+                                    '{% url 'issue_processing' stock.pk %}',
                                 )"
                                 class="px-2.5 py-1.5
                                        bg-orange-50
@@ -446,7 +446,6 @@ Processing Workspace
     </div>
 
 </section>
-```
 
 </div>
 
@@ -457,7 +456,6 @@ Processing Workspace
 <div id="issueModal"
      class="fixed inset-0 z-50 overflow-y-auto hidden">
 
-```
 <div class="fixed inset-0 bg-slate-900/40"
      onclick="closeModal('issueModal')">
 </div>
@@ -601,7 +599,7 @@ Processing Workspace
     </div>
 
 </div>
-```
+
 
 </div>
 
@@ -612,7 +610,6 @@ Processing Workspace
 <div id="completeModal"
      class="fixed inset-0 z-50 overflow-y-auto hidden">
 
-```
 <div class="fixed inset-0 bg-slate-900/40"
      onclick="closeModal('completeModal')">
 </div>
@@ -858,7 +855,7 @@ Processing Workspace
     </div>
 
 </div>
-```
+
 
 </div>
 

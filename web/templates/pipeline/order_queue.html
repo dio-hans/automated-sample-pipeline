@@ -2,137 +2,538 @@
 {% load humanize %}
 
 {% block title %}Cashier Queue | Nonda{% endblock %}
-{% block breadcrumb %}Cashier / Order Queue{% endblock %}
-{% block page_title %}Cashier Queue{% endblock %}
-{% block page_subtitle %}<p class="mt-1 text-sm text-slate-500">Sales releases awaiting money clearance.</p>{% endblock %}
+
+{% block breadcrumb %}
+Cashier / Order Queue
+{% endblock %}
+
+{% block page_title %}
+Cashier Queue
+{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Sales releases awaiting money clearance.
+</p>
+{% endblock %}
+
 
 {% block content %}
-<div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
-    <div class="overflow-x-auto">
-        <table class="w-full text-sm text-left border-collapse bg-white min-w-[1000px]">
-            <thead>
-                <tr class="bg-slate-50 border-b border-[#E4DECB] text-slate-600 font-semibold text-xs uppercase tracking-wider">
-                    <th class="px-6 py-4">Salesperson / Account</th>
-                    <th class="px-6 py-4">Product Variant</th>
-                    <th class="px-6 py-4 text-center">Issued</th>
-                    <th class="px-6 py-4 text-center">Returned</th>
-                    <th class="px-6 py-4 text-right">Price / Pack UGX</th>
-                    <th class="px-6 py-4 text-right">Outstanding Debt</th>
-                    <th class="px-6 py-4 text-right">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-[#E4DECB] text-slate-700 text-xs">
-                {% for release in releases %}
-                <tr class="hover:bg-slate-50/50 transition duration-150">
-                    
-                    <!-- Col 1: Account Holder/Agent Profile Name -->
-                    <td class="px-6 py-4 font-bold text-slate-900 whitespace-nowrap">
-                        {% if release.released_to %}
-                            {{ release.released_to.name }}
-                        {% else %}
-                            <span class="text-slate-400 font-normal italic">Cleared Base Test Row</span>
-                        {% endif %}
-                    </td>
 
-                    <!-- Col 2: Product variant metrics lot data -->
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <p class="font-bold text-slate-800">{{ release.product.blend.name }}</p>
-                        <p class="text-[11px] text-slate-400 font-medium mt-0.5">{{ release.product.pack_size.label }} · {{ release.released_at|date:"d M Y" }}</p>
-                    </td>
-                    
-                    <!-- Col 3: Issued Quantities (Aligned Centered) -->
-                    <td class="px-6 py-4 text-center font-medium text-slate-500 whitespace-nowrap">
-                        {{ release.packs_out|floatformat:0|intcomma }}
-                    </td>
-                    
-                    <!-- Col 4: Returned Quantities (Aligned Centered) -->
-                    <td class="px-6 py-4 text-center font-medium text-slate-500 whitespace-nowrap">
-                        {{ release.packs_returned|floatformat:0|intcomma }}
-                    </td>
-                    
-                    <!-- Col 5: Selling Unit Price (Clean Humanize Comma Formatting) -->
-                    <td class="px-6 py-4 text-right font-medium text-slate-600 whitespace-nowrap">
-                        {{ release.selling_price|floatformat:0|intcomma }} <span class="text-[10px] text-slate-400">UGX</span>
-                    </td>
-                    
-                    <!-- Col 6: Debt Valuation Balances Owed -->
-                    <td class="px-6 py-4 text-right font-black text-rose-600 bg-rose-50/10 whitespace-nowrap">
-                        {{ release.outstanding_balance|floatformat:0|intcomma }} <span class="text-[10px] text-rose-400">UGX</span>
-                    </td>
-                    
-                    <!-- Col 7: Cleaned, Consolidated Actions Column Cell Block -->
-                    <td class="px-6 py-4 text-right whitespace-nowrap space-x-1.5">
-                        {% if release.packs_outstanding > 0 and not release.is_fully_cleared %}
-                            <!-- A. Main collection desk shortcut button -->
-                            <a href="{% url 'record_installment' release.pk %}" 
-                               class="inline-flex items-center px-3 py-1.5 bg-rust hover:bg-rust-dark text-white rounded-lg text-xs font-bold shadow-sm transition active:scale-95">
-                                Clear Balance
-                            </a>
-                        {% endif %}
+<div class="space-y-5">
 
-                        <!-- B. Secondary return ledger action button link shortcut -->
-                        <a href="{% url 'pack_return_form' %}" 
-                           class="inline-flex px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-[11px] font-bold shadow-sm transition">
-                            Log Return
-                        </a>
+    <!-- =========================================================
+         DATE FILTER BAR
+         ========================================================= -->
+    <div class="bg-white border border-line rounded-xl shadow-sm p-4">
 
-                        <!-- C. Receipts historical archive subpanel modal button -->
-                        <button type="button" onclick="toggleReceipts('drawer_{{ release.pk }}')"
-                                class="inline-flex px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-lg text-[11px] font-semibold transition">
-                            Receipts ({{ release.payments.count|default:"0" }})
-                        </button>
-                    </td>
-                </tr>
+        <div class="flex flex-col lg:flex-row
+                    lg:items-center
+                    lg:justify-between
+                    gap-4">
 
-                <!-- HIDDEN EMBEDDED RECEIPT LOG SLIDE PANEL DRAWER GRID -->
-                <tr id="drawer_{{ release.pk }}" class="hidden bg-slate-50/50">
-                    <td colspan="7" class="px-8 py-3.5 border-l-2 border-slate-400">
-                        <div class="space-y-2">
-                            <p class="font-bold text-slate-400 uppercase tracking-wider text-[10px]"> Collection History Installments Logs:</p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 max-w-2xl text-xs">
-                                <div class="flex justify-between items-center py-1 border-b border-slate-200">
-                                    <span class="text-slate-400 font-medium">Initial Collection Deposit:</span>
-                                    <span class="font-semibold text-slate-800">{{ release.amount_paid_on_take|floatformat:0|intcomma }} UGX</span>
-                                </div>
-                                {% for receipt in release.payments.all %}
-                                    <div class="flex justify-between items-center py-1 border-b border-slate-200">
-                                        <span class="text-slate-500 font-medium">Payment Received ({{ receipt.collected_at|date:"d M Y" }}):</span>
-                                        <span class="font-bold text-emerald-600">{{ receipt.amount|floatformat:'0'|intcomma }} UGX</span>
-                                    </div>
-                                {% empty %}
-                                    {% if release.amount_paid_on_take == 0 %}
-                                        <p class="text-slate-400 italic text-[11px] py-1">No payment installments have been submitted on this dispatch account yet.</p>
-                                    {% endif %}
-                                {% endfor %}        
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="7" class="px-6 py-16 text-center text-slate-400">
-                        <div class="flex flex-col items-center justify-center space-y-2 max-w-xs mx-auto">
-                            <svg class="w-8 h-8 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                            </svg>
-                            <p class="text-xs font-bold text-slate-800">Queue is Empty</p>
-                            <p class="text-[11px] text-slate-400 leading-normal">Excellent! There are currently no outstanding salesperson field balances waiting for cashier payment collection.</p>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+            <!-- Current filter -->
+            <div>
+                <p class="text-[10px]
+                          uppercase
+                          tracking-wider
+                          font-bold
+                          text-slate-400">
+                    Queue Timeline
+                </p>
+
+                <p class="mt-1 text-sm font-semibold text-slate-800">
+
+                    {% if preset == "today" %}
+                        Today's Outstanding Orders
+
+                    {% elif preset == "yesterday" %}
+                        Yesterday's Outstanding Orders
+
+                    {% elif preset == "this_month" %}
+                        This Month's Outstanding Orders
+
+                    {% else %}
+                        Outstanding Orders
+                    {% endif %}
+
+                </p>
+            </div>
+
+
+            <!-- Filter buttons -->
+            <div class="flex flex-wrap items-center gap-2">
+
+                <!-- TODAY -->
+                <a href="?preset=today"
+                   class="px-4 py-2 rounded-lg border text-xs font-semibold transition
+                   {% if preset == 'today' %}
+                       bg-olive text-white border-olive shadow-sm
+                   {% else %}
+                       bg-slate-50 text-slate-600 border-line hover:bg-slate-100
+                   {% endif %}">
+                    Today
+                </a>
+
+
+                <!-- YESTERDAY -->
+                <a href="?preset=yesterday"
+                   class="px-4 py-2 rounded-lg border text-xs font-semibold transition
+                   {% if preset == 'yesterday' %}
+                       bg-olive text-white border-olive shadow-sm
+                   {% else %}
+                       bg-slate-50 text-slate-600 border-line hover:bg-slate-100
+                   {% endif %}">
+                    Yesterday
+                </a>
+
+
+                <!-- THIS MONTH -->
+                <a href="?preset=this_month"
+                   class="px-4 py-2 rounded-lg border text-xs font-semibold transition
+                   {% if preset == 'this_month' %}
+                       bg-olive text-white border-olive shadow-sm
+                   {% else %}
+                       bg-slate-50 text-slate-600 border-line hover:bg-slate-100
+                   {% endif %}">
+                    This Month
+                </a>
+
+            </div>
+
+        </div>
+
     </div>
+
+
+    <!-- =========================================================
+         QUEUE TABLE
+         ========================================================= -->
+    <div class="bg-white border border-line rounded-xl shadow-sm overflow-hidden">
+
+        <div class="px-6 py-4 border-b border-line bg-slate-50/50">
+
+            <div class="flex items-center justify-between gap-4">
+
+                <div>
+                    <h2 class="text-sm font-bold text-slate-800">
+                        Outstanding Releases
+                    </h2>
+
+                    <p class="mt-0.5 text-[11px] text-slate-400">
+                        Orders remain here until the outstanding balance is cleared.
+                    </p>
+                </div>
+
+                {% if releases %}
+                    <span class="text-xs
+                                 font-bold
+                                 text-slate-500
+                                 bg-white
+                                 border border-line
+                                 rounded-lg
+                                 px-3 py-1.5">
+                        {{ releases|length }} open
+                    </span>
+                {% endif %}
+
+            </div>
+
+        </div>
+
+
+        <div class="overflow-x-auto">
+
+            <table class="w-full
+                          text-sm
+                          text-left
+                          border-collapse
+                          bg-white
+                          min-w-[1100px]">
+
+                <thead>
+
+                    <tr class="bg-slate-50
+                               border-b border-line
+                               text-slate-600
+                               font-semibold
+                               text-xs
+                               uppercase
+                               tracking-wider">
+
+                        <th class="px-6 py-4">
+                            Salesperson / Account
+                        </th>
+
+                        <th class="px-6 py-4">
+                            Product Variant
+                        </th>
+
+                        <th class="px-6 py-4 text-center">
+                            Issued
+                        </th>
+
+                        <th class="px-6 py-4 text-center">
+                            Returned
+                        </th>
+
+                        <th class="px-6 py-4 text-right">
+                            Price / Pack
+                        </th>
+
+                        <th class="px-6 py-4 text-right">
+                            Outstanding Debt
+                        </th>
+
+                        <th class="px-6 py-4 text-right">
+                            Actions
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody class="divide-y divide-line
+                               text-slate-700
+                               text-xs">
+
+                    {% for release in releases %}
+
+                    <!-- =================================================
+                         RELEASE ROW
+                         ================================================= -->
+                    <tr class="hover:bg-slate-50/60 transition duration-150">
+
+                        <!-- ACCOUNT -->
+                        <td class="px-6 py-4
+                                   font-bold
+                                   text-slate-900
+                                   whitespace-nowrap">
+
+                            {% if release.released_to %}
+
+                                {{ release.released_to }}
+
+                            {% else %}
+
+                                <span class="text-slate-400 font-normal italic">
+                                    Unassigned
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+
+                        <!-- PRODUCT -->
+                        <td class="px-6 py-4 whitespace-nowrap">
+
+                            <p class="font-bold text-slate-800">
+                                {{ release.product.blend.name }}
+                            </p>
+
+                            <p class="text-[11px]
+                                      text-slate-400
+                                      font-medium
+                                      mt-0.5">
+
+                                {{ release.product.pack_size.label }}
+
+                                <span class="mx-1">·</span>
+
+                                {{ release.released_at|date:"d M Y, H:i" }}
+
+                            </p>
+
+                        </td>
+
+
+                        <!-- ISSUED -->
+                        <td class="px-6 py-4
+                                   text-center
+                                   font-medium
+                                   text-slate-500
+                                   whitespace-nowrap">
+
+                            {{ release.packs_out|floatformat:0|intcomma }}
+
+                        </td>
+
+
+                        <!-- RETURNED -->
+                        <td class="px-6 py-4
+                                   text-center
+                                   font-medium
+                                   text-slate-500
+                                   whitespace-nowrap">
+
+                            {{ release.packs_returned|floatformat:0|intcomma }}
+
+                        </td>
+
+
+                        <!-- PRICE -->
+                        <td class="px-6 py-4
+                                   text-right
+                                   font-medium
+                                   text-slate-600
+                                   whitespace-nowrap">
+
+                            {{ release.selling_price|floatformat:0|intcomma }}
+
+                            <span class="text-[10px] text-slate-400">
+                                UGX
+                            </span>
+
+                        </td>
+
+
+                        <!-- OUTSTANDING -->
+                        <td class="px-6 py-4
+                                   text-right
+                                   font-black
+                                   text-rose-600
+                                   bg-rose-50/10
+                                   whitespace-nowrap">
+
+                            {{ release.outstanding_balance|floatformat:0|intcomma }}
+
+                            <span class="text-[10px] text-rose-400">
+                                UGX
+                            </span>
+
+                        </td>
+
+
+                        <!-- ACTIONS -->
+                        <td class="px-6 py-4
+                                   text-right
+                                   whitespace-nowrap">
+
+                            <div class="flex items-center justify-end gap-1.5">
+
+                                {% if release.outstanding_balance > 0 %}
+
+                                    <a href="{% url 'record_installment' release.pk %}"
+                                       class="inline-flex
+                                              items-center
+                                              px-3 py-1.5
+                                              bg-rust
+                                              hover:bg-rust/90
+                                              text-white
+                                              rounded-lg
+                                              text-xs
+                                              font-bold
+                                              shadow-sm
+                                              transition">
+
+                                        Clear Balance
+
+                                    </a>
+
+                                {% endif %}
+
+
+                                <a href="{% url 'pack_return_form' release.pk %}"
+                                   class="inline-flex
+                                          px-2.5 py-1.5
+                                          bg-amber-50
+                                          hover:bg-amber-100
+                                          text-amber-700
+                                          border border-amber-200
+                                          rounded-lg
+                                          text-[11px]
+                                          font-bold
+                                          transition">
+
+                                    Log Return
+
+                                </a>
+
+
+                                <button type="button"
+                                        onclick="toggleReceipts('drawer_{{ release.pk }}')"
+                                        class="inline-flex
+                                               px-2.5 py-1.5
+                                               bg-slate-50
+                                               hover:bg-slate-100
+                                               text-slate-600
+                                               border border-slate-200
+                                               rounded-lg
+                                               text-[11px]
+                                               font-semibold
+                                               transition">
+
+                                    Receipts
+                                    ({{ release.payments.count }})
+
+                                </button>
+
+                            </div>
+
+                        </td>
+
+                    </tr>
+
+
+                    <!-- =================================================
+                         RECEIPT DRAWER
+                         ================================================= -->
+                    <tr id="drawer_{{ release.pk }}"
+                        class="hidden bg-slate-50/60">
+
+                        <td colspan="7"
+                            class="px-8 py-4 border-l-2 border-slate-300">
+
+                            <div class="space-y-3">
+
+                                <div class="flex items-center justify-between">
+
+                                    <p class="text-[10px]
+                                              uppercase
+                                              tracking-wider
+                                              font-bold
+                                              text-slate-400">
+
+                                        Collection History
+
+                                    </p>
+
+                                    <p class="text-xs text-slate-500">
+
+                                        Current balance:
+
+                                        <strong class="text-rose-600">
+                                            {{ release.outstanding_balance|floatformat:0|intcomma }}
+                                            UGX
+                                        </strong>
+
+                                    </p>
+
+                                </div>
+
+
+                                {% for receipt in release.payments.all %}
+
+                                    <div class="flex
+                                                items-center
+                                                justify-between
+                                                py-2
+                                                border-b
+                                                border-slate-200">
+
+                                        <div>
+
+                                            <p class="text-xs font-semibold text-slate-700">
+                                                {{ receipt.method|title }}
+                                            </p>
+
+                                            <p class="text-[11px] text-slate-400">
+                                                {{ receipt.collected_at|date:"d M Y, H:i" }}
+                                            </p>
+
+                                        </div>
+
+                                        <p class="font-bold text-emerald-600">
+                                            +{{ receipt.amount|floatformat:0|intcomma }}
+                                            UGX
+                                        </p>
+
+                                    </div>
+
+                                {% empty %}
+
+                                    <p class="text-xs text-slate-400 italic">
+                                        No payment installments recorded.
+                                    </p>
+
+                                {% endfor %}
+
+                            </div>
+
+                        </td>
+
+                    </tr>
+
+
+                    {% empty %}
+
+                    <!-- =================================================
+                         EMPTY STATE
+                         ================================================= -->
+                    <tr>
+
+                        <td colspan="7"
+                            class="px-6 py-16 text-center">
+
+                            <div class="max-w-md mx-auto">
+
+                                <div class="mx-auto
+                                            w-10 h-10
+                                            rounded-full
+                                            bg-slate-50
+                                            border border-line
+                                            flex items-center
+                                            justify-center">
+
+                                    <span class="text-slate-400">
+                                        ✓
+                                    </span>
+
+                                </div>
+
+                                <p class="mt-3
+                                          text-sm
+                                          font-bold
+                                          text-slate-800">
+
+                                    Queue is Empty
+
+                                </p>
+
+                                <p class="mt-1
+                                          text-xs
+                                          text-slate-400">
+
+                                    There are no outstanding sales releases
+                                    for the selected date.
+
+                                </p>
+
+                            </div>
+
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
 </div>
+
 {% endblock %}
+
 
 {% block extra_scripts %}
+
 <script>
 function toggleReceipts(drawerId) {
-    const el = document.getElementById(drawerId);
-    if(el) el.classList.toggle("hidden");
+    const element = document.getElementById(drawerId);
+
+    if (!element) {
+        return;
+    }
+
+    element.classList.toggle("hidden");
 }
 </script>
+
 {% endblock %}
-on top of the modern modern and the church you family as you are taking very onhello

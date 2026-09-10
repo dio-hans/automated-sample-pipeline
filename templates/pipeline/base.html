@@ -369,7 +369,7 @@
                 <!-- Coffee stock -->
                 <a href="{% url 'stock_list' %}"
                    class="nav-link">
-                    <span class="nav-icon">●</span>
+                   
                     <span>Coffee Stock</span>
                 </a>
 
@@ -408,7 +408,7 @@
 
                 <a href="{% url 'processing_workspace' %}"
                    class="nav-link">
-                    <span class="nav-icon">◈</span>
+                   
                     <span>Processing</span>
                 </a>
 
@@ -428,7 +428,13 @@
                 Stock Movement
             </p>
 
-            <div class="space-y-1">
+            
+        </div>
+
+    {% endif %}
+
+    {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" or request.user.role == "CASHIER" %}
+        <div class="space-y-1">
 
                 <a href="{% url 'pack_release_list' %}"
                    class="nav-link">
@@ -437,8 +443,6 @@
                 </a>
                 
             </div>
-        </div>
-
     {% endif %}
     {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" or request.user.role == "CASHIER" %}
                 <a href="{% url 'pack_return_list' %}"

@@ -407,22 +407,75 @@ class SalesStockView(RoleRequiredMixin, ListView):
 
 
 class CashierQueueView(RoleRequiredMixin, ListView):
-    allowed_roles = (User.Role.CASHIER, User.Role.ACCOUNTS, User.Role.ADMIN)
+    allowed_roles = (
+        User.Role.CASHIER,
+        User.Role.ACCOUNTS,
+        User.Role.ADMIN,
+    )
+
     template_name = "pipeline/order_queue.html"
     context_object_name = "releases"
 
     def get_queryset(self):
-        # 1. Fetch releases that came from a sale request
-        releases = PackRelease.objects.select_related(
-            "product__blend", 
-            "product__pack_size", 
-            "released_to", 
-            "request_item__request"
-        ).filter(request_item__request__purpose="sale").order_by("-released_at")
-        
-        # 2. Only show dispatches that have a remaining outstanding balance to clear
-        result = [r for r in releases if r.outstanding_balance > 0]
+        from .utils.util import apply_date_filters
+
+        qs = (
+            PackRelease.objects
+            .select_related(
+                "product__blend",
+                "product__pack_size",
+                "released_to",
+                "request_item__request",
+            )
+            .prefetch_related(
+                "returns",
+                "payments",
+            )
+            .order_by("-released_at")
+        )
+
+        # ---------------------------------------------------------
+        # DATE FILTER
+        # ---------------------------------------------------------
+        qs, preset, today, start, end = apply_date_filters(
+            self.request,
+            qs,
+            "released_at",
+        )
+
+        self._preset = preset
+
+        # ---------------------------------------------------------
+        # CASHIER QUEUE
+        # Only sales releases that are still awaiting clearance.
+        # ---------------------------------------------------------
+        result = []
+
+        for release in qs:
+
+            # Ignore releases not generated from a sale request
+            if (
+                not release.request_item_id
+                or release.request_item.request.purpose != "sale"
+            ):
+                continue
+
+            # Only keep releases that still have money outstanding
+            if release.outstanding_balance > 0:
+                result.append(release)
+
         return result
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["preset"] = getattr(
+            self,
+            "_preset",
+            "this_month",
+        )
+
+        return context
 
 
 

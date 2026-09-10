@@ -7,7 +7,7 @@
 
 {% block header_action %} 
 <a href="{% url 'stock_list' %}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#E4DECB] bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 transition shadow-sm">
-    ← Back to Stock
+    Back to Stock
 </a>
 {% endblock %}
 
@@ -17,7 +17,7 @@
     <!-- 1. SYSTEM METRICS ALERT COUNTER BOX -->
     <div class="rounded-xl border border-rose-200 bg-rose-50/40 px-5 py-4 shadow-sm animate-pageEnter">
         <p class="font-bold text-rose-700 text-sm flex items-center gap-1.5">
-            ⚠️ {{ total_alerts_count }} Inventory Variant{{ total_alerts_count|pluralize }} Need Attention
+           {{ total_alerts_count }} Inventory Variant{{ total_alerts_count|pluralize }} Need Attention
         </p>
         <p class="text-xs text-slate-500 mt-1">
             The items listed below have dropped to or below their configured minimum safety reorder thresholds. Immediate restocking or factory processing is recommended.

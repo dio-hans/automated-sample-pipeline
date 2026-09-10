@@ -1,8 +1,8 @@
 
 from django.urls import path
-from . import views
-from . import sales_views
-from .views import toggle_user_status
+
+from . import sales_views, views
+
 urlpatterns = [
     # companies
     path("companies/", views.CompanyListView.as_view(), name="company_list"),
@@ -72,7 +72,7 @@ urlpatterns = [
 
     # --- Pack Returns ---
     # 1. The Form Page to Record/Add a New Pack Return Transaction
-    path("returns/add/", views.PackReturnCreateView.as_view(), name="pack_return_form"),
+    path("returns/<int:pk>/add/", views.PackReturnCreateView.as_view(), name="pack_return_form"),
 
     # 2. The History Ledger Page Listing All Logged Coffee Pack Returns
     path("returns/list/", views.PackReturnListView.as_view(), name="pack_return_list"),

@@ -66,7 +66,7 @@
                                     {% with item_id=form.item_id.value %}
                                         {% for item in stock_request.items.all %}
                                             {% if item.pk|stringformat:"s" == item_id|stringformat:"s" %}
-                                                📦 {{ item.outstanding_quantity }} pack(s) remaining
+                                                {{ item.outstanding_quantity }} pack(s) remaining
                                             {% endif %}
                                         {% endfor %}
                                     {% endwith %}
@@ -121,7 +121,7 @@
                 <!-- LEFT WALL PANEL: Completely isolated request denial trigger button -->
                 <div>
                     <button type="submit" form="global-cancel-form" class="w-full sm:w-auto px-4 py-2 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-lg text-xs font-bold transition active:scale-95">
-                        🚫 Deny & Cancel Request
+                         Deny & Cancel Request
                     </button>
                 </div>
 
@@ -133,7 +133,7 @@
                     </a>
                     <button type="submit"
                             class="w-full sm:w-auto px-5 py-2 bg-rust hover:bg-rust-dark text-white rounded-lg text-xs font-bold shadow-sm transition active:scale-95">
-                        🚀 Release Verified Stock
+                        Release Verified Stock
                     </button>
                 </div>
 
