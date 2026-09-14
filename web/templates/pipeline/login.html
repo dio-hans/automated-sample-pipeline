@@ -8,6 +8,9 @@
 {% block sidebar_wrapper %}
 {% endblock sidebar_wrapper %}
 
+{% block topbar %}
+{% endblock %}
+
 {% block extra_head %}
 <style>
     .login-card input {
@@ -33,18 +36,13 @@
         margin-bottom: 0.25rem;
     }
 
-    /* Login page should not inherit the application offset */
-    .login-page {
-        min-height: calc(100vh - 0px);
-    }
 </style>
 {% endblock %}
 
 {% block title %}Sign In · Nonda Commodities{% endblock %}
 
 {% block content %}
-
-<div class="login-page min-h-screen flex items-center justify-center px-4 py-10">
+<div class="login-page flex items-center justify-center px-4 py-1">
 
     <div class="w-full max-w-md">
 

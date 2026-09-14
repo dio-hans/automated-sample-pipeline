@@ -653,7 +653,7 @@
 
 
         <!--TOP BAR -->
-
+{% block topbar %}
         <header class="h-16
                        flex-shrink-0
                        bg-paper
@@ -720,15 +720,13 @@
             </div>
 
         </header>
+        {% endblock %}
 
 
         <!-- =====================================================
              PAGE CONTENT
              ===================================================== -->
-        <main class="flex-1
-                     px-4 sm:px-6 lg:px-8
-                     py-6
-                     page-content">
+        <main class="flex-1 px-4 sm:px-6 lg:px-8 py-6 page-content">
 
 
             <!-- =================================================
@@ -778,54 +776,47 @@
 
             <!-- SYSTEM MESSAGES -->
 
-            {% if messages %}
+           {% if messages %}
 
-            <div class="mb-6
-                        space-y-2">
+    <div id="messages"
+     class="fixed top-20 right-6 z-50 space-y-1 text-right">
 
-                {% for message in messages %}
+        {% for message in messages %}
 
-                <div class="rounded-lg
-                            border
-                            px-4 py-3
-                            text-sm
-
-                            {% if message.tags == 'success' %}
-
-                                bg-olive/5
-                                border-olive/20
-                                text-olive
-
-                            {% elif message.tags == 'error' %}
-
-                                bg-rust/5
-                                border-rust/20
-                                text-rust
-
-                            {% elif message.tags == 'warning' %}
-
-                                bg-amber-50
-                                border-amber-200
-                                text-amber-800
-
-                            {% else %}
-
-                                bg-white
-                                border-line
-                                text-ink
-
-                            {% endif %}
-                        ">
-
-                    {{ message }}
-
-                </div>
-
-                {% endfor %}
-
+            <div class="message text-sm font-medium
+                {% if message.tags == 'success' %}
+                    text-green-600
+                {% elif message.tags == 'error' %}
+                    text-orange-600
+                {% elif message.tags == 'warning' %}
+                    text-orange-600
+                {% else %}
+                    text-slate-600
+                {% endif %}
+            ">
+                {{ message }}!
             </div>
 
-            {% endif %}
+        {% endfor %}
+
+    </div>
+
+    <script>
+        setTimeout(function () {
+            const messages = document.getElementById("messages");
+
+            if (messages) {
+                messages.style.transition = "opacity 0.5s ease";
+                messages.style.opacity = "0";
+
+                setTimeout(function () {
+                    messages.remove();
+                }, 500);
+            }
+        }, 10000);
+    </script>
+
+{% endif %}
 
 
             <!-- PAGE BODY -->

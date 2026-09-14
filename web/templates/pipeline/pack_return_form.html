@@ -184,252 +184,73 @@
         <!-- =====================================================
              RETURN FORM
              ===================================================== -->
-        <form method="post"
-              class="p-6 space-y-5">
+        <!-- =====================================================
+     RETURN FORM FIELDS (AUTOMATED LOOP)
+     ===================================================== -->
+<form method="post" class="p-6 space-y-5">
+    {% csrf_token %}
+    
+    <!-- Global errors -->
+    {% if form.non_field_errors %}
+        <div class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-700">
+            <p class="font-bold uppercase tracking-wider text-[10px] mb-1">Form Error</p>
+            {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
 
-            {% csrf_token %}
-
-
-            <!-- Global errors -->
-            {% if form.non_field_errors %}
-
-                <div class="rounded-xl
-                            border border-rose-200
-                            bg-rose-50
-                            p-4
-                            text-xs
-                            font-semibold
-                            text-rose-700">
-
-                    <p class="font-bold
-                              uppercase
-                              tracking-wider
-                              text-[10px]
-                              mb-1">
-                        Form Error
+    <!-- 🔄 DYNAMICALLY LOOP THROUGH ALL FIELDS -->
+    {% for field in form %}
+        <div>
+            <label for="{{ field.id_for_label }}" class="block text-xs uppercase tracking-wider font-bold text-slate-600 mb-1.5">
+                {{ field.label }}
+            </label>
+            
+            {{ field }}
+            
+            <!-- Show specific errors right under the field if it fails validation -->
+            {% if field.errors %}
+                {% for error in field.errors %}
+                    <p class="mt-1.5 text-xs text-rose-600 font-bold bg-rose-50/50 px-2 py-1 rounded border border-rose-100">
+                        {{ error }}
                     </p>
-
-                    {% for error in form.non_field_errors %}
-                        <p>{{ error }}</p>
-                    {% endfor %}
-
-                </div>
-
+                {% endfor %}
             {% endif %}
 
-
-            <!-- =================================================
-                 QUANTITY
-                 ================================================= -->
-            <div>
-
-                <label for="{{ form.packs_returned.id_for_label }}"
-                       class="block
-                              text-xs
-                              uppercase
-                              tracking-wider
-                              font-bold
-                              text-slate-600
-                              mb-1.5">
-
-                    Quantity Returned
-
-                </label>
-
-                {{ form.packs_returned }}
-
-                {% if form.packs_returned.errors %}
-
-                    {% for error in form.packs_returned.errors %}
-
-                        <p class="mt-1.5
-                                  text-xs
-                                  text-rose-600
-                                  font-bold
-                                  bg-rose-50/50
-                                  px-2
-                                  py-1
-                                  rounded
-                                  border border-rose-100">
-                            {{ error }}
-                        </p>
-
-                    {% endfor %}
-
-                {% endif %}
-
+            <!-- Special helper note specifically for the quantity field -->
+            {% if field.name == "packs_returned" %}
                 <p class="mt-1.5 text-[11px] text-slate-400">
                     Maximum returnable quantity:
                     <strong class="text-slate-600">
                         {{ release.packs_outstanding }} packs
                     </strong>
                 </p>
+            {% endif %}
+        </div>
+    {% endfor %}
 
-            </div>
+    <!-- =================================================
+         ACCOUNTING / STOCK WARNING
+         ================================================= -->
+    <div class="rounded-xl border border-dashed border-amber-200 bg-amber-50/40 p-4 text-xs text-amber-700 leading-relaxed">
+        <p class="font-bold text-amber-800 uppercase tracking-wider text-[10px] mb-1">Return Control</p>
+        This transaction will record <strong>{{ release.packs_outstanding }}</strong> currently outstanding packs against <strong>{{ release.released_to }}</strong> and return the accepted quantity to packaged inventory.
+    </div>
 
+    <!-- =================================================
+         ACTIONS
+         ================================================= -->
+    <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+        <a href="{% url 'credit_control_ledger' %}" class="px-4 py-2.5 rounded-lg border border-line bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+            Cancel
+        </a>
+        <button type="submit" class="px-5 py-2.5 rounded-lg bg-rust hover:bg-rust/90 text-white text-xs font-bold shadow-sm transition active:scale-95">
+            Record Return
+        </button>
+    </div>
+</form>
 
-            <!-- =================================================
-                 REASON
-                 ================================================= -->
-            <div>
-
-                <label for="{{ form.reason.id_for_label }}"
-                       class="block
-                              text-xs
-                              uppercase
-                              tracking-wider
-                              font-bold
-                              text-slate-600
-                              mb-1.5">
-
-                    Reason for Return
-
-                </label>
-
-                {{ form.reason }}
-
-                {% if form.reason.errors %}
-
-                    {% for error in form.reason.errors %}
-
-                        <p class="mt-1.5
-                                  text-xs
-                                  text-rose-600
-                                  font-bold
-                                  bg-rose-50/50
-                                  px-2
-                                  py-1
-                                  rounded
-                                  border border-rose-100">
-                            {{ error }}
-                        </p>
-
-                    {% endfor %}
-
-                {% endif %}
-
-            </div>
-
-
-            <!-- =================================================
-                 NOTES
-                 ================================================= -->
-            <div>
-
-                <label for="{{ form.notes.id_for_label }}"
-                       class="block
-                              text-xs
-                              uppercase
-                              tracking-wider
-                              font-bold
-                              text-slate-600
-                              mb-1.5">
-
-                    Internal Remarks
-
-                </label>
-
-                {{ form.notes }}
-
-                {% if form.notes.errors %}
-
-                    {% for error in form.notes.errors %}
-
-                        <p class="mt-1.5
-                                  text-xs
-                                  text-rose-600
-                                  font-bold
-                                  bg-rose-50/50
-                                  px-2
-                                  py-1
-                                  rounded
-                                  border border-rose-100">
-                            {{ error }}
-                        </p>
-
-                    {% endfor %}
-
-                {% endif %}
-
-            </div>
-
-
-            <!-- =================================================
-                 ACCOUNTING / STOCK WARNING
-                 ================================================= -->
-            <div class="rounded-xl
-                        border border-dashed border-amber-200
-                        bg-amber-50/40
-                        p-4
-                        text-xs
-                        text-amber-700
-                        leading-relaxed">
-
-                <p class="font-bold
-                          text-amber-800
-                          uppercase
-                          tracking-wider
-                          text-[10px]
-                          mb-1">
-                    Return Control
-                </p>
-
-                This transaction will record
-                <strong>{{ release.packs_outstanding }}</strong>
-                currently outstanding packs against
-                <strong>{{ release.released_to }}</strong>
-                and return the accepted quantity to packaged inventory.
-
-            </div>
-
-
-            <!-- =================================================
-                 ACTIONS
-                 ================================================= -->
-            <div class="flex
-                        items-center
-                        justify-end
-                        gap-3
-                        pt-4
-                        border-t border-slate-100">
-
-                <a href="{% url 'credit_control_ledger' %}"
-                   class="px-4
-                          py-2.5
-                          rounded-lg
-                          border border-line
-                          bg-white
-                          text-xs
-                          font-semibold
-                          text-slate-600
-                          hover:bg-slate-50
-                          transition">
-
-                    Cancel
-
-                </a>
-
-
-                <button type="submit"
-                        class="px-5
-                               py-2.5
-                               rounded-lg
-                               bg-rust
-                               hover:bg-rust/90
-                               text-white
-                               text-xs
-                               font-bold
-                               shadow-sm
-                               transition
-                               active:scale-95">
-
-                    Record Return
-
-                </button>
-
-            </div>
-
-        </form>
 
     </div>
 
