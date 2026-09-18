@@ -50,7 +50,7 @@ def issue_for_processing(
     Example:
 
         400 kg green
-              â†“
+              
         issued for roasting
 
     The roasting return is recorded later.
@@ -117,6 +117,12 @@ def issue_for_processing(
         notes=notes,
     )
 
+    STAGE_MAP = {
+    "roasting": StockStage.ROASTED if hasattr(StockStage, "ROASTED") else "roasted",
+    "grinding": StockStage.GROUND if hasattr(StockStage, "GROUND") else "ground",
+    "sorting": StockStage.SORTED if hasattr(StockStage, "SORTED") else "sorted",
+}
+
     movement = StockMovement.objects.create(
         stock=locked_stock,
         movement_type=config["movement_type"],
@@ -142,10 +148,20 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from ..models import StockMovement
 
+# ============================================================
+# COMPLETE ROASTING
+# ============================================================
+
+from decimal import Decimal
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+from ..models import StockMovement, StockStage
+
+@transaction.atomic
 def complete_roasting(processing_run, good_quantity, bad_quantity, user, notes=""):
     """
     Step 2: Completes an active roasting run.
-    Deducts from 'Machinery' and updates 'Roasted' and 'Quakers' inventory states.
+    Deducts from input stage and updates Roasted and Quakers inventory states.
     """
     good_qty = Decimal(good_quantity)
     bad_qty = Decimal(bad_quantity)
@@ -157,23 +173,24 @@ def complete_roasting(processing_run, good_quantity, bad_quantity, user, notes="
             f"({processing_run.input_quantity} kg)."
         )
 
-    # 🧮 Automatic Process Loss Calculation (Moisture Loss / Silver-skin chaff)
+    # Automatic Process Loss Calculation (Moisture Loss / Silver-skin chaff)
     process_loss = processing_run.input_quantity - total_output
 
-    # Update the core machinery run record logs
+    # Update processing run status
     processing_run.output_quantity = good_qty
-    processing_run.bad_quantity_sorted = bad_qty  # Assumes you add this field, or log via movements
+    if hasattr(processing_run, "bad_quantity_sorted"):
+        processing_run.bad_quantity_sorted = bad_qty
     processing_run.status = "completed"
     processing_run.completed_at = timezone.now()
     processing_run.save()
 
-    # 🚚 POST STOCK MOVEMENTS TO LEDGER
     stock = processing_run.stock
+    input_stage = processing_run.input_stage  # Uses GREEN or configured input stage
 
-    # 1. Log Good Roasted Output moving out of Machinery to ROASTED stage
+    # 1. Log Good Roasted Output
     StockMovement.objects.create(
         stock=stock,
-        from_stage=StockStage.MACHINERY,
+        from_stage=None,
         to_stage=StockStage.ROASTED,
         quantity=good_qty,
         movement_type="processing_complete",
@@ -181,12 +198,13 @@ def complete_roasting(processing_run, good_quantity, bad_quantity, user, notes="
         notes=notes
     )
 
-    # 2. Log Bad Roasted Output (Quakers) moving out of Machinery to QUAKERS stage
+    # 2. Log Bad Roasted Output (Quakers)
     if bad_qty > 0:
+        quakers_stage = getattr(StockStage, "QUAKERS", "quakers")
         StockMovement.objects.create(
             stock=stock,
-            from_stage=StockStage.MACHINERY,
-            to_stage=StockStage.QUAKERS,
+            from_stage=input_stage,
+            to_stage=quakers_stage,
             quantity=bad_qty,
             movement_type="defect_sorting",
             created_by=user,
@@ -443,36 +461,86 @@ class CompleteProcessingRunView(RoleRequiredMixin, View):
     allowed_roles = ("store_manager", "manager", "admin")
 
     def post(self, request, pk):
-        run = get_object_or_404(ProcessingRun, pk=pk)
-        
+        run = get_object_or_404(
+            ProcessingRun.objects.select_related("stock"),
+            pk=pk,
+        )
+
         try:
             user = request.user
             notes = request.POST.get("notes", "")
 
+            # ========================================================
+            # ROASTING
+            # ========================================================
             if run.process_type == "roasting":
-                good_qty = request.POST.get("good_quantity", 0)
-                bad_qty = request.POST.get("bad_quantity", 0)
-                
-                # Execute completion with sorting parameters split out
+                output_qty = request.POST.get("output_quantity", "0")
+
                 completed_run, process_loss = complete_roasting(
-                    processing_run=run, 
-                    good_quantity=good_qty, 
-                    bad_quantity=bad_qty, 
-                    user=user, 
-                    notes=notes
+                    processing_run=run,
+                    good_quantity=output_qty,
+                    bad_quantity="0",
+                    user=user,
+                    notes=notes,
                 )
+
                 messages.success(
-                    request, 
-                    f"Roast Complete: {completed_run.input_quantity}kg input → "
-                    f"{good_qty}kg Good, {bad_qty}kg Defective (Staff), {process_loss:.2f}kg Process Loss."
+                    request,
+                    f"Roasting complete: "
+                    f"{completed_run.input_quantity} kg input → "
+                    f"{completed_run.output_quantity} kg roasted coffee. "
+                    f"{process_loss:.2f} kg process loss.",
                 )
+
+            # ========================================================
+            # SORTING
+            # ========================================================
+            elif run.process_type == "sorting":
+                good_qty = request.POST.get("output_quantity", "0")
+                quaker_qty = request.POST.get("quaker_quantity", "0")
+
+                completed_run = complete_sorting(
+                    processing_run=run,
+                    good_quantity=good_qty,
+                    quaker_quantity=quaker_qty,
+                    user=user,
+                    notes=notes,
+                )
+
+                messages.success(
+                    request,
+                    f"Sorting complete: "
+                    f"{completed_run.input_quantity} kg input → "
+                    f"{completed_run.output_quantity} kg good roasted coffee, "
+                    f"{completed_run.secondary_output_quantity} kg quakers, "
+                    f"{completed_run.loss_quantity} kg loss.",
+                )
+
+            # ========================================================
+            # GRINDING
+            # ========================================================
+            elif run.process_type == "grinding":
+                output_qty = request.POST.get("output_quantity", "0")
+
+                completed_run, _ = complete_grinding(
+                    processing_run=run,
+                    output_quantity=output_qty,
+                    user=user,
+                    notes=notes,
+                )
+
+                messages.success(
+                    request,
+                    f"Grinding complete: "
+                    f"produced {completed_run.output_quantity} kg ground coffee.",
+                )
+
             else:
-                # Grinding remains a simple input-to-output conversion layer
-                output_qty = request.POST.get("output_quantity", 0)
-                completed_run, _ = complete_grinding(processing_run=run, output_quantity=float(output_qty), user=user, notes=notes)
-                messages.success(request, f"Grinding Complete: produced {completed_run.output_quantity} kg.")
+                raise ValueError(
+                    f"Unsupported processing type: {run.process_type}"
+                )
 
         except Exception as exc:
             messages.error(request, str(exc))
 
-        return redirect("processing_run_list")
+        return redirect("processing_workspace")

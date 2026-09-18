@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import DetailView, ListView, TemplateView
 from django.forms import formset_factory
-from .sales_forms import PaymentReceiptForm
+from .sales_forms import PackReturnForm, PaymentReceiptForm
 from .sales_workflow import record_payment
 from .models import  AccountHolder
 from .models import (
@@ -23,7 +23,6 @@ from .models import (
 )
 from .sales_forms import (
     FulfillItemForm,
-    PackReturnCleanForm,
     SettlementForm,
     StockRequestForm,
     StockRequestItemFormSet,
@@ -71,55 +70,75 @@ class AdminDashboardView(RoleRequiredMixin, TemplateView):
 from django.db.models import Sum
 from .models import PackagedInventory, StockRequest, PackRelease, CoffeeStock
 
+from decimal import Decimal
+from django.views.generic import TemplateView
+
 class InventoryDashboardView(RoleRequiredMixin, TemplateView):
     allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     template_name = "pipeline/inventory_dashboard.html"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        
-        # 1. 📦 PACKAGED INVENTORY & ALERTS DEFINITIONS
+
+        # 1. 📦 PACKAGED INVENTORY & ALERTS
         inventory = list(
             PackagedInventory.objects.select_related("product__blend", "product__pack_size")
         )
-        
-        # ⚠️ FIXED: Dynamically capture items where available stock drops below reorder settings
-        # Matching fields from your 'packaged_inventory_list' table matrix view
-        low_stock_items = [item for item in inventory if item.available <= 10]  # Or item.is_low_stock if model property exists
+
+        low_stock_items = [
+            item for item in inventory 
+            if getattr(item, "is_low_stock", (item.available or 0) <= getattr(item, "reorder_level", 10))
+        ]
 
         # 2. 📋 PENDING PIPELINE REQUESTS
-        pending = StockRequest.objects.filter(
+        pending_qs = StockRequest.objects.filter(
             status__in=("pending", "partially_fulfilled")
         ).select_related("requested_by", "company").prefetch_related(
             "items__product__blend", "items__product__pack_size"
-        )
+        ).order_by("-requested_at")  # ✅ Matches model schema
+
+        pending_count = pending_qs.count()
+        pending_requests = list(pending_qs[:8])
 
         # 3. 🚚 RECENT PHYSICAL RELEASES LOG
         releases = PackRelease.objects.select_related(
             "product__blend", "product__pack_size", "released_to", "request_item__request"
         ).order_by("-released_at")[:20]
 
-        # 4. 🧮 REAL-TIME WAREHOUSE CAPACITY AGGREGATIONS
-        # Sums up kg metrics directly out of your active CoffeeStock lots table
-        all_bulk_batches = CoffeeStock.objects.all()
-        total_green = sum(batch.quantity_green for batch in all_bulk_batches)
-        total_roasted = sum(batch.quantity_roasted for batch in all_bulk_batches)
-        total_ground = sum(batch.quantity_ground for batch in all_bulk_batches)
+        # 4. 🧮 SAFE BULK COFFEE QUANTITY COMPUTATION
+        # Computes quantities safely using model properties/fallbacks without throwing SQL FieldErrors
+        stocks = CoffeeStock.objects.all()
 
-        # 5. INJECT COMPLETED WORKSPACE CONTEXT PARAMETERS
+        total_green = Decimal("0.00")
+        total_roasted = Decimal("0.00")
+        total_ground = Decimal("0.00")
+
+        for stock in stocks:
+            # Fallback checks handle dynamic model properties safely
+            green_val = getattr(stock, "quantity_green", getattr(stock, "quantity_after_sorting", 0)) or 0
+            total_green += Decimal(str(green_val))
+
+            roasted_val = getattr(stock, "quantity_roasted", 0) or 0
+            total_roasted += Decimal(str(roasted_val))
+
+            ground_val = getattr(stock, "quantity_ground", 0) or 0
+            total_ground += Decimal(str(ground_val))
+
+        # 5. CONTEXT INJECTION
         ctx.update({
             "inventory": inventory,
-            "low_stock_items": low_stock_items,  # 👈 Passes alerts to your template loop cleanly
-            "total_packaged": sum(i.available for i in inventory),
-            
-            "pending_requests": pending[:8],
-            "pending_request_count": pending.count(),
+            "low_stock_items": low_stock_items,
+            "total_packaged": sum((i.available or 0) for i in inventory),
+
+            "pending_requests": pending_requests,
+            "pending_request_count": pending_count,
             "recent_releases": releases,
-            
+
             # Warehouse lot capacity values
             "total_green_kg": total_green,
             "total_roasted_kg": total_roasted,
             "total_ground_kg": total_ground,
+            "total_bulk_kg": total_green + total_roasted + total_ground,
         })
         return ctx
 
@@ -680,7 +699,7 @@ class PackReturnFromReleaseView(RoleRequiredMixin, View):
             release_pk,
         )
 
-        form = PackReturnCleanForm(request.POST)
+        form = PackReturnForm(request.POST)
 
         if form.is_valid():
             try:

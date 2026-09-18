@@ -1,330 +1,173 @@
-
 {% extends "pipeline/base.html" %}
+{% load static humanize %}
 
 {% block title %}
-{{ product.blend.name }} {{ product.pack_size.label }} â€” Packaged Coffee
-{% endblock %}
-
-{% block breadcrumb %}
-Inventory / Packaged Coffee / {{ product.blend.name }} {{ product.pack_size.label }}
-{% endblock %}
-
-{% block page_title %}
-{{ product.blend.name }} {{ product.pack_size.label }}
-{% endblock %}
-
-{% block header_action %}
-<div class="flex items-center gap-2">
-
-    <a href="{% url 'packaging_run_create' %}"
-       class="px-4 py-2 text-sm font-semibold text-white bg-rust rounded-lg hover:bg-rust/90 transition">
-        Record Packaging
-    </a>
-
-
-</div>
+{{ product.blend.name }} {{ product.pack_size.label }} | Nonda
 {% endblock %}
 
 {% block content %}
+<div class="space-y-3">
 
-<div class="space-y-6 max-w-7xl">
-
-    <!-- PRODUCT HEADER -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-
-            <div>
-
-                <div class="flex items-center gap-2 mb-2">
-
-                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold
-                        {% if product.form == 'beans' %}
-                            bg-amber-50 text-amber-700 border border-amber-100
-                        {% else %}
-                            bg-stone-100 text-stone-700 border border-stone-200  {% endif %}
-                    ">
-                        {{ product.get_form_display }}
-                    </span>
-
-                    <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border">
-                        {{ product.pack_size.label }}
-                    </span>
-
-                </div>
-
-                <h2 class="text-2xl font-bold text-gray-900">
-                    {{ product.blend.name }}
-                </h2>
-
-                {% if product.blend.description %}
-                    <p class="text-sm text-gray-500 mt-1">
-                        {{ product.blend.description }}
-                    </p>
-                {% endif %}
-
+    <!-- TOP BAR: BREADCRUMB + PAGE TITLE + ACTION -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-[#E4DECB]">
+        <div>
+            <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                Inventory / Packaged Coffee / <span class="text-slate-600">{{ product.blend.name }} {{ product.pack_size.label }}</span>
             </div>
-
-            <div class="text-left lg:text-right">
-
-                <p class="text-xs uppercase tracking-wide font-semibold text-gray-500">
-                    Available
-                </p>
-
-                <p class="text-4xl font-bold mt-1
-                    {% if inventory.available <= 10 %}
-                        text-amber-600
-                    {% else %}
-                        text-gray-900
-                    {% endif %}
-                ">
-                    {{ inventory.available }}
-                </p>
-
-                <p class="text-xs text-gray-500">
-                    packs in stock
-                </p>
-
+            <div class="flex items-center gap-2 mt-0.5">
+                <h1 class="text-base font-bold text-slate-800 leading-tight">{{ product.blend.name }}</h1>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider {% if product.form == 'beans' %}bg-amber-50 text-amber-700 border border-amber-100{% else %}bg-slate-100 text-slate-700 border border-slate-200{% endif %}">
+                    {{ product.get_form_display }}
+                </span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-[#E4DECB]">
+                    {{ product.pack_size.label }}
+                </span>
             </div>
-
         </div>
-
+        <div>
+            <a href="{% url 'packaging_run_create' %}"
+               class="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-rust hover:bg-rust-dark text-white text-xs font-semibold shadow-xs transition">
+                Record Packaging
+            </a>
+        </div>
     </div>
 
-
-    <!-- STOCK SUMMARY -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-
-        <div class="bg-white border border-gray-200 rounded-xl p-5">
-            <p class="text-xs uppercase tracking-wide font-semibold text-gray-500">
-                Available
-            </p>
-            <p class="text-2xl font-bold text-gray-900 mt-2">
-                {{ inventory.available }}
-            </p>
+    <!-- 1. COMPACT KPI SUMMARY CARDS -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <!-- Tile 1: Available Packs -->
+        <div class="bg-white border border-[#E4DECB] rounded-lg p-2.5 shadow-2xs">
+            <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Available Stock</p>
+            <div class="flex items-baseline gap-1 mt-0.5">
+                <span class="font-bold text-xl {% if inventory.available <= 10 %}text-amber-600{% else %}text-slate-800{% endif %}">
+                    {{ inventory.available|default:"0"|intcomma }}
+                </span>
+                <span class="text-[11px] font-normal text-slate-400">packs</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-0.5">Ready for release/sale</p>
         </div>
 
-        <div class="bg-white border border-gray-200 rounded-xl p-5">
-            <p class="text-xs uppercase tracking-wide font-semibold text-gray-500">
-                Released
-            </p>
-            <p class="text-2xl font-bold text-gray-900 mt-2">
-                {{ inventory.packs_released }}
-            </p>
+        <!-- Tile 2: Released Packs -->
+        <div class="bg-white border border-[#E4DECB] rounded-lg p-2.5 shadow-2xs">
+            <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Released</p>
+            <div class="flex items-baseline gap-1 mt-0.5">
+                <span class="font-bold text-xl text-slate-800">{{ inventory.packs_released|default:"0"|intcomma }}</span>
+                <span class="text-[11px] font-normal text-slate-400">packs</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-0.5">Dispatched to channels</p>
         </div>
 
-        <div class="bg-white border border-gray-200 rounded-xl p-5">
-            <p class="text-xs uppercase tracking-wide font-semibold text-gray-500">
-                Returned
-            </p>
-            <p class="text-2xl font-bold text-gray-900 mt-2">
-                {{ inventory.packs_returned }}
-            </p>
+        <!-- Tile 3: Returned Packs -->
+        <div class="bg-white border border-[#E4DECB] rounded-lg p-2.5 shadow-2xs">
+            <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Returned</p>
+            <div class="flex items-baseline gap-1 mt-0.5">
+                <span class="font-bold text-xl text-slate-800">{{ inventory.packs_returned|default:"0"|intcomma }}</span>
+                <span class="text-[11px] font-normal text-slate-400">packs</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-0.5">Returned to stock</p>
         </div>
 
-        <div class="bg-white border border-gray-200 rounded-xl p-5">
-            <p class="text-xs uppercase tracking-wide font-semibold text-gray-500">
-                Pack Weight
-            </p>
-            <p class="text-2xl font-bold text-gray-900 mt-2">
-                {{ product.kg_per_pack }}
-                <span class="text-sm font-normal text-gray-500">kg</span>
-            </p>
+        <!-- Tile 4: Pack Weight -->
+        <div class="bg-white border border-[#E4DECB] rounded-lg p-2.5 shadow-2xs">
+            <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Pack Weight</p>
+            <div class="flex items-baseline gap-1 mt-0.5">
+                <span class="font-bold text-xl text-slate-800">{{ product.kg_per_pack }}</span>
+                <span class="text-[11px] font-normal text-slate-400">Kg / pack</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-0.5">Standard unit weight</p>
         </div>
-
     </div>
 
-
-    <!-- PACKAGING ACCOUNTABILITY -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-
-        <div class="px-6 py-5 border-b border-gray-200">
-
-            <h3 class="font-semibold text-gray-900">
-                Packaging Accountability
-            </h3>
-
-            <p class="text-xs text-gray-500 mt-1">
-                How roasted or ground coffee was converted into packaged products.
-            </p>
-
+    <!-- 2. PACKAGING ACCOUNTABILITY TABLE -->
+    <div class="bg-white border border-[#E4DECB] rounded-lg shadow-2xs overflow-hidden">
+        <div class="px-3 py-2 bg-slate-50/80 border-b border-[#E4DECB] flex items-center justify-between">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-700">Packaging Accountability</h2>
+            <span class="text-[11px] text-slate-400">Conversion from bulk to packaged stock</span>
         </div>
-
-        <div class="p-6">
-
-            {% if packaging_runs %}
-
-            <div class="space-y-4">
-
-                {% for run in packaging_runs %}
-
-                <div class="border border-gray-200 rounded-xl p-5 hover:border-gray-300 transition">
-
-                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-
-                        <div>
-                            <p class="font-semibold text-gray-900">
-                                Packaging Run
-                            </p>
-
-                            <p class="text-xs text-gray-500 mt-1">
-                                {{ run.run_date|date:"d M Y, H:i" }}
-                            </p>
-                        </div>
-
-                        <a href="{% url 'packaging_run_detail' run.pk %}"
-                           class="text-sm font-semibold text-rust hover:underline">
-                            View run
-                        </a>
-
-                    </div>
-
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
-
-                        <div>
-                            <p class="text-xs text-gray-500">Input</p>
-                            <p class="font-bold text-gray-900 mt-1">
-                                {{ run.input_kg }} kg
-                            </p>
-                        </div>
-
-                        <div>
-                            <p class="text-xs text-gray-500">Packs Produced</p>
-                            <p class="font-bold text-gray-900 mt-1">
-                                {{ run.packs_produced }}
-                            </p>
-                        </div>
-
-                        <div>
-                            <p class="text-xs text-gray-500">Represented</p>
-                            <p class="font-bold text-gray-900 mt-1">
-                                {{ run.packs_produced|default:"0" }} {{ product.kg_per_pack }} kg
-                            </p>
-                        </div>
-
-                        <div>
-                            <p class="text-xs text-gray-500">Packaging Loss</p>
-                            <p class="font-bold text-amber-600 mt-1">
-                                {{ run.loss_kg }} kg
-                            </p>
-                        </div>
-
-                    </div>
-
-                    <div class="mt-4 pt-4 border-t border-gray-100 flex justify-between">
-
-                        <span class="text-sm text-gray-500">
-                            Accounted
-                        </span>
-
-                        <span class="font-bold text-emerald-700">
-                            {{ run.input_kg }} kg
-                        </span>
-
-                    </div>
-
-                </div>
-
-                {% endfor %}
-
-            </div>
-
-            {% else %}
-
-            <div class="py-10 text-center text-gray-500">
-                No packaging runs recorded for this product yet.
-            </div>
-
-            {% endif %}
-
-        </div>
-
-    </div>
-
-
-    <!-- RELEASE HISTORY -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-
-        <div class="px-6 py-5 border-b border-gray-200">
-            <h3 class="font-semibold text-gray-900">
-                Release History
-            </h3>
-
-            <p class="text-xs text-gray-500 mt-1">
-                Coffee released to sales, events or other authorized users.
-            </p>
-        </div>
-
-        <div class="overflow-x-auto">
-
-            <table class="w-full text-sm text-left">
-
-                <thead class="bg-gray-50 border-b">
-                    <tr>
-                        <th class="px-6 py-3 text-xs uppercase text-gray-500">Date</th>
-                        <th class="px-6 py-3 text-xs uppercase text-gray-500">Released To</th>
-                        <th class="px-6 py-3 text-xs uppercase text-gray-500 text-right">Out</th>
-                        <th class="px-6 py-3 text-xs uppercase text-gray-500 text-right">Sold</th>
-                        <th class="px-6 py-3 text-xs uppercase text-gray-500 text-right">Returned</th>
-                        <th class="px-6 py-3 text-xs uppercase text-gray-500">Status</th>
+        <div class="overflow-x-auto w-full">
+            <table class="w-full text-xs text-left border-collapse bg-white min-w-[750px]">
+                <thead>
+                    <tr class="bg-slate-100/80 border-b border-[#E4DECB] text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                        <th class="px-3 py-2">Run Date</th>
+                        <th class="px-3 py-2 text-right">Input Mass</th>
+                        <th class="px-3 py-2 text-right">Packs Produced</th>
+                        <th class="px-3 py-2 text-right">Yield Mass</th>
+                        <th class="px-3 py-2 text-right">Loss</th>
+                        <th class="px-3 py-2 text-right">Accounted Total</th>
+                        <th class="px-3 py-2 text-center">Action</th>
                     </tr>
                 </thead>
+                <tbody class="divide-y divide-[#E4DECB] text-slate-700">
+                    {% for run in packaging_runs %}
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="px-3 py-2 text-slate-400 font-medium whitespace-nowrap">{{ run.run_date|date:"d M Y, H:i" }}</td>
+                        <td class="px-3 py-2 text-right font-semibold text-slate-800">{{ run.input_kg }} kg</td>
+                        <td class="px-3 py-2 text-right font-bold text-slate-900">{{ run.packs_produced }}</td>
+                        <td class="px-3 py-2 text-right text-slate-500">{{ run.packs_produced|default:"0" }} {{ product.kg_per_pack }} kg</td>
+                        <td class="px-3 py-2 text-right font-medium text-amber-600">{{ run.loss_kg }} kg</td>
+                        <td class="px-3 py-2 text-right font-bold text-emerald-700 bg-slate-50/50">{{ run.input_kg }} kg</td>
+                        <td class="px-3 py-2 text-center whitespace-nowrap">
+                            <a href="{% url 'packaging_run_detail' run.pk %}" class="font-semibold text-rust hover:underline text-xs">
+                                View
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-3 py-6 text-center text-slate-400 italic bg-white">
+                            No packaging runs recorded for this product yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-                <tbody class="divide-y divide-gray-100">
-
+    <!-- 3. RELEASE & RETURN HISTORY TABLE -->
+    <div class="bg-white border border-[#E4DECB] rounded-lg shadow-2xs overflow-hidden">
+        <div class="px-3 py-2 bg-slate-50/80 border-b border-[#E4DECB] flex items-center justify-between">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-700">Release & Return History</h2>
+            <span class="text-[11px] text-slate-400">Stock issued to sales, events, or personnel</span>
+        </div>
+        <div class="overflow-x-auto w-full">
+            <table class="w-full text-xs text-left border-collapse bg-white min-w-[700px]">
+                <thead>
+                    <tr class="bg-slate-100/80 border-b border-[#E4DECB] text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                        <th class="px-3 py-2">Date</th>
+                        <th class="px-3 py-2">Released To</th>
+                        <th class="px-3 py-2 text-right">Out</th>
+                        <th class="px-3 py-2 text-right">Sold</th>
+                        <th class="px-3 py-2 text-right">Returned</th>
+                        <th class="px-3 py-2 text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#E4DECB] text-slate-700">
                     {% for release in releases %}
-
-                    <tr class="hover:bg-gray-50">
-
-                        <td class="px-6 py-4">
-                            {{ release.released_at|date:"d M Y, H:i" }}
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="px-3 py-2 text-slate-400 font-medium whitespace-nowrap">{{ release.released_at|date:"d M Y, H:i" }}</td>
+                        <td class="px-3 py-2 font-semibold text-slate-800">{{ release.released_to|default:"-" }}</td>
+                        <td class="px-3 py-2 text-right font-bold text-slate-900">{{ release.packs_out }}</td>
+                        <td class="px-3 py-2 text-right text-slate-600">{{ release.packs_sold|default:"0" }}</td>
+                        <td class="px-3 py-2 text-right font-medium {% if release.packs_returned > 0 %}text-emerald-700 font-bold{% else %}text-slate-600{% endif %}">
+                            {{ release.packs_returned|default:"0" }}
                         </td>
-
-                        <td class="px-6 py-4 font-medium text-gray-900">
-                            {{ release.released_to|default:"" }}
-                        </td>
-
-                        <td class="px-6 py-4 text-right">
-                            {{ release.packs_out }}
-                        </td>
-
-                        <td class="px-6 py-4 text-right">
-                            {{ release.packs_sold }}
-                        </td>
-
-                        <td class="px-6 py-4 text-right">
-                            {{ release.packs_returned }}
-                        </td>
-
-                        <td class="px-6 py-4">
-                            <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                        <td class="px-3 py-2 text-center whitespace-nowrap">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-[#E4DECB] uppercase tracking-wider">
                                 {{ release.get_status_display }}
                             </span>
                         </td>
-
                     </tr>
-
                     {% empty %}
-
                     <tr>
-                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
-                            No releases recorded.
+                        <td colspan="6" class="px-3 py-6 text-center text-slate-400 italic bg-white">
+                            No releases recorded for this product yet.
                         </td>
                     </tr>
-
                     {% endfor %}
-
                 </tbody>
-
             </table>
-
         </div>
-
     </div>
 
 </div>
-
-{% endblock %}
-
-
-
+{% endblock %}  

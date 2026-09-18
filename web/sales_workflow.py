@@ -286,3 +286,4 @@ def record_payment(
     )
 
     return payment
+

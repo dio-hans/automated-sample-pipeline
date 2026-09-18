@@ -1,4 +1,4 @@
-
+from .views import ManagementReportsView
 from django.urls import path
 
 from . import sales_views, views
@@ -109,4 +109,9 @@ urlpatterns = [
     path("processing-workspace/", views.ProcessingWorkspaceView.as_view(), name="processing_workspace"),
     path("accounting/credit-ledger/",views.CreditControlLedgerView.as_view(),name="credit_control_ledger"),
 
+    # new urls for the new features/ the new cards for sales and the reports
+   path("cashier/requests/<int:pk>/collect-payment/",views.record_card_payment_view,name="record_card_payment",),
+
+path("stock-requests/<int:pk>/add-item/",views.add_item_to_request_view,name="stock_request_add_item",),
+path("reports/",ManagementReportsView.as_view(),name="reports",),
 ]

@@ -11,7 +11,6 @@ Processing Workspace
 {% endblock %}
 
 {% block page_subtitle %}
-
 <p class="mt-1 text-sm text-slate-500">
     Load coffee into roasting, sorting, or grinding operations and receive the measured output back into the stock ledger.
 </p>
@@ -21,852 +20,384 @@ Processing Workspace
 
 <div class="space-y-8">
 
-
-<!-- =========================================================
-     1. ACTIVE PROCESSING RUNS
-     ========================================================= -->
-<section class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm space-y-4">
-
-    <div>
-        <h2 class="text-sm font-semibold text-slate-800">
-            Active Processing Runs
-        </h2>
-
-        <p class="text-xs text-slate-400 mt-0.5">
-            Coffee currently in roasting, sorting, or grinding.
-            Complete the run after the actual output has been weighed.
-        </p>
-    </div>
-
-    <div class="overflow-x-auto border border-[#E4DECB] rounded-lg">
-
-        <table class="w-full text-sm text-left bg-white border-collapse">
-
-            <thead>
-                <tr class="bg-slate-50 border-b border-[#E4DECB]
-                           text-slate-600 font-semibold
-                           text-xs uppercase tracking-wider">
-
-                    <th class="px-6 py-3">
-                        Issued Date
-                    </th>
-
-                    <th class="px-6 py-3">
-                        Batch Reference
-                    </th>
-
-                    <th class="px-6 py-3">
-                        Operation
-                    </th>
-
-                    <th class="px-6 py-3 text-right">
-                        Input
-                    </th>
-
-                    <th class="px-6 py-3 text-center">
-                        Action
-                    </th>
-
-                </tr>
-            </thead>
-
-            <tbody class="divide-y divide-[#E4DECB]
-                         text-slate-700 text-xs">
-
-                {% for run in open_runs %}
-
-                <tr class="hover:bg-slate-50/50">
-
-                    <td class="px-6 py-4 text-slate-400 font-medium">
-                        {{ run.issued_at|date:"d M Y, H:i" }}
-                    </td>
-
-                    <td class="px-6 py-4">
-                        <div class="font-bold text-slate-900">
-                            {{ run.stock.batch_number }}
-                        </div>
-
-                        <div class="text-[10px] text-slate-400 mt-0.5">
-                            Run #{{ run.pk }}
-                        </div>
-                    </td>
-
-                    <td class="px-6 py-4">
-
-                        {% if run.process_type == "roasting" %}
-
-                            <span class="inline-flex px-2 py-0.5 rounded
-                                         text-[10px] font-bold uppercase
-                                         tracking-wider
-                                         bg-amber-50 text-amber-700
-                                         border border-amber-100">
-                                Roasting
-                            </span>
-
-                        {% elif run.process_type == "sorting" %}
-
-                            <span class="inline-flex px-2 py-0.5 rounded
-                                         text-[10px] font-bold uppercase
-                                         tracking-wider
-                                         bg-blue-50 text-blue-700
-                                         border border-blue-100">
-                                Sorting
-                            </span>
-
-                        {% elif run.process_type == "grinding" %}
-
-                            <span class="inline-flex px-2 py-0.5 rounded
-                                         text-[10px] font-bold uppercase
-                                         tracking-wider
-                                         bg-orange-50 text-orange-700
-                                         border border-orange-100">
-                                Grinding
-                            </span>
-
-                        {% else %}
-
-                            <span class="inline-flex px-2 py-0.5 rounded
-                                         text-[10px] font-bold uppercase
-                                         tracking-wider
-                                         bg-slate-100 text-slate-600
-                                         border border-slate-200">
-                                {{ run.get_process_type_display }}
-                            </span>
-
-                        {% endif %}
-
-                    </td>
-
-                    <td class="px-6 py-4 text-right font-bold text-slate-800">
-                        {{ run.input_quantity|floatformat:2 }} kg
-                    </td>
-
-                    <td class="px-6 py-4 text-center">
-
-                        <button
-                            type="button"
-                            onclick="openCompleteModal(
-                                '{{ run.pk }}',
-                                '{{ run.stock.batch_number|escapejs }}',
-                                '{{ run.process_type }}',
-                                '{{ run.input_quantity }}',
-                                '{% url 'complete_processing' pk=run.pk %}',
-                            )"
-                            class="px-3 py-1.5
-                                   bg-emerald-50
-                                   hover:bg-emerald-100
-                                   text-emerald-700
-                                   border border-emerald-200
-                                   rounded-md
-                                   font-semibold text-xs
-                                   transition">
-
-                            Complete Run
-
-                        </button>
-
-                    </td>
-
-                </tr>
-
-                {% empty %}
-
-                <tr>
-
-                    <td colspan="5"
-                        class="px-6 py-10
-                               text-center
-                               text-slate-400
-                               italic">
-
-                        No active processing runs currently in progress.
-
-                    </td>
-
-                </tr>
-
-                {% endfor %}
-
-            </tbody>
-
-        </table>
-
-    </div>
-
-</section>
-
-
-<!-- =========================================================
-     2. AVAILABLE WAREHOUSE LOTS
-     ========================================================= -->
-<section class="bg-white border border-[#E4DECB]
-                rounded-xl p-5 shadow-sm space-y-4">
-
-    <div>
-        <h2 class="text-sm font-semibold text-slate-800">
-            Available Warehouse Lots
-        </h2>
-
-        <p class="text-xs text-slate-400 mt-0.5">
-            Select the coffee stage that should enter the next processing operation.
-        </p>
-    </div>
-
-
-    <div class="overflow-x-auto border border-[#E4DECB] rounded-lg">
-
-        <table class="w-full text-sm text-left
-                      bg-white border-collapse">
-
-            <thead>
-
-                <tr class="bg-slate-50
-                           border-b border-[#E4DECB]
-                           text-slate-600
-                           font-semibold text-xs
-                           uppercase tracking-wider">
-
-                    <th class="px-6 py-3">
-                        Batch Number
-                    </th>
-
-                    <th class="px-6 py-3">
-                        Variety
-                    </th>
-
-                    <th class="px-6 py-3 text-right">
-                        Green
-                    </th>
-
-                    <th class="px-6 py-3 text-right">
-                        Roasted
-                    </th>
-
-                    <th class="px-6 py-3 text-center">
-                        Processing
-                    </th>
-
-                </tr>
-
-            </thead>
-
-            <tbody class="divide-y divide-[#E4DECB]
-                         text-slate-700">
-
-                {% for stock in stocks %}
-
-                <tr class="hover:bg-slate-50/50 transition">
-
-                    <td class="px-6 py-4 font-bold text-slate-900 text-xs">
-
-                        {{ stock.batch_number }}
-
-                    </td>
-
-                    <td class="px-6 py-4 font-semibold text-slate-800">
-
-                        {{ stock.variety.name }}
-
-                    </td>
-
-                    <td class="px-6 py-4 text-right text-xs font-medium text-slate-500">
-
-                        {{ stock.quantity_green|default:"0.00"|floatformat:2 }}
-
-                        kg
-
-                    </td>
-
-                    <td class="px-6 py-4 text-right text-xs font-medium text-slate-500">
-
-                        {{ stock.quantity_roasted|default:"0.00"|floatformat:2 }}
-
-                        kg
-
-                    </td>
-
-                    <td class="px-6 py-4 text-center">
-
-                        <div class="inline-flex flex-wrap justify-center gap-2">
-
-                            <!-- ROASTING -->
-                            {% if stock.quantity_green > 0 %}
-
-                            <button
-                                type="button"
-                                onclick="openIssueModal(
-                                    'roasting',
-                                    '{{ stock.pk }}',
-                                    '{{ stock.batch_number|escapejs }}',
-                                    '{{ stock.quantity_green }}',
-                                    '{% url 'issue_processing' stock.pk %}',
-                                )"
-                                class="px-2.5 py-1.5
-                                       bg-amber-50
-                                       hover:bg-amber-100
-                                       text-amber-700
-                                       border border-amber-200
-                                       rounded-md
-                                       text-xs font-semibold">
-
-                                Roast
-
-                            </button>
-
+    <!-- =========================================================
+         1. ACTIVE PROCESSING RUNS
+         ========================================================= -->
+    <section class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm space-y-4">
+
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-sm font-semibold text-slate-800">
+                    Active Processing Runs
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">
+                    Coffee currently in roasting, sorting, or grinding. Complete the run after the actual output has been weighed.
+                </p>
+            </div>
+            {% if open_runs %}
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                {{ open_runs|length }} Active
+            </span>
+            {% endif %}
+        </div>
+
+        <div class="overflow-x-auto border border-[#E4DECB] rounded-lg">
+            <table class="w-full text-sm text-left bg-white border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-[#E4DECB] text-slate-600 font-semibold text-xs uppercase tracking-wider">
+                        <th class="px-6 py-3">Issued Date</th>
+                        <th class="px-6 py-3">Batch Reference</th>
+                        <th class="px-6 py-3">Operation</th>
+                        <th class="px-6 py-3 text-right">Input</th>
+                        <th class="px-6 py-3 text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#E4DECB] text-slate-700 text-xs">
+                    {% for run in open_runs %}
+                    <tr class="hover:bg-slate-50/50 transition">
+                        <td class="px-6 py-4 text-slate-500 font-medium whitespace-nowrap">
+                            {{ run.issued_at|date:"d M Y, H:i" }}
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-slate-900">
+                                {{ run.stock.batch_number }}
+                            </div>
+                            <div class="text-[10px] text-slate-400 mt-0.5 font-mono">
+                                Run #{{ run.pk }}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if run.process_type == "roasting" %}
+                                <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                                    Roasting
+                                </span>
+                            {% elif run.process_type == "sorting" %}
+                                <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
+                                    Sorting
+                                </span>
+                            {% elif run.process_type == "grinding" %}
+                                <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-50 text-orange-700 border border-orange-200">
+                                    Grinding
+                                </span>
                             {% else %}
-
-                            <button
-                                type="button"
-                                disabled
-                                class="px-2.5 py-1.5
-                                       bg-slate-50
-                                       text-slate-300
-                                       border border-slate-200
-                                       rounded-md
-                                       text-xs">
-
-                                Roast
-
-                            </button>
-
+                                <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">
+                                    {{ run.get_process_type_display }}
+                                </span>
                             {% endif %}
-
-
-                            <!-- SORTING -->
-                            {% if stock.quantity_roasted > 0 %}
-
+                        </td>
+                        <td class="px-6 py-4 text-right text-slate-500">
+                            {{ run.input_quantity|floatformat:2 }} kg
+                        </td>
+                        <td class="px-6 py-4 text-center">
                             <button
                                 type="button"
-                                onclick="openIssueModal(
-                                    'sorting',
-                                    '{{ stock.pk }}',
-                                    '{{ stock.batch_number|escapejs }}',
-                                    '{{ stock.quantity_roasted }}',
-                                    '{% url 'issue_processing' stock.pk %}',
+                                onclick="openCompleteModal(
+                                    '{{ run.pk }}',
+                                    '{{ run.stock.batch_number|escapejs }}',
+                                    '{{ run.process_type }}',
+                                    '{{ run.input_quantity }}',
+                                    '{% url 'complete_processing' pk=run.pk %}'
                                 )"
-                                class="px-2.5 py-1.5
-                                       bg-blue-50
-                                       hover:bg-blue-100
-                                       text-blue-700
-                                       border border-blue-200
-                                       rounded-md
-                                       text-xs font-semibold">
-
-                                Sort
-
+                                class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg font-semibold text-xs shadow-sm transition">
+                                Complete Run
                             </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-10 text-center text-slate-400 italic">
+                            No active processing runs currently in progress.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
-                            {% else %}
+    </section>
 
-                            <button
-                                type="button"
-                                disabled
-                                class="px-2.5 py-1.5
-                                       bg-slate-50
-                                       text-slate-300
-                                       border border-slate-200
-                                       rounded-md
-                                       text-xs">
+    <!-- =========================================================
+         2. AVAILABLE WAREHOUSE LOTS
+         ========================================================= -->
+    <section class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm space-y-4">
 
-                                Sort
+        <div>
+            <h2 class="text-sm font-semibold text-slate-800">
+                Available Warehouse Lots
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">
+                Select the coffee stage that should enter the next processing operation.
+            </p>
+        </div>
 
-                            </button>
+        <div class="overflow-x-auto border border-[#E4DECB] rounded-lg">
+            <table class="w-full text-sm text-left bg-white border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-[#E4DECB] text-slate-600 font-semibold text-xs uppercase tracking-wider">
+                        <th class="px-6 py-3">Batch Number</th>
+                        <th class="px-6 py-3">Variety</th>
+                        <th class="px-6 py-3 text-right">Green</th>
+                        <th class="px-6 py-3 text-right">Roasted</th>
+                        <th class="px-6 py-3 text-right">Ground</th>
+                        <th class="px-6 py-3 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#E4DECB] text-slate-700 text-xs">
+                    {% for stock in stocks %}
+                    <tr class="hover:bg-slate-50/50 transition">
+                        <td class="px-6 py-4 font-bold text-slate-900">
+                            {{ stock.batch_number }}
+                        </td>
+                        <td class="px-6 py-4 font-semibold text-slate-800">
+                            {{ stock.variety.name }}
+                        </td>
+                        <td class="px-6 py-4 text-right text-slate-500">
+                            {{ stock.quantity_green|default:"0.00"|floatformat:2 }} kg
+                        </td>
+                        <td class="px-6 py-4 text-right text-slate-500">
+                            {{ stock.quantity_roasted|default:"0.00"|floatformat:2 }} kg
+                        </td>
+                        <td class="px-6 py-4 text-right text-slate-500">
+                            {{ stock.quantity_ground|default:"0.00"|floatformat:2 }} kg
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <div class="inline-flex items-center justify-center gap-2">
+                                {% if stock.quantity_green > 0 %}
+                                <button
+                                    type="button"
+                                    onclick="openIssueModal('roasting', '{{ stock.pk }}', '{{ stock.batch_number|escapejs }}', '{{ stock.quantity_green }}', '{% url 'issue_processing' stock.pk %}')"
+                                    class="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-semibold shadow-sm transition">
+                                    Roast
+                                </button>
+                                {% endif %}
 
-                            {% endif %}
+                                {% if stock.quantity_roasted > 0 %}
+                                <button
+                                    type="button"
+                                    onclick="openIssueModal('grinding', '{{ stock.pk }}', '{{ stock.batch_number|escapejs }}', '{{ stock.quantity_roasted }}', '{% url 'issue_processing' stock.pk %}')"
+                                    class="px-2.5 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-lg text-xs font-semibold shadow-sm transition">
+                                    Grind
+                                </button>
+                                {% endif %}
 
+                                {% if stock.quantity_green <= 0 and stock.quantity_roasted <= 0 %}
+                                <span class="text-[11px] text-slate-400 italic">No available stock</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-10 text-center text-slate-400 italic">
+                            No warehouse lots available for processing.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
-                            <!-- GRINDING -->
-                            {% if stock.quantity_roasted > 0 %}
-
-                            <button
-                                type="button"
-                                onclick="openIssueModal(
-                                    'grinding',
-                                    '{{ stock.pk }}',
-                                    '{{ stock.batch_number|escapejs }}',
-                                    '{{ stock.quantity_roasted }}',
-                                    '{% url 'issue_processing' stock.pk %}',
-                                )"
-                                class="px-2.5 py-1.5
-                                       bg-orange-50
-                                       hover:bg-orange-100
-                                       text-orange-700
-                                       border border-orange-200
-                                       rounded-md
-                                       text-xs font-semibold">
-
-                                Grind
-
-                            </button>
-
-                            {% else %}
-
-                            <button
-                                type="button"
-                                disabled
-                                class="px-2.5 py-1.5
-                                       bg-slate-50
-                                       text-slate-300
-                                       border border-slate-200
-                                       rounded-md
-                                       text-xs">
-
-                                Grind
-
-                            </button>
-
-                            {% endif %}
-
-                        </div>
-
-                    </td>
-
-                </tr>
-
-                {% empty %}
-
-                <tr>
-
-                    <td colspan="5"
-                        class="px-6 py-10 text-center
-                               text-slate-400 italic">
-
-                        No warehouse lots are currently available.
-
-                    </td>
-
-                </tr>
-
-                {% endfor %}
-
-            </tbody>
-
-        </table>
-
-    </div>
-
-</section>
+    </section>
 
 </div>
 
 <!-- =========================================================
      MODAL A — START PROCESSING RUN
      ========================================================= -->
+<div id="issueModal" class="fixed inset-0 z-50 overflow-y-auto hidden">
+    <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs" onclick="closeModal('issueModal')"></div>
 
-<div id="issueModal"
-     class="fixed inset-0 z-50 overflow-y-auto hidden">
+    <div class="flex min-h-screen items-center justify-center p-4">
+        <div class="relative bg-white border border-[#E4DECB] rounded-xl p-6 shadow-xl w-full max-w-md">
 
-<div class="fixed inset-0 bg-slate-900/40"
-     onclick="closeModal('issueModal')">
-</div>
+            <h3 id="issueModalTitle" class="font-display text-lg font-bold text-slate-800 mb-4">
+                Start Processing
+            </h3>
 
-<div class="flex min-h-screen
-            items-center justify-center p-4">
+            <form method="POST" id="issueForm" class="space-y-4">
+                {% csrf_token %}
 
-    <div class="relative bg-white
-                border border-[#E4DECB]
-                rounded-xl p-6 shadow-xl
-                w-full max-w-md">
+                <input type="hidden" name="process_type" id="id_process_type">
 
-        <h3 id="issueModalTitle"
-            class="font-display text-lg
-                   font-bold text-slate-800 mb-4">
+                <div class="bg-slate-50 border border-[#E4DECB] rounded-lg p-3">
+                    <p class="text-xs text-slate-500">
+                        Batch: <strong id="issue_batch_lbl" class="text-slate-900 font-mono"></strong>
+                    </p>
+                </div>
 
-            Start Processing
+                <div>
+                    <label for="id_input_qty" class="block text-xs font-semibold text-slate-600 mb-1">
+                        Input Quantity (Kg)
+                    </label>
+                    <input
+                        type="number"
+                        name="input_quantity"
+                        id="id_input_qty"
+                        required
+                        step="0.01"
+                        min="0.01"
+                        class="w-full rounded-md border border-[#E4DECB] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rust font-mono"
+                        placeholder="0.00">
+                    <p class="mt-1 text-[10px] text-slate-400">
+                        Maximum available: <span id="issue_max_qty" class="font-semibold font-mono">0.00</span> kg
+                    </p>
+                </div>
 
-        </h3>
+                <div>
+                    <label for="id_issue_notes" class="block text-xs font-semibold text-slate-600 mb-1">
+                        Notes
+                    </label>
+                    <textarea
+                        name="notes"
+                        id="id_issue_notes"
+                        rows="2"
+                        class="w-full rounded-md border border-[#E4DECB] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rust"
+                        placeholder="Optional processing note..."></textarea>
+                </div>
 
-        <form method="POST"
-              id="issueForm"
-              class="space-y-4">
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button
+                        type="button"
+                        onclick="closeModal('issueModal')"
+                        class="px-4 py-2 border border-[#E4DECB] rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        class="px-4 py-2 bg-rust hover:bg-rust-dark text-white rounded-lg text-xs font-semibold shadow-sm transition">
+                        Start Run
+                    </button>
+                </div>
+            </form>
 
-            {% csrf_token %}
-
-            <input
-                type="hidden"
-                name="process_type"
-                id="id_process_type">
-
-            <div>
-
-                <p class="text-xs text-slate-500">
-
-                    Batch:
-                    <strong
-                        id="issue_batch_lbl"
-                        class="text-slate-800">
-                    </strong>
-
-                </p>
-
-            </div>
-
-
-            <div>
-
-                <label
-                    for="id_input_qty"
-                    class="block text-xs
-                           font-semibold text-slate-600 mb-1">
-
-                    Input Quantity (Kg)
-
-                </label>
-
-                <input
-                    type="number"
-                    name="input_quantity"
-                    id="id_input_qty"
-                    required
-                    step="0.01"
-                    min="0.01"
-                    class="w-full rounded-md
-                           border border-[#E4DECB]
-                           px-3 py-2 text-sm
-                           focus:outline-none
-                           focus:ring-2
-                           focus:ring-rust">
-
-                <p class="mt-1 text-[10px]
-                          text-slate-400">
-
-                    Maximum available:
-                    <span id="issue_max_qty">0.00</span> kg
-
-                </p>
-
-            </div>
-
-
-            <div>
-
-                <label
-                    for="id_issue_notes"
-                    class="block text-xs
-                           font-semibold text-slate-600 mb-1">
-
-                    Notes
-
-                </label>
-
-                <textarea
-                    name="notes"
-                    id="id_issue_notes"
-                    rows="2"
-                    class="w-full rounded-md
-                           border border-[#E4DECB]
-                           px-3 py-2 text-sm"
-                    placeholder="Optional processing note...">
-                </textarea>
-
-            </div>
-
-
-            <div class="flex justify-end
-                        gap-2 pt-3
-                        border-t border-slate-100">
-
-                <button
-                    type="button"
-                    onclick="closeModal('issueModal')"
-                    class="px-4 py-2
-                           border border-[#E4DECB]
-                           rounded-lg text-xs
-                           font-medium text-slate-600
-                           hover:bg-slate-50">
-
-                    Cancel
-
-                </button>
-
-                <button
-                    type="submit"
-                    class="px-4 py-2
-                           bg-rust
-                           hover:bg-rust-dark
-                           text-white
-                           rounded-lg text-xs
-                           font-semibold">
-
-                    Start Run
-
-                </button>
-
-            </div>
-
-        </form>
-
+        </div>
     </div>
-
-</div>
-
-
 </div>
 
 <!-- =========================================================
      MODAL B — COMPLETE PROCESSING RUN
      ========================================================= -->
+<div id="completeModal" class="fixed inset-0 z-50 overflow-y-auto hidden">
+    <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs" onclick="closeModal('completeModal')"></div>
 
-<div id="completeModal"
-     class="fixed inset-0 z-50 overflow-y-auto hidden">
+    <div class="flex min-h-screen items-center justify-center p-4">
+        <div class="relative bg-white border border-[#E4DECB] rounded-xl p-6 shadow-xl w-full max-w-md">
 
-<div class="fixed inset-0 bg-slate-900/40"
-     onclick="closeModal('completeModal')">
-</div>
+            <h3 id="completeModalTitle" class="font-display text-lg font-bold text-slate-800 mb-4">
+                Complete Processing Run
+            </h3>
 
-<div class="flex min-h-screen
-            items-center justify-center p-4">
+            <form method="POST" id="completeForm" class="space-y-4">
+                {% csrf_token %}
 
-    <div class="relative bg-white
-                border border-[#E4DECB]
-                rounded-xl p-6 shadow-xl
-                w-full max-w-md">
+                <!-- Hidden submit input used by JS for sorting runs -->
+                <input type="hidden" name="output_quantity" id="id_output_qty_hidden">
 
-        <h3
-            id="completeModalTitle"
-            class="font-display text-lg
-                   font-bold text-slate-800 mb-4">
-
-            Complete Processing Run
-
-        </h3>
-
-
-        <form method="POST"
-              id="completeForm"
-              class="space-y-4">
-
-            {% csrf_token %}
-
-            <div>
-
-                <p class="text-xs text-slate-500">
-
-                    Batch:
-                    <strong
-                        id="complete_batch_lbl"
-                        class="text-slate-800">
-                    </strong>
-
-                </p>
-
-                <p class="text-xs text-slate-400 mt-1">
-
-                    Input:
-                    <span
-                        id="complete_input_lbl"
-                        class="font-semibold">
-                    </span>
-
-                    kg
-
-                </p>
-
-            </div>
-
-
-            <!-- ROASTING / GRINDING OUTPUT -->
-
-            <div id="standard_output_section">
-
-                <label
-                    for="id_output_qty"
-                    id="standard_output_label"
-                    class="block text-xs
-                           font-semibold text-emerald-700 mb-1.5">
-
-                    Output Quantity (Kg)
-
-                </label>
-
-                <input
-                    type="number"
-                    name="output_quantity"
-                    id="id_output_qty"
-                    step="0.01"
-                    min="0"
-                    required
-                    class="w-full rounded-md
-                           border border-[#E4DECB]
-                           px-3 py-2 text-sm
-                           focus:outline-none
-                           focus:ring-2
-                           focus:ring-olive">
-
-            </div>
-
-
-            <!-- SORTING ONLY -->
-
-            <div id="sorting_output_section"
-                 class="hidden space-y-4">
-
-                <div>
-
-                    <label
-                        for="id_sort_good_qty"
-                        class="block text-xs
-                               font-semibold text-emerald-700 mb-1.5">
-
-                        Good Roasted Coffee (Kg)
-
-                    </label>
-
-                    <input
-                        type="number"
-                        id="id_sort_good_qty"
-                        step="0.01"
-                        min="0"
-                        class="w-full rounded-md
-                               border border-[#E4DECB]
-                               px-3 py-2 text-sm
-                               focus:outline-none
-                               focus:ring-2
-                               focus:ring-olive">
-
-                    <p class="mt-1 text-[10px]
-                              text-slate-400">
-
-                        Good coffee remains in the roasted stage.
-
+                <div class="bg-slate-50 border border-[#E4DECB] rounded-lg p-3 space-y-1">
+                    <p class="text-xs text-slate-500">
+                        Batch: <strong id="complete_batch_lbl" class="text-slate-900 font-mono"></strong>
                     </p>
-
+                    <p class="text-xs text-slate-500">
+                        Input Quantity: <span id="complete_input_lbl" class="font-semibold text-slate-800 font-mono"></span> kg
+                    </p>
                 </div>
 
-
-                <div>
-
-                    <label
-                        for="id_quaker_qty"
-                        class="block text-xs
-                               font-semibold text-amber-700 mb-1.5">
-
-                        Quakers (Kg)
-
+                <!-- ROASTING / GRINDING OUTPUT -->
+                <div id="standard_output_section">
+                    <label for="id_output_qty" id="standard_output_label" class="block text-xs font-semibold text-emerald-700 mb-1.5">
+                        Output Quantity (Kg)
                     </label>
-
                     <input
                         type="number"
-                        name="quaker_quantity"
-                        id="id_quaker_qty"
+                        name="output_quantity"
+                        id="id_output_qty"
                         step="0.01"
                         min="0"
-                        value="0"
-                        class="w-full rounded-md
-                               border border-[#E4DECB]
-                               px-3 py-2 text-sm">
-
-                    <p class="mt-1 text-[10px]
-                              text-slate-400">
-
-                        Quakers are recorded separately from good coffee.
-
-                    </p>
-
+                        class="w-full rounded-md border border-[#E4DECB] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                        placeholder="0.00">
                 </div>
 
-            </div>
+                <!-- SORTING ONLY -->
+                <div id="sorting_output_section" class="hidden space-y-4">
+                    <div>
+                        <label for="id_sort_good_qty" class="block text-xs font-semibold text-emerald-700 mb-1.5">
+                            Good Roasted Coffee (Kg)
+                        </label>
+                        <input
+                            type="number"
+                            id="id_sort_good_qty"
+                            step="0.01"
+                            min="0"
+                            class="w-full rounded-md border border-[#E4DECB] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                            placeholder="0.00">
+                        <p class="mt-1 text-[10px] text-slate-400">
+                            Good coffee remains in the roasted stage.
+                        </p>
+                    </div>
 
+                    <div>
+                        <label for="id_quaker_qty" class="block text-xs font-semibold text-amber-700 mb-1.5">
+                            Quakers (Kg)
+                        </label>
+                        <input
+                            type="number"
+                            name="quaker_quantity"
+                            id="id_quaker_qty"
+                            step="0.01"
+                            min="0"
+                            value="0"
+                            class="w-full rounded-md border border-[#E4DECB] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono">
+                        <p class="mt-1 text-[10px] text-slate-400">
+                            Quakers are recorded separately from good coffee.
+                        </p>
+                    </div>
+                </div>
 
-            <div>
+                <div>
+                    <label for="id_complete_notes" class="block text-xs font-semibold text-slate-600 mb-1.5">
+                        Processing Notes
+                    </label>
+                    <textarea
+                        name="notes"
+                        id="id_complete_notes"
+                        rows="2"
+                        class="w-full rounded-md border border-[#E4DECB] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rust"
+                        placeholder="Optional completion notes..."></textarea>
+                </div>
 
-                <label
-                    for="id_complete_notes"
-                    class="block text-xs
-                           font-semibold text-slate-600 mb-1.5">
+                <div class="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+                    <p class="text-xs font-semibold text-amber-800">
+                        Inventory Control
+                    </p>
+                    <p class="mt-0.5 text-[11px] text-amber-700 leading-relaxed">
+                        Enter actual measured output. The system automatically computes and records any moisture/processing loss.
+                    </p>
+                </div>
 
-                    Processing Notes
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button
+                        type="button"
+                        onclick="closeModal('completeModal')"
+                        class="px-4 py-2 border border-[#E4DECB] rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition">
+                        Receive Back to Store
+                    </button>
+                </div>
+            </form>
 
-                </label>
-
-                <textarea
-                    name="notes"
-                    id="id_complete_notes"
-                    rows="2"
-                    class="w-full rounded-md
-                           border border-[#E4DECB]
-                           px-3 py-2 text-sm"
-                    placeholder="Optional completion notes...">
-                </textarea>
-
-            </div>
-
-
-            <div class="rounded-lg
-                        border border-amber-200
-                        bg-amber-50
-                        px-4 py-3">
-
-                <p class="text-xs
-                          font-semibold
-                          text-amber-800">
-
-                    Inventory control
-
-                </p>
-
-                <p class="mt-1 text-xs
-                          text-amber-700
-                          leading-relaxed">
-
-                    Enter the actual measured output.
-                    The system will calculate and record any processing loss.
-
-                </p>
-
-            </div>
-
-
-            <div class="flex justify-end
-                        gap-2 pt-3
-                        border-t border-slate-100">
-
-                <button
-                    type="button"
-                    onclick="closeModal('completeModal')"
-                    class="px-4 py-2
-                           border border-[#E4DECB]
-                           rounded-lg text-xs
-                           font-medium text-slate-600
-                           hover:bg-slate-50">
-
-                    Cancel
-
-                </button>
-
-                <button
-                    type="submit"
-                    class="px-4 py-2
-                           bg-emerald-600
-                           hover:bg-emerald-700
-                           text-white
-                           rounded-lg text-xs
-                           font-semibold
-                           shadow-sm">
-
-                    Receive Back to Store
-
-                </button>
-
-            </div>
-
-        </form>
-
+        </div>
     </div>
-
-</div>
-
-
 </div>
 
 {% endblock %}
 
 {% block extra_scripts %}
-
 <script>
-
 function openIssueModal(type, pk, batchNum, maxQty, actionUrl) {
-
     const modal = document.getElementById("issueModal");
     const form = document.getElementById("issueForm");
 
@@ -877,14 +408,10 @@ function openIssueModal(type, pk, batchNum, maxQty, actionUrl) {
     const maxQtyLabel = document.getElementById("issue_max_qty");
 
     batchLabel.textContent = batchNum;
-
     processInput.value = type;
-
     inputQty.value = "";
     inputQty.max = maxQty;
-
     maxQtyLabel.textContent = Number(maxQty).toFixed(2);
-
     form.action = actionUrl;
 
     if (type === "roasting") {
@@ -900,15 +427,7 @@ function openIssueModal(type, pk, batchNum, maxQty, actionUrl) {
     modal.classList.remove("hidden");
 }
 
-
-function openCompleteModal(
-    runPk,
-    batchNum,
-    type,
-    inputQty,
-    actionUrl
-) {
-
+function openCompleteModal(runPk, batchNum, type, inputQty, actionUrl) {
     const modal = document.getElementById("completeModal");
     const form = document.getElementById("completeForm");
 
@@ -916,123 +435,56 @@ function openCompleteModal(
     const batchLabel = document.getElementById("complete_batch_lbl");
     const inputLabel = document.getElementById("complete_input_lbl");
 
-    const standardSection =
-        document.getElementById("standard_output_section");
-
-    const sortingSection =
-        document.getElementById("sorting_output_section");
-
-    const standardOutput =
-        document.getElementById("id_output_qty");
-
-    const sortGoodOutput =
-        document.getElementById("id_sort_good_qty");
-
-    const quakerInput =
-        document.getElementById("id_quaker_qty");
-
+    const standardSection = document.getElementById("standard_output_section");
+    const sortingSection = document.getElementById("sorting_output_section");
+    const standardOutput = document.getElementById("id_output_qty");
+    const sortGoodOutput = document.getElementById("id_sort_good_qty");
+    const quakerInput = document.getElementById("id_quaker_qty");
 
     batchLabel.textContent = batchNum;
-
-    inputLabel.textContent =
-        Number(inputQty).toFixed(2);
-
+    inputLabel.textContent = Number(inputQty).toFixed(2);
     form.action = actionUrl;
 
     standardOutput.value = "";
     sortGoodOutput.value = "";
     quakerInput.value = "0";
 
-
     if (type === "sorting") {
-
         title.textContent = "Complete Sorting Run";
-
         standardSection.classList.add("hidden");
         sortingSection.classList.remove("hidden");
-
-        /*
-         * The backend expects the good sorting output
-         * in the field named output_quantity.
-         *
-         * We therefore copy the sorting good quantity
-         * into that field before submission.
-         */
         sortGoodOutput.required = true;
         standardOutput.required = false;
-
-    } else if (type === "roasting") {
-
-        title.textContent = "Complete Roasting Run";
-
-        standardSection.classList.remove("hidden");
-        sortingSection.classList.add("hidden");
-
-        standardOutput.required = true;
-        sortGoodOutput.required = false;
-
-    } else if (type === "grinding") {
-
-        title.textContent = "Complete Grinding Run";
-
-        standardSection.classList.remove("hidden");
-        sortingSection.classList.add("hidden");
-
-        standardOutput.required = true;
-        sortGoodOutput.required = false;
-
     } else {
-
-        title.textContent = "Complete Processing Run";
-
+        if (type === "roasting") {
+            title.textContent = "Complete Roasting Run";
+        } else if (type === "grinding") {
+            title.textContent = "Complete Grinding Run";
+        } else {
+            title.textContent = "Complete Processing Run";
+        }
         standardSection.classList.remove("hidden");
         sortingSection.classList.add("hidden");
-
         standardOutput.required = true;
         sortGoodOutput.required = false;
     }
 
-
-    /*
-     * When submitting a sorting run:
-     * good sorting quantity → output_quantity
-     */
     form.dataset.processType = type;
-
     modal.classList.remove("hidden");
 }
 
-
-document.getElementById("completeForm").addEventListener(
-    "submit",
-    function (event) {
-
-        const form = this;
-
-        if (form.dataset.processType === "sorting") {
-
-            const goodQty =
-                document.getElementById("id_sort_good_qty").value;
-
-            document.getElementById("id_output_qty").value =
-                goodQty;
-
-        }
-
+document.getElementById("completeForm").addEventListener("submit", function (event) {
+    if (this.dataset.processType === "sorting") {
+        const goodQty = document.getElementById("id_sort_good_qty").value;
+        document.getElementById("id_output_qty").value = goodQty;
     }
-);
-
+});
 
 function closeModal(id) {
-
     const modal = document.getElementById(id);
-
     if (modal) {
         modal.classList.add("hidden");
     }
-
 }
-
 </script>
-
 {% endblock %}

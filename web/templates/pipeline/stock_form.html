@@ -2,93 +2,80 @@
 {% load crispy_forms_tags static %}
 
 {% block title %}Stock Intake Registry | Nonda{% endblock %}
-{% block breadcrumb %}Coffee Stock / Intake{% endblock %}
-
-{% block header_action %}
-{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto">
-
-    <!-- Introduction -->
-    <div class="mb-6">
-        <p class="text-sm text-slate-500">
-            {% if object %}
-                Update the explicit tracing profiles and sorting logs for {{ object.variety_name }}.
-            {% else %}
-                Register a raw coffee batch — track everything from green bean receiving through quality sorting configurations.
-            {% endif %}
-        </p>
-    </div>
+<div class="max-w-6xl mx-auto">
 
     <!-- Master Form -->
-    <form method="post" novalidate class="space-y-6">
+    <form method="post" novalidate>
         {% csrf_token %}
 
-        <!-- Global Validation Errors -->
-        {% if form.non_field_errors %}
-            <div class="p-4 rounded-lg bg-rust/5 border border-rust/20 text-sm text-rust animate-fade-in">
+        <!-- Error Notifications -->
+        {% if form.non_field_errors or form.errors %}
+            <div class="mb-4 p-3 rounded-lg bg-rust/10 border border-rust/20 text-xs text-rust space-y-1">
+                <p class="font-bold">Please correct the highlighted form errors before proceeding.</p>
                 {% for error in form.non_field_errors %}
                     <p>{{ error }}</p>
                 {% endfor %}
             </div>
         {% endif %}
 
-        {% if form.errors %}
-            <div class="p-4 rounded-lg bg-rust/5 border border-rust/20 text-sm text-rust space-y-1 animate-fade-in">
-                <p class="font-bold">
-                    Please correct the highlighted field errors below before saving.
-                </p>
-            </div>
-        {% endif %}
+        <!-- Tabbed Container -->
+        <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden" x-data="{ activeTab: 'identity' }">
+            
+            <!-- Tab Navigation Bar -->
+            <!-- Sticky Tab Navigation Bar -->
+<div class="sticky top-0 z-20 flex border-b border-[#E4DECB] bg-white/95 backdrop-blur-sm text-xs font-semibold overflow-x-auto">
+    <button type="button" 
+            @click.prevent="activeTab = 'identity'" 
+            :class="activeTab === 'identity' ? 'text-orange-600 border-b-2 border-orange-500 bg-orange-50/30' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'" 
+            class="px-5 py-3 transition-all whitespace-nowrap focus:outline-none flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full" :class="activeTab === 'identity' ? 'bg-orange-500' : 'bg-slate-300'"></span>
+        1. Coffee Identity &amp; Receiving
+    </button>
 
+    <button type="button" 
+            @click.prevent="activeTab = 'quality'" 
+            :class="activeTab === 'quality' ? 'text-orange-600 border-b-2 border-orange-500 bg-orange-50/30' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'" 
+            class="px-5 py-3 transition-all whitespace-nowrap focus:outline-none flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full" :class="activeTab === 'quality' ? 'bg-orange-500' : 'bg-slate-300'"></span>
+        2. Quality Analysis &amp; Defects
+    </button>
 
-        <!-- =========================================================
-             SECTION 1 — COFFEE IDENTITY
-        ========================================================== -->
-        <section class="bg-white border border-[#E4DECB] rounded-xl p-6 shadow-sm space-y-8">
+    <button type="button" 
+            @click.prevent="activeTab = 'logistics'" 
+            :class="activeTab === 'logistics' ? 'text-orange-600 border-b-2 border-orange-500 bg-orange-50/30' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'" 
+            class="px-5 py-3 transition-all whitespace-nowrap focus:outline-none flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full" :class="activeTab === 'logistics' ? 'bg-orange-500' : 'bg-slate-300'"></span>
+        3. Personnel &amp; Logistics
+    </button>
+</div>
 
-            <div>
-                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 pb-1 border-b border-slate-100">
-                    1. Coffee Identity &amp; Definitions
-                </h3>
+            <!-- TAB 1: IDENTITY & RECEIVING -->
+            <div x-show="activeTab === 'identity'" class="p-6 space-y-6">
+                <div class="border-b border-slate-100 pb-2">
+                    <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Coffee Profile &amp; Origin Details</h3>
+                </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <!-- Variety -->
                     <div class="md:col-span-2">
-                        <label
-                            for="{{ form.variety_name.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Name of Material / Variety
+                        <label for="{{ form.variety_name.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">
+                            Material / Variety Name
                         </label>
-
                         {{ form.variety_name }}
-
                         <datalist id="variety_list">
                             {% for variety in existing_varieties %}
-                                <option
-                                    value="{{ variety.name }}"
+                                <option value="{{ variety.name }}"
                                     data-coffee-type="{{ variety.default_coffee_type }}"
                                     data-grade="{{ variety.default_grade }}"
                                     data-source="{{ variety.default_source }}"
                                     data-process="{{ variety.default_process }}"
-                                    data-foreign-smell="{{ variety.default_foreign_smell }}"
-                                ></option>
+                                    data-foreign-smell="{{ variety.default_foreign_smell }}">
+                                </option>
                             {% endfor %}
                         </datalist>
-
-                        <p class="mt-1.5 text-[11px] text-slate-400 leading-normal">
-                            Typing an existing name restocks that exact line.
-                            A new custom title auto-generates a fresh definition.
-                        </p>
-
-                        <p
-                            id="variety_hint"
-                            class="mt-1.5 text-xs font-medium hidden px-2.5 py-1 rounded-md animate-fade-in"
-                        ></p>
-
+                        <p id="variety_hint" class="mt-1 text-[11px] font-medium hidden px-2 py-0.5 rounded"></p>
                         {% for error in form.variety_name.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
@@ -96,46 +83,17 @@
 
                     <!-- Coffee Type -->
                     <div>
-                        <label
-                            for="{{ form.coffee_type.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Coffee Classification Type
-                        </label>
-
+                        <label for="{{ form.coffee_type.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Classification Type</label>
                         {{ form.coffee_type }}
-
                         {% for error in form.coffee_type.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
                     </div>
 
-                </div>
-            </div>
-
-
-            <!-- =========================================================
-                 SECTION 2 — GREEN COFFEE RECEIVING
-            ========================================================== -->
-            <div class="pt-2">
-
-                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 pb-1 border-b border-slate-100">
-                    2. Green Coffee Receiving &amp; Source Tracing
-                </h3>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-                    <!-- Date -->
+                    <!-- Date Received -->
                     <div>
-                        <label
-                            for="{{ form.received_date.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Date Received
-                        </label>
-
+                        <label for="{{ form.received_date.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Date Received</label>
                         {{ form.received_date }}
-
                         {% for error in form.received_date.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
@@ -143,47 +101,26 @@
 
                     <!-- Supplier -->
                     <div>
-                        <label
-                            for="{{ form.supplier.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Company Name (Supplier)
-                        </label>
-
+                        <label for="{{ form.supplier.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Supplier Company</label>
                         {{ form.supplier }}
-
                         {% for error in form.supplier.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
                     </div>
 
-                    <!-- Source -->
+                    <!-- Source Region -->
                     <div>
-                        <label
-                            for="{{ form.source.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Source / Origin Region
-                        </label>
-
+                        <label for="{{ form.source.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Source / Origin</label>
                         {{ form.source }}
-
                         {% for error in form.source.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
                     </div>
 
-                    <!-- Grade -->
+                    <!-- Grade Allocation -->
                     <div>
-                        <label
-                            for="{{ form.grade.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Grade Allocation
-                        </label>
-
+                        <label for="{{ form.grade.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Grade Allocation</label>
                         {{ form.grade }}
-
                         {% for error in form.grade.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
@@ -191,15 +128,8 @@
 
                     <!-- Moisture -->
                     <div>
-                        <label
-                            for="{{ form.moisture_content.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Moisture Content (%)
-                        </label>
-
+                        <label for="{{ form.moisture_content.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Moisture (%)</label>
                         {{ form.moisture_content }}
-
                         {% for error in form.moisture_content.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
@@ -207,15 +137,8 @@
 
                     <!-- Process -->
                     <div>
-                        <label
-                            for="{{ form.process.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Processing Method
-                        </label>
-
+                        <label for="{{ form.process.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Process Method</label>
                         {{ form.process }}
-
                         {% for error in form.process.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
@@ -223,354 +146,160 @@
 
                     <!-- Fermentation -->
                     <div>
-                        <label
-                            for="{{ form.fermentation_type.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Fermentation Environment
-                        </label>
-
+                        <label for="{{ form.fermentation_type.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Fermentation</label>
                         {{ form.fermentation_type }}
-
                         {% for error in form.fermentation_type.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
                     </div>
 
-                    <!-- Harvest Season -->
+                    <!-- Season -->
                     <div>
-                        <label
-                            for="{{ form.season_of_harvest.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Season of Harvest
-                        </label>
-
+                        <label for="{{ form.season_of_harvest.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Harvest Season</label>
                         {{ form.season_of_harvest }}
-
                         {% for error in form.season_of_harvest.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
                     </div>
 
-                    <!-- Quantity -->
+                    <!-- Quantity Received -->
                     {% if form.quantity_received %}
-                        <div>
-                            <label
-                                for="{{ form.quantity_received.id_for_label }}"
-                                class="block text-sm font-medium text-slate-700 mb-1.5"
-                            >
-                                Quantity Received (Kg)
-                            </label>
-
-                            {{ form.quantity_received }}
-
-                            <p class="mt-1.5 text-[11px] text-slate-400">
-                                Posted to the stock ledger as a green-coffee receipt.
-                            </p>
-
-                            {% for error in form.quantity_received.errors %}
-                                <p class="text-xs text-rust mt-1">{{ error }}</p>
-                            {% endfor %}
-                        </div>
+                    <div>
+                        <label for="{{ form.quantity_received.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Quantity Received (Kg)</label>
+                        {{ form.quantity_received }}
+                        {% for error in form.quantity_received.errors %}
+                            <p class="text-xs text-rust mt-1">{{ error }}</p>
+                        {% endfor %}
+                    </div>
                     {% endif %}
-
                 </div>
             </div>
 
+            <!-- TAB 2: QUALITY & DEFECTS -->
+            <div x-show="activeTab === 'quality'" class="p-6 space-y-6" style="display: none;">
+                <div class="border-b border-slate-100 pb-2">
+                    <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Physical Quality &amp; Grading Defects</h3>
+                </div>
 
-            <!-- =========================================================
-                 SECTION 3 — QUALITY ANALYSIS
-            ========================================================== -->
-            <div class="pt-2">
-
-                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 pb-1 border-b border-slate-100">
-                    3. Physical Quality Analysis &amp; Grading Defects
-                </h3>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-                    <!-- Foreign Smell -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label
-                            for="{{ form.foreign_smell.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Foreign Smell Check
-                        </label>
-
+                        <label for="{{ form.foreign_smell.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Foreign Smell</label>
                         {{ form.foreign_smell }}
-
                         {% for error in form.foreign_smell.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
                     </div>
-
-                    <!-- Foreign Matter -->
                     <div>
-                        <label
-                            for="{{ form.foreign_matter.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Foreign Matter / Stones
-                        </label>
-
+                        <label for="{{ form.foreign_matter.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Foreign Matter/Stones</label>
                         {{ form.foreign_matter }}
-
                         {% for error in form.foreign_matter.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
                     </div>
-
-                    <!-- Prints -->
                     <div>
-                        <label
-                            for="{{ form.prints.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Bag Prints / Label Marks
-                        </label>
-
+                        <label for="{{ form.prints.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Bag Prints / Label Marks</label>
                         {{ form.prints }}
-
                         {% for error in form.prints.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
                     </div>
-
-                    <!-- Physical Damages -->
                     <div>
-                        <label
-                            for="{{ form.physical_damages.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Physical Insect Damages
-                        </label>
-
+                        <label for="{{ form.physical_damages.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Insect Damages</label>
                         {{ form.physical_damages }}
-
                         {% for error in form.physical_damages.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
                     </div>
-
-                    <!-- Defects -->
                     <div>
-                        <label
-                            for="{{ form.defects.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Primary Defects Weight (Kg)
-                        </label>
-
+                        <label for="{{ form.defects.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Defects Weight (Kg)</label>
                         {{ form.defects }}
-
                         {% for error in form.defects.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
                     </div>
-
-                    <!-- After Sorting -->
-                    <div>
-                        <label
-                            for="{{ form.quantity_after_sorting.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Net Mass After Sorting (Kg)
-                        </label>
-
-                        {{ form.quantity_after_sorting }}
-
-                        <p class="mt-1.5 text-[11px] text-slate-400">
-                            Automatically calculated from received quantity less defects.
-                        </p>
-
-                        {% for error in form.quantity_after_sorting.errors %}
-                            <p class="text-xs text-rust mt-1">{{ error }}</p>
-                        {% endfor %}
-                    </div>
-
+                    
                 </div>
             </div>
 
+            <!-- TAB 3: LOGISTICS & THRESHOLDS -->
+            <div x-show="activeTab === 'logistics'" class="p-6 space-y-6" style="display: none;">
+                <div class="border-b border-slate-100 pb-2">
+                    <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Sign-Off &amp; Inventory Rules</h3>
+                </div>
 
-            <!-- =========================================================
-                 SECTION 4 — PERSONNEL SIGN-OFF
-            ========================================================== -->
-            <div class="pt-2">
-
-                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 pb-1 border-b border-slate-100">
-                    4. Logistical Personnel Sign-off
-                </h3>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-                    <!-- Checked By -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label
-                            for="{{ form.checked_by.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Quality Inspector (Checked By)
-                        </label>
-
+                        <label for="{{ form.checked_by.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Quality Inspector</label>
                         {{ form.checked_by }}
-
                         {% for error in form.checked_by.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
                     </div>
-
-                    <!-- Verified By -->
                     <div>
-                        <label
-                            for="{{ form.verified_by.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Supervisor (Verified By)
-                        </label>
-
+                        <label for="{{ form.verified_by.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Supervisor</label>
                         {{ form.verified_by }}
-
                         {% for error in form.verified_by.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
                     </div>
-
-                    <!-- Delivered By -->
                     <div>
-                        <label
-                            for="{{ form.delivered_by.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Driver Name (Delivered By)
-                        </label>
-
+                        <label for="{{ form.delivered_by.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Driver Name</label>
                         {{ form.delivered_by }}
-
                         {% for error in form.delivered_by.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
                     </div>
-
-                    <!-- Vehicle -->
                     <div>
-                        <label
-                            for="{{ form.car_number.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Delivery Vehicle License Plate
-                        </label>
-
+                        <label for="{{ form.car_number.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Vehicle License Plate</label>
                         {{ form.car_number }}
-
                         {% for error in form.car_number.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
                     </div>
-
-                    <!-- Received By -->
                     <div>
-                        <label
-                            for="{{ form.received_by.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Store Clerk (Received By)
-                        </label>
-
+                        <label for="{{ form.received_by.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Store Clerk</label>
                         {{ form.received_by }}
-
                         {% for error in form.received_by.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
                     </div>
-
-                </div>
-            </div>
-
-
-            <!-- =========================================================
-                 SECTION 5 — INVENTORY
-            ========================================================== -->
-            <div class="pt-2">
-
-                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 pb-1 border-b border-slate-100">
-                    5. Inventory Automation Rules
-                </h3>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-                    <!-- Reorder Level -->
                     <div>
-                        <label
-                            for="{{ form.reorder_level.id_for_label }}"
-                            class="block text-sm font-medium text-slate-700 mb-1.5"
-                        >
-                            Safety Reorder Threshold (Kg)
-                        </label>
-
+                        <label for="{{ form.reorder_level.id_for_label }}" class="block text-xs font-medium text-slate-700 mb-1">Reorder Level (Kg)</label>
                         {{ form.reorder_level }}
-
-                        <p class="mt-1.5 text-[11px] text-slate-400 leading-normal">
-                            Triggers a low-stock system warning when warehouse
-                            availability reaches this level.
-                        </p>
-
                         {% for error in form.reorder_level.errors %}
                             <p class="text-xs text-rust mt-1">{{ error }}</p>
                         {% endfor %}
                     </div>
-
                 </div>
             </div>
 
-
-            <!-- =========================================================
-                 ACTIONS
-            ========================================================== -->
-            <div class="flex items-center justify-end gap-3 pt-6 border-t border-[#E4DECB]">
-
-                <a
-                    href="{% url 'stock_list' %}"
-                    class="px-4 py-2.5 text-sm font-medium rounded-md border border-[#E4DECB] hover:bg-paper-dim transition"
-                >
+            <!-- Form Actions Bar -->
+            <div class="flex items-center justify-end gap-3 px-6 py-4 bg-slate-50 border-t border-[#E4DECB]">
+                <a href="{% url 'stock_list' %}" class="px-4 py-2 text-xs font-medium rounded-md border border-[#E4DECB] bg-white hover:bg-slate-50 transition">
                     Cancel
                 </a>
-
-                <button
-                    type="submit"
-                    class="px-5 py-2.5 text-sm font-semibold rounded-md bg-rust text-white hover:bg-rust-dark transition"
-                >
-                    {% if object %}
-                        Save System Changes
-                    {% else %}
-                        Log Batch Registration
-                    {% endif %}
+                <button type="submit" class="px-5 py-2 text-xs font-semibold rounded-md bg-rust text-white hover:bg-rust-dark transition shadow-sm">
+                    {% if object %}Save Changes{% else %}Log Batch Registration{% endif %}
                 </button>
-
             </div>
 
-        </section>
-
+        </div>
     </form>
 </div>
 {% endblock %}
 
-
 {% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    /* =========================================================
-       MODULE 1: COFFEE MASTER DEFAULTS
-    ========================================================== */
-
-    const varietyInput = document.getElementById(
-        '{{ form.variety_name.id_for_label }}'
-    );
+    const varietyInput = document.getElementById('{{ form.variety_name.id_for_label }}');
+    if (varietyInput) {
+        varietyInput.setAttribute('list', 'variety_list');
+    }
 
     const hint = document.getElementById('variety_hint');
-
     const fieldByDataset = {
         coffeeType: '{{ form.coffee_type.id_for_label }}',
         grade: '{{ form.grade.id_for_label }}',
@@ -579,195 +308,70 @@ document.addEventListener('DOMContentLoaded', function () {
         foreignSmell: '{{ form.foreign_smell.id_for_label }}'
     };
 
-
     function matchedOption() {
-
-        if (!varietyInput) {
-            return null;
-        }
-
+        if (!varietyInput) return null;
         const typed = varietyInput.value.trim().toLowerCase();
-
-        if (!typed) {
-            return null;
-        }
-
-        return Array.from(
-            document.querySelectorAll('#variety_list option')
-        ).find(function (option) {
-            return option.value.trim().toLowerCase() === typed;
-        }) || null;
+        if (!typed) return null;
+        return Array.from(document.querySelectorAll('#variety_list option')).find(opt => opt.value.trim().toLowerCase() === typed) || null;
     }
 
-
     function applyVarietyDefaults() {
-
-        if (!varietyInput || !hint) {
-            return;
-        }
-
+        if (!varietyInput || !hint) return;
         const option = matchedOption();
 
-        /*
-         * No existing master definition.
-         * Tell the user a new material profile will be created.
-         */
         if (!option) {
-
             if (varietyInput.value.trim().length > 0) {
-
-                hint.textContent =
-                    'New material line profile will be generated.';
-
-                hint.className =
-                    'mt-1.5 text-xs text-rust font-medium ' +
-                    'bg-rust/5 border border-rust/10 px-2.5 py-1 ' +
-                    'rounded-md animate-fade-in';
-
+                hint.textContent = 'New line generated.';
+                hint.className = 'mt-1 text-[11px] text-rust font-medium bg-rust/5 px-2 py-0.5 rounded';
                 hint.classList.remove('hidden');
-
             } else {
-
                 hint.classList.add('hidden');
             }
-
             return;
         }
 
-
-        /*
-         * Existing master definition found.
-         *
-         * Only populate fields that are currently empty.
-         * This prevents the master definition from overwriting
-         * values the user has already entered for this batch.
-         */
-        Object.entries(fieldByDataset).forEach(function ([key, fieldId]) {
-
-            const value = option.dataset[key];
+        Object.entries(fieldByDataset).forEach(([key, fieldId]) => {
+            const val = option.dataset[key];
             const field = document.getElementById(fieldId);
-
-            if (!value || !field || field.value) {
-                return;
-            }
-
-            field.value = value;
-
-            field.dispatchEvent(
-                new Event('change', { bubbles: true })
-            );
+            if (!val || !field || field.value) return;
+            field.value = val;
+            field.dispatchEvent(new Event('change', { bubbles: true }));
         });
 
-
-        hint.textContent =
-            'Existing coffee line detected — this entry directly restocks "' +
-            option.value +
-            '".';
-
-        hint.className =
-            'mt-1.5 text-xs text-emerald-600 font-medium ' +
-            'bg-emerald-50 border border-emerald-100 px-2.5 py-1 ' +
-            'rounded-md animate-fade-in';
-
+        hint.textContent = 'Existing line auto-filled.';
+        hint.className = 'mt-1 text-[11px] text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded';
         hint.classList.remove('hidden');
     }
 
-
     if (varietyInput) {
-
-        varietyInput.addEventListener(
-            'input',
-            applyVarietyDefaults
-        );
-
-        varietyInput.addEventListener(
-            'change',
-            applyVarietyDefaults
-        );
+        varietyInput.addEventListener('input', applyVarietyDefaults);
+        varietyInput.addEventListener('change', applyVarietyDefaults);
     }
 
-
-    /* =========================================================
-       MODULE 2: REAL-TIME SORTING CALCULATOR
-    ========================================================== */
-
-    const qtyReceivedInput = document.getElementById(
-        '{{ form.quantity_received.id_for_label }}'
-    );
-
-    const defectsInput = document.getElementById(
-        '{{ form.defects.id_for_label }}'
-    );
-
-    const qtyAfterSortingInput = document.getElementById(
-        '{{ form.quantity_after_sorting.id_for_label }}'
-    );
-
+    const qtyReceivedInput = document.getElementById('{{ form.quantity_received.id_for_label }}');
+    const defectsInput = document.getElementById('{{ form.defects.id_for_label }}');
+    const qtyAfterSortingInput = document.getElementById('{{ form.quantity_after_sorting.id_for_label }}');
 
     function calculateAfterSorting() {
+        if (!qtyAfterSortingInput) return;
+        const qtyReceived = parseFloat(qtyReceivedInput ? qtyReceivedInput.value : 0) || 0;
+        const defects = parseFloat(defectsInput ? defectsInput.value : 0) || 0;
+        const netAfterSorting = Math.max(0, qtyReceived - defects);
 
-        if (!qtyAfterSortingInput) {
-            return;
-        }
-
-        const qtyReceived = parseFloat(
-            qtyReceivedInput ? qtyReceivedInput.value : 0
-        ) || 0;
-
-        const defects = parseFloat(
-            defectsInput ? defectsInput.value : 0
-        ) || 0;
-
-
-        /*
-         * Net mass = received quantity - defects.
-         * Never allow the displayed value to become negative.
-         */
-        const netAfterSorting = Math.max(
-            0,
-            qtyReceived - defects
-        );
-
-        qtyAfterSortingInput.value =
-            netAfterSorting.toFixed(2);
+        qtyAfterSortingInput.value = netAfterSorting.toFixed(2);
     }
-
 
     if (qtyReceivedInput) {
-
-        qtyReceivedInput.addEventListener(
-            'input',
-            calculateAfterSorting
-        );
-
-        qtyReceivedInput.addEventListener(
-            'change',
-            calculateAfterSorting
-        );
+        qtyReceivedInput.addEventListener('input', calculateAfterSorting);
+        qtyReceivedInput.addEventListener('change', calculateAfterSorting);
     }
-
-
     if (defectsInput) {
-
-        defectsInput.addEventListener(
-            'input',
-            calculateAfterSorting
-        );
-
-        defectsInput.addEventListener(
-            'change',
-            calculateAfterSorting
-        );
+        defectsInput.addEventListener('input', calculateAfterSorting);
+        defectsInput.addEventListener('change', calculateAfterSorting);
     }
-
-
-    /* =========================================================
-       INITIAL PAGE STATE
-    ========================================================== */
 
     applyVarietyDefaults();
     calculateAfterSorting();
-
 });
 </script>
 {% endblock %}

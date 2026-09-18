@@ -136,52 +136,38 @@ class FulfillItemForm(forms.Form):
         widget=forms.TextInput(attrs={"class": FIELD_CLASS, "placeholder": "Optional issue note"}),
     )
 
-class PackReturnCleanForm(forms.Form):
+from django import forms
+from .models import PackReturn
 
-    packs_returned = forms.IntegerField(
-        min_value=1,
-        widget=forms.NumberInput(
-            attrs={
-                "class": FIELD_CLASS,
-                "min": "1",
-            }
-        ),
-    )
+FIELD_CLASS = (
+    "w-full rounded-md border border-line px-3 py-2.5 bg-white text-sm "
+    "focus:outline-none focus:ring-2 focus:ring-rust focus:border-rust transition duration-150"
+)
 
-    condition = forms.ChoiceField(
-        choices=PackReturn.CONDITION_CHOICES,
-        widget=forms.Select(
-            attrs={"class": FIELD_CLASS}
-        ),
-    )
+class PackReturnForm(forms.ModelForm):
+    class Meta:
+        model = PackReturn
+        fields = ['packs_returned', 'condition', 'disposition', 'reason', 'notes']
+        widgets = {
+            'packs_returned': forms.NumberInput(attrs={'class': FIELD_CLASS, 'min': '1'}),
+            'condition': forms.Select(attrs={'class': FIELD_CLASS}),
+            'disposition': forms.Select(attrs={'class': FIELD_CLASS}),
+            'reason': forms.TextInput(attrs={'class': FIELD_CLASS, 'placeholder': 'e.g. unsold stock returned'}),
+            'notes': forms.Textarea(attrs={'class': FIELD_CLASS, 'rows': 3}),
+        }
 
-    disposition = forms.ChoiceField(
-        choices=PackReturn.DISPOSITION_CHOICES,
-        initial="accepted",
-        widget=forms.Select(
-            attrs={"class": FIELD_CLASS}
-        ),
-    )
+    def __init__(self, *args, release=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.release = release
 
-    reason = forms.CharField(
-        required=False,
-        widget=forms.TextInput(
-            attrs={
-                "class": FIELD_CLASS,
-                "placeholder": "e.g. unsold stock returned",
-            }
-        ),
-    )
-
-    notes = forms.CharField(
-        required=False,
-        widget=forms.Textarea(
-            attrs={
-                "class": FIELD_CLASS,
-                "rows": 3,
-            }
-        ),
-    )
+    def clean_packs_returned(self):
+        packs_returned = self.cleaned_data.get('packs_returned')
+        if self.release and packs_returned:
+            if packs_returned > self.release.packs_outstanding:
+                raise forms.ValidationError(
+                    f"Cannot return more than the outstanding {self.release.packs_outstanding} packs."
+                )
+        return packs_returned
 
 
 class SettlementForm(forms.Form):

@@ -1,11 +1,22 @@
+from datetime import datetime, time, timezone
+from django.db.models import F, Q, DecimalField, ExpressionWrapper
+from django.db.models.aggregates import Sum
+from django.utils import timezone
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
+from django.shortcuts import get_object_or_404, redirect
+from django.views.decorators.http import require_POST
+from .models import PaymentReceipt, StockRequest, PackagedProduct, StockStage
 from decimal import Decimal
-from .services.processing import complete_sorting
+from .services.processing import complete_roasting, complete_sorting
 from django.views.generic import TemplateView
 from .models import CoffeeStock, PackagedInventory
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from .services.packaging import execute_pack_return
+from django.db import models, transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -18,7 +29,8 @@ from django.views.generic import (
     UpdateView,
     View,
 )
-# Adjust this import to match where your mixin resides
+# Adjust this import to match wh
+# ere your mixin resides
 from .forms import (
     CoffeeStockForm,
     CoffeeStockIntakeForm,
@@ -27,7 +39,6 @@ from .forms import (
     PackagedProductBulkForm,
     PackagingRunForm,
     PackReleaseForm,
-    PackReturnForm,
     SampleForm,
     UserLoginForm,
     UserRegistrationForm,
@@ -62,9 +73,10 @@ from .services.packaging import (
     execute_packaging_run,
 )
 from .services.processing import (
-    issue_for_processing,
+    issue_for_processing, complete_grinding, complete_sorting
 )
 from .utils.util import apply_date_filters
+from .sales_forms import PackReturnForm
 
 
 def redirect_user_by_role(user):
@@ -867,48 +879,58 @@ class IssueProcessingRunView(RoleRequiredMixin, View):
 
 
 class CompleteProcessingRunView(RoleRequiredMixin, View):
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS, User.Role.CASHIER)
 
     def post(self, request, pk):
-        run = get_object_or_404(ProcessingRun, pk=pk)
+        run = get_object_or_404(ProcessingRun.objects.select_related("stock"), pk=pk)
         user = request.user
         notes = request.POST.get("notes", "")
 
         try:
-            # ☕ IF THE OPEN PIPELINE STEP IS A ROAST OR SORT RUN, RUN SORTING COMPLETION
-            if run.process_type in ("roasting", "sorting"):
-                good_qty = request.POST.get("good_quantity") or 0
-                quaker_qty = request.POST.get("bad_quantity") or 0  # Maps to quaker_quantity
+            if run.process_type == "roasting":
+                # Accept good_quantity from form (or output_quantity)
+                output_qty = request.POST.get("good_quantity") or request.POST.get("output_quantity") or "0"
+                bad_qty = request.POST.get("bad_quantity") or request.POST.get("quaker_quantity") or "0"
+                
+                completed_run, process_loss = complete_roasting(
+                    processing_run=run,
+                    good_quantity=output_qty,
+                    bad_quantity=bad_qty,
+                    user=user,
+                    notes=notes,
+                )
+                messages.success(
+                    request,
+                    f"Roasting complete: {completed_run.output_quantity} kg roasted output registered."
+                )
 
-                # If the run type was explicitly issued as roasting, we temporarily align 
-                # its process type parameter so complete_sorting accepts it natively
-                if run.process_type == "roasting":
-                    run.process_type = "sorting"
-                    run.save(update_fields=["process_type"])
-
-                # Execute your native workflow logic atomically
+            elif run.process_type == "sorting":
+                good_qty = request.POST.get("good_quantity") or request.POST.get("output_quantity") or "0"
+                quaker_qty = request.POST.get("bad_quantity") or request.POST.get("quaker_quantity") or "0"
+                
                 completed_run = complete_sorting(
                     processing_run=run,
-                    good_quantity=float(good_qty),
-                    quaker_quantity=float(quaker_qty),
+                    good_quantity=good_qty,
+                    quaker_quantity=quaker_qty,
                     user=user,
-                    notes=notes
+                    notes=notes,
                 )
-                
-                messages.success(
-                    request, 
-                    f"Milling run completed successfully: Good: {good_qty} kg | Quakers: {quaker_qty} kg."
+                messages.success(request, "Sorting run completed successfully.")
+
+            elif run.process_type == "grinding":
+                output_qty = request.POST.get("output_quantity") or "0"
+                completed_run, _ = complete_grinding(
+                    processing_run=run,
+                    output_quantity=output_qty,
+                    user=user,
+                    notes=notes,
                 )
-            else:
-                # Standard grinding path loop execution
-                output_qty = request.POST.get("output_quantity") or 0
-                # complete_grinding logic follows...
-                
-        except (ValueError, ValidationError) as exc:
+                messages.success(request, f"Grinding complete: {completed_run.output_quantity} kg ground coffee produced.")
+
+        except Exception as exc:
             messages.error(request, str(exc))
 
         return redirect("processing_workspace")
-
 
 # PACKAGED INVENTORY VIEWS
 
@@ -968,8 +990,8 @@ class PackagedProductDetailView(InventoryRoleRequiredMixin, DetailView):
 class PackagedProductCreateView(InventoryRoleRequiredMixin, FormView):
     # 1. Cleanly assign the class type here
     form_class = PackagedProductBulkForm
-    template_name = "pipeline/packaged_product_form.html"  # Make sure this matches yours
-    success_url = "pipeline/packaged_inventory_list.html"             # Make sure this matches yours
+    template_name = "pipeline/packaged_product_form.html"  
+    success_url = reverse_lazy("packaged_inventory_list")  
 
     # 2. Modify the form instance dynamically before it goes to the template
     def get_form(self, form_class=None):
@@ -984,12 +1006,12 @@ class PackagedProductCreateView(InventoryRoleRequiredMixin, FormView):
         return form
   
 
+
 class PackReturnCreateView(InventoryRoleRequiredMixin, CreateView):
     model = PackReturn
     form_class = PackReturnForm
     template_name = "pipeline/pack_return_form.html"
     success_url = reverse_lazy("pack_return_list")
-
     allowed_roles = (
         User.Role.CASHIER,
         User.Role.ACCOUNTS,
@@ -1007,15 +1029,10 @@ class PackReturnCreateView(InventoryRoleRequiredMixin, CreateView):
             pk=self.kwargs["pk"],
         )
 
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-
-        # The release is determined by the URL, not chosen by the user.
-        form.fields["release"].required = False
-        form.fields["release"].disabled = True
-        form.fields["release"].initial = self.get_release()
-
-        return form
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["release"] = self.get_release()
+        return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1024,36 +1041,24 @@ class PackReturnCreateView(InventoryRoleRequiredMixin, CreateView):
 
     def form_valid(self, form):
         release = self.get_release()
-
         try:
             execute_pack_return(
                 release=release,
                 packs_returned=form.cleaned_data["packs_returned"],
-                reason=form.cleaned_data.get("reason", ""),
                 user=self.request.user,
+                condition=form.cleaned_data.get("condition", "good"),
+                disposition=form.cleaned_data.get("disposition", "accepted"),
+                reason=form.cleaned_data.get("reason", ""),
                 notes=form.cleaned_data.get("notes", ""),
             )
-
             messages.success(
                 self.request,
                 "Pack return recorded successfully.",
             )
-
             return redirect(self.success_url)
-
         except ValidationError as exc:
             form.add_error(None, str(exc))
             return self.form_invalid(form)
-
-
-from django.views.generic import CreateView
-from .models import PackRelease, PaymentReceipt
-from .permissions import RoleRequiredMixin
-from django.views.generic import CreateView
-from .permissions import RoleRequiredMixin
-from django.views.generic import CreateView
-from django.urls import reverse_lazy
-from .models import PackRelease
 
 class RecordInstallmentPaymentView(RoleRequiredMixin, CreateView):
     """
@@ -1296,62 +1301,202 @@ class CancelStockRequestView(RoleRequiredMixin, View):
 
 
 
+from decimal import Decimal
+from django.db.models import Sum, F, ExpressionWrapper, DecimalField
+from django.views.generic import ListView
+
+# Import PaymentReceipt alongside PackRelease
+from .models import PackRelease, PaymentReceipt
+
+
 class CreditControlLedgerView(RoleRequiredMixin, ListView):
-    """
-    Dedicated financial controller view to track field credit, 
-    debtor obligations, and historical installment allocations.
-    """
     model = PackRelease
     template_name = "pipeline/credit_control_ledger.html"
     context_object_name = "releases"
+
     allowed_roles = (
-            User.Role.CASHIER,
-            User.Role.ACCOUNTS,
-            User.Role.MANAGER,
-            User.Role.ADMIN,
-        )
+        User.Role.CASHIER,
+        User.Role.ACCOUNTS,
+        User.Role.MANAGER,
+        User.Role.ADMIN,
+    )
+
     def get_queryset(self):
-        # 1. Fetch only releases that are originating from a sale and have outstanding balances
-        qs = PackRelease.objects.select_related(
-            "product__blend", "product__pack_size", "released_to"
-        ).prefetch_related("returns", "payments").order_by("-released_at")
-        
-        # 2. Extract URL parameters for timeline filtering
+        qs = (
+            PackRelease.objects
+            .select_related(
+                "product__blend",
+                "product__pack_size",
+                "released_to",
+            )
+            .prefetch_related(
+                "returns",
+                "payments",
+            )
+            .order_by("-released_at")
+        )
+
         from .utils.util import apply_date_filters
-        qs, preset, today, start, end = apply_date_filters(self.request, qs, "released_at")
+
+        qs, preset, today, start, end = apply_date_filters(
+            self.request,
+            qs,
+            "released_at",
+        )
+
         self._preset = preset
-        
-        # 3. Handle an option parameter toggle to switch between active debtors or general history
-        self._view_scope = self.request.GET.get("scope", "active")
+        self._start = start
+        self._end = end
+        self._view_scope = self.request.GET.get(
+            "scope",
+            "active",
+        )
+
+        # ---------------------------------------------------------
+        # TABLE FILTER
+        # ---------------------------------------------------------
         if self._view_scope == "active":
-            return [r for r in qs if r.outstanding_balance > 0]
-        return list(qs)
+            return [
+                release
+                for release in qs
+                if getattr(
+                    release,
+                    "outstanding_balance",
+                    Decimal("0.00"),
+                ) > Decimal("0.00")
+            ]
+
+        return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        
-        # Pull full un-sliced queryset timeline to compute stable summary statistics cards
-        all_ledger_records = PackRelease.objects.select_related("product").prefetch_related("payments")
-        from .utils.util import apply_date_filters
-        all_ledger_records, _, _, _, _ = apply_date_filters(self.request, all_ledger_records, "released_at")
-        all_records_list = list(all_ledger_records)
 
-        # 📊 LIVE ERP FINANCIAL AGGREGATIONS
-        total_value_issued = sum(getattr(r, "stock_value", Decimal(r.packs_out) * r.selling_price) for r in all_records_list)
-        total_collected_revenue = sum(getattr(r, "total_amount_paid", Decimal(0)) for r in all_records_list)
-        total_outstanding_debt = sum(getattr(r, "outstanding_balance", Decimal(0)) for r in all_records_list)
+        start = getattr(self, "_start", None)
+        end = getattr(self, "_end", None)
 
+        # ---------------------------------------------------------
+        # NORMALISE DATE RANGE
+        # ---------------------------------------------------------
+        if start and hasattr(start, "date"):
+            start_date = start.date()
+        else:
+            start_date = start
+
+        if end and hasattr(end, "date"):
+            end_date = end.date()
+        else:
+            end_date = end
+
+        # ---------------------------------------------------------
+        # 1. TOTAL VALUE DISPATCHED
+        #
+        # Only releases dispatched during the selected period.
+        #
+        # If nothing was dispatched today:
+        #     0 UGX
+        # ---------------------------------------------------------
+        dispatched_qs = PackRelease.objects.all()
+
+        if start_date and end_date:
+            dispatched_qs = dispatched_qs.filter(
+                released_at__date__range=(
+                    start_date,
+                    end_date,
+                )
+            )
+
+        total_value_issued = dispatched_qs.aggregate(
+    total=Sum(
+        ExpressionWrapper(
+            F("packs_out") * F("selling_price"),
+            output_field=DecimalField(
+                max_digits=12,
+                decimal_places=2,
+            ),
+        )
+    )
+)["total"] or Decimal("0.00")
+
+        # ---------------------------------------------------------
+        # 2. LIQUID CASH COLLECTED
+        #
+        # Based on WHEN THE MONEY WAS RECEIVED,
+        # not when the coffee was dispatched.
+        #
+        # Example:
+        # Dispatch: 10 Sep
+        # Payment: 17 Sep
+        #
+        # Payment appears in 17 Sep collections.
+        # ---------------------------------------------------------
+        payments_qs = PaymentReceipt.objects.all()
+
+        if start_date and end_date:
+            payments_qs = payments_qs.filter(
+                collected_at__date__range=(
+                    start_date,
+                    end_date,
+                )
+            )
+
+        total_collected_revenue = (
+            payments_qs.aggregate(
+                total=Sum("amount")
+            )["total"]
+            or Decimal("0.00")
+        )
+
+        # ---------------------------------------------------------
+        # 3. TOTAL OUTSTANDING DEBT
+        #
+        # This is the CURRENT outstanding debt.
+        #
+        # It is NOT restricted by the selected date.
+        # ---------------------------------------------------------
+        all_releases = (
+            PackRelease.objects
+            .prefetch_related(
+                "returns",
+                "payments",
+            )
+            .all()
+        )
+
+        total_outstanding_debt = sum(
+            (
+                release.outstanding_balance
+                for release in all_releases
+                if getattr(
+                    release,
+                    "outstanding_balance",
+                    Decimal("0.00"),
+                ) > Decimal("0.00")
+            ),
+            Decimal("0.00"),
+        )
+
+        # ---------------------------------------------------------
+        # CONTEXT
+        # ---------------------------------------------------------
         ctx.update({
-            "preset": getattr(self, "_preset", "this_month"),
-            "view_scope": getattr(self, "_view_scope", "active"),
-            
-            # Financial Data Context
+            "preset": getattr(
+                self,
+                "_preset",
+                "today",
+            ),
+            "view_scope": getattr(
+                self,
+                "_view_scope",
+                "active",
+            ),
             "total_value_issued": total_value_issued,
             "total_collected_revenue": total_collected_revenue,
             "total_outstanding_debt": total_outstanding_debt,
         })
+
         return ctx
 
+    
 class LowStockListView(RoleRequiredMixin, TemplateView):
     """
     Unified low stock control desk displaying both raw coffee processing lots 
@@ -1395,4 +1540,741 @@ class LowStockListView(RoleRequiredMixin, TemplateView):
             "low_packaged_items": low_packaged_products,
             "total_alerts_count": total_alerts_count,
         })
+        return ctx
+
+"""
+Additions to web/sales_workflow.py — Nonda Commodities
+
+Adds two functions your cashier "order card" feature needs:
+
+  1. record_card_payment — apply ONE payment across every product line
+     that belongs to the same order (StockRequest), oldest outstanding
+     line first, instead of forcing the cashier to pay each release
+     separately.
+
+  2. add_item_to_request — add another product line to an order that is
+     still open, so a salesperson's card can keep growing instead of
+     starting a brand new request every time.
+
+Merge these two functions into web/sales_workflow.py, alongside the
+existing create_stock_request / fulfill_request_item / return_packs /
+settle_release / record_payment functions.
+"""
+
+@transaction.atomic
+def record_card_payment(*, stock_request, amount, method, payment_reference="", collected_by=None, notes=""):
+    """
+    Apply ONE payment across every release that belongs to this order
+    (StockRequest), oldest outstanding line first.
+
+    Creates one PaymentReceipt per release the amount reaches, so each
+    release's own history (and the existing per-release properties) stay
+    accurate without any schema changes.
+    """
+    amount = Decimal(amount)
+
+    if amount <= Decimal("0.00"):
+        raise ValidationError("Payment amount must be greater than zero.")
+
+    releases = list(
+        PackRelease.objects
+        .select_for_update()
+        .filter(request_item__request=stock_request)
+        .order_by("released_at")
+    )
+
+    if not releases:
+        raise ValidationError("This order has no released stock to collect payment against.")
+
+    total_outstanding = sum(r.outstanding_balance for r in releases)
+
+    if total_outstanding <= Decimal("0.00"):
+        raise ValidationError("This order has already been fully cleared.")
+
+    if amount > total_outstanding:
+        raise ValidationError(
+            f"Payment exceeds the outstanding balance of UGX {total_outstanding:,.2f} for this order."
+        )
+
+    remaining = amount
+    receipts = []
+
+    for release in releases:
+        if remaining <= Decimal("0.00"):
+            break
+
+        owed = release.outstanding_balance
+        if owed <= Decimal("0.00"):
+            continue
+
+        pay_now = min(owed, remaining)
+
+        receipt = PaymentReceipt.objects.create(
+            release=release,
+            amount=pay_now,
+            method=method,
+            payment_reference=payment_reference,
+            collected_by=collected_by,
+            notes=notes,
+        )
+        receipts.append(receipt)
+        remaining -= pay_now
+
+    return receipts
+
+
+@transaction.atomic
+def add_item_to_request(*, stock_request, product, quantity, user=None):
+    """
+    Add another product line to an order that is still open, so the store
+    keeper can release more products into the SAME order card instead of
+    the sales rep having to start a brand new request.
+    """
+    quantity = int(quantity)
+
+    if quantity <= 0:
+        raise ValidationError("Quantity must be greater than zero.")
+
+    if stock_request.status == "cancelled":
+        raise ValidationError("This order was cancelled and cannot accept new products.")
+
+    item, created = StockRequestItem.objects.get_or_create(
+        request=stock_request,
+        product=product,
+        defaults={"quantity_requested": quantity},
+    )
+
+    if not created:
+        item.quantity_requested = item.quantity_requested + quantity
+        item.save(update_fields=["quantity_requested"])
+
+    # Re-open the order for fulfilment if it had already been closed out.
+    if stock_request.status == "fulfilled":
+        stock_request.status = "partially_fulfilled"
+        stock_request.fulfilled_at = None
+        stock_request.save(update_fields=["status", "fulfilled_at"])
+
+    return item
+
+"""
+Additions to web/sales_workflow.py — Nonda Commodities
+
+Adds two functions your cashier "order card" feature needs:
+
+  1. record_card_payment — apply ONE payment across every product line
+     that belongs to the same order (StockRequest), oldest outstanding
+     line first, instead of forcing the cashier to pay each release
+     separately.
+
+  2. add_item_to_request — add another product line to an order that is
+     still open, so a salesperson's card can keep growing instead of
+     starting a brand new request every time.
+
+Merge these two functions into web/sales_workflow.py, alongside the
+existing create_stock_request / fulfill_request_item / return_packs /
+settle_release / record_payment functions.
+"""
+
+
+@login_required
+@require_POST
+def record_card_payment_view(request, pk):
+    stock_request = get_object_or_404(StockRequest, pk=pk)
+
+    try:
+        amount = Decimal(request.POST.get("amount", "0"))
+        method = request.POST.get("method", "").strip()
+        payment_reference = request.POST.get("payment_reference", "").strip()
+        notes = request.POST.get("notes", "").strip()
+
+        if not method:
+            raise ValidationError("Payment method is required.")
+
+        record_card_payment(
+            stock_request=stock_request,
+            amount=amount,
+            method=method,
+            payment_reference=payment_reference,
+            collected_by=request.user,
+            notes=notes,
+        )
+
+        messages.success(
+            request,
+            f"Payment of UGX {amount:,.0f} recorded successfully.",
+        )
+
+    except (ValidationError, ValueError, TypeError) as exc:
+        messages.error(request, str(exc))
+
+    return redirect("order_queue")
+
+@login_required
+@require_POST
+def add_item_to_request_view(request, pk):
+    stock_request = get_object_or_404(StockRequest, pk=pk)
+
+    try:
+        product_id = request.POST.get("product")
+        quantity = request.POST.get("quantity")
+
+        if not product_id:
+            raise ValidationError("Please select a product.")
+
+        product = get_object_or_404(
+            PackagedProduct,
+            pk=product_id,
+            is_active=True,
+        )
+
+        add_item_to_request(
+            stock_request=stock_request,
+            product=product,
+            quantity=quantity,
+            user=request.user,
+        )
+
+        messages.success(
+            request,
+            f"{product} added to the order successfully.",
+        )
+
+    except (ValidationError, ValueError, TypeError) as exc:
+        messages.error(request, str(exc))
+
+    return redirect("order_queue")
+
+
+class ManagementReportsView(RoleRequiredMixin, TemplateView):
+    """
+    Management / Accounts reporting centre.
+
+    Period-based figures use the selected reporting period.
+    Inventory and outstanding receivables are live current-state figures.
+    """
+
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+        User.Role.CASHIER,
+    )
+
+    template_name = "pipeline/reports.html"
+
+    def get_report_dates(self):
+        today = timezone.localdate()
+
+        preset = self.request.GET.get("preset", "today")
+
+        if preset == "today":
+            start_date = today
+            end_date = today
+
+        elif preset == "last_7_days":
+            start_date = today - timezone.timedelta(days=6)
+            end_date = today
+
+        elif preset == "this_month":
+            start_date = today.replace(day=1)
+            end_date = today
+
+        elif preset == "custom":
+            try:
+                start_date = datetime.strptime(
+                    self.request.GET.get("start"),
+                    "%Y-%m-%d",
+                ).date()
+
+                end_date = datetime.strptime(
+                    self.request.GET.get("end"),
+                    "%Y-%m-%d",
+                ).date()
+
+                if start_date > end_date:
+                    start_date, end_date = end_date, start_date
+
+            except (TypeError, ValueError):
+                start_date = today
+                end_date = today
+                preset = "today"
+
+        else:
+            preset = "today"
+            start_date = today
+            end_date = today
+
+        return preset, start_date, end_date
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+
+        preset, start_date, end_date = self.get_report_dates()
+
+        start_dt = timezone.make_aware(
+            datetime.combine(start_date, time.min)
+        )
+
+        end_dt = timezone.make_aware(
+            datetime.combine(
+                end_date + timezone.timedelta(days=1),
+                time.min,
+            )
+        )
+
+        # ==========================================================
+        # SALES / RELEASES FOR PERIOD
+        # ==========================================================
+
+        releases = list(
+            PackRelease.objects.filter(
+                request_item__request__purpose="sale",
+                released_at__gte=start_dt,
+                released_at__lt=end_dt,
+            )
+            .select_related(
+                "product__blend",
+                "product__pack_size",
+                "released_to",
+                "request_item__request",
+            )
+            .prefetch_related("returns")
+            .order_by("-released_at")
+        )
+
+        gross_value_released = Decimal("0.00")
+        total_packs_released = 0
+
+        product_stats = {}
+        agent_stats = {}
+
+        for release in releases:
+            value = (
+                Decimal(release.packs_out)
+                * release.selling_price
+            )
+
+            gross_value_released += value
+            total_packs_released += release.packs_out
+
+            # ------------------------------------------
+            # PRODUCT PERFORMANCE
+            # ------------------------------------------
+
+            product_id = release.product_id
+
+            if product_id not in product_stats:
+                product_stats[product_id] = {
+                    "product": release.product,
+                    "packs": 0,
+                    "value": Decimal("0.00"),
+                }
+
+            product_stats[product_id]["packs"] += release.packs_out
+            product_stats[product_id]["value"] += value
+
+            # ------------------------------------------
+            # SALES AGENT PERFORMANCE
+            # ------------------------------------------
+
+            agent_key = release.released_to_id
+
+            if agent_key not in agent_stats:
+                agent_stats[agent_key] = {
+                    "name": (
+                        str(release.released_to)
+                        if release.released_to
+                        else "Unassigned"
+                    ),
+                    "packs": 0,
+                    "value": Decimal("0.00"),
+                }
+
+            agent_stats[agent_key]["packs"] += release.packs_out
+            agent_stats[agent_key]["value"] += value
+
+        # ==========================================================
+        # RETURNS FOR PERIOD
+        # ==========================================================
+
+        returns = list(
+            PackReturn.objects.filter(
+                returned_at__gte=start_dt,
+                returned_at__lt=end_dt,
+                release__request_item__request__purpose="sale",
+            ).select_related(
+                "release__product__blend",
+                "release__product__pack_size",
+                "release__released_to",
+            )
+        )
+
+        total_returned_packs = 0
+        return_credit = Decimal("0.00")
+
+        for returned in returns:
+            total_returned_packs += returned.packs_returned
+
+            return_credit += (
+                Decimal(returned.packs_returned)
+                * returned.release.selling_price
+            )
+
+        net_sales_value = (
+            gross_value_released - return_credit
+        )
+
+        # ==========================================================
+        # PAYMENT COLLECTIONS FOR PERIOD
+        # ==========================================================
+
+        # Initial money collected when stock was released
+        initial_paid_releases = PackRelease.objects.filter(
+            request_item__request__purpose="sale",
+            released_at__gte=start_dt,
+            released_at__lt=end_dt,
+        ).prefetch_related("payments")
+
+        initial_cash = Decimal("0.00")
+        initial_momo = Decimal("0.00")
+
+        for release in initial_paid_releases:
+            for payment in release.payments.all():
+                amount = getattr(payment, "amount", Decimal("0.00"))
+                method = getattr(payment, "method", "").lower()
+
+                if method == "cash":
+                    initial_cash += amount
+                elif method in ("momo", "mobile_money"):
+                    initial_momo += amount
+
+        # Later installment collections
+        payments = list(
+            PaymentReceipt.objects.filter(
+                collected_at__gte=start_dt,
+                collected_at__lt=end_dt,
+            )
+        )
+
+        installment_total = Decimal("0.00")
+
+        payment_by_method = {
+            "cash": Decimal("0.00"),
+            "mobile_money": Decimal("0.00"),
+            "bank": Decimal("0.00"),
+            "other": Decimal("0.00"),
+        }
+
+        for payment in payments:
+            amount = payment.amount
+            installment_total += amount
+
+            method = payment.method
+
+            if method == "momo":
+                payment_by_method["mobile_money"] += amount
+
+            elif method in payment_by_method:
+                payment_by_method[method] += amount
+
+        # Add initial release collections
+        payment_by_method["cash"] += initial_cash
+        payment_by_method["mobile_money"] += initial_momo
+
+        cash_collected = (
+            initial_cash
+            + initial_momo
+            + installment_total
+        )
+
+        payment_count = len(payments) + initial_paid_releases.count()
+
+        # ==========================================================
+        # CURRENT OUTSTANDING RECEIVABLES
+        # ==========================================================
+
+        all_sale_releases = list(
+            PackRelease.objects.filter(
+                request_item__request__purpose="sale",
+            )
+            .select_related(
+                "product__blend",
+                "product__pack_size",
+                "released_to",
+                "request_item__request",
+            )
+            .prefetch_related(
+                "returns",
+                "payments",
+            )
+        )
+
+        outstanding_receivables = Decimal("0.00")
+
+        debtor_stats = {}
+
+        for release in all_sale_releases:
+
+            returned_packs = sum(
+                ret.packs_returned
+                for ret in release.returns.all()
+            )
+
+            net_packs = max(
+                release.packs_out - returned_packs,
+                0,
+            )
+
+            gross_due = (
+                Decimal(net_packs)
+                * release.selling_price
+            )
+
+            total_paid = sum(
+                getattr(payment, "amount", Decimal("0.00"))
+                for payment in release.payments.all()
+            )
+
+            balance = max(
+                gross_due - total_paid,
+                Decimal("0.00"),
+            )
+
+            if balance <= 0:
+                continue
+
+            outstanding_receivables += balance
+
+            debtor_key = release.released_to_id
+
+            if debtor_key not in debtor_stats:
+                debtor_stats[debtor_key] = {
+                    "name": (
+                        str(release.released_to)
+                        if release.released_to
+                        else "Unassigned"
+                    ),
+                    "orders": set(),
+                    "balance": Decimal("0.00"),
+                }
+
+            if release.request_item_id:
+                debtor_stats[debtor_key]["orders"].add(
+                    release.request_item.request_id
+                )
+
+            debtor_stats[debtor_key]["balance"] += balance
+
+        debtors = sorted(
+            [
+                {
+                    "name": value["name"],
+                    "orders": len(value["orders"]),
+                    "balance": value["balance"],
+                }
+                for value in debtor_stats.values()
+            ],
+            key=lambda x: x["balance"],
+            reverse=True,
+        )[:10]
+
+        # ==========================================================
+        # CREDIT CREATED DURING PERIOD
+        # ==========================================================
+
+        credit_created = Decimal("0.00")
+
+        for release in releases:
+            gross_due = Decimal(release.packs_out) * release.selling_price
+            initial_paid = sum(
+                getattr(p, "amount", Decimal("0.00"))
+                for p in release.payments.all()
+            )
+
+            if initial_paid < gross_due:
+                credit_created += max(
+                    gross_due - initial_paid,
+                    Decimal("0.00"),
+                )
+
+        # ==========================================================
+        # PACKAGED INVENTORY — CURRENT STATE
+        # ==========================================================
+
+        packaged_inventory = list(
+            PackagedInventory.objects.select_related(
+                "product__blend",
+                "product__pack_size",
+            )
+        )
+
+        packaged_packs = 0
+        low_packaged = []
+
+        for inventory in packaged_inventory:
+
+            available = inventory.available
+            packaged_packs += available
+
+            if available <= 0:
+                low_packaged.append({
+                    "product": inventory.product,
+                    "available": available,
+                })
+
+        # ==========================================================
+        # BULK / KG INVENTORY — CURRENT STATE
+        # ==========================================================
+
+        stocks = list(
+            CoffeeStock.objects.select_related("variety")
+        )
+
+        green_kg = Decimal("0.00")
+        roasted_kg = Decimal("0.00")
+        ground_kg = Decimal("0.00")
+        quaker_kg = Decimal("0.00")
+
+        low_bulk = []
+
+        for stock in stocks:
+
+            green = get_stage_inventory(
+                stock,
+                StockStage.GREEN,
+            )
+
+            roasted = get_stage_inventory(
+                stock,
+                StockStage.ROASTED,
+            )
+
+            ground = get_stage_inventory(
+                stock,
+                StockStage.GROUND,
+            )
+
+            quakers = get_stage_inventory(
+                stock,
+                StockStage.QUAKERS,
+            )
+
+            green_kg += green
+            roasted_kg += roasted
+            ground_kg += ground
+            quaker_kg += quakers
+
+            total_stock = (
+                green
+                + roasted
+                + ground
+                + quakers
+            )
+
+            if total_stock <= stock.reorder_level:
+                stock.available_kg = total_stock
+                low_bulk.append(stock)
+
+        # ==========================================================
+        # ORDERS / OPERATIONS
+        # ==========================================================
+
+        orders_count = StockRequest.objects.filter(
+            purpose="sale",
+            requested_at__gte=start_dt,
+            requested_at__lt=end_dt,
+        ).count()
+
+        open_orders_count = StockRequest.objects.filter(
+            purpose="sale",
+            status__in=(
+                "pending",
+                "partially_fulfilled",
+            ),
+        ).count()
+
+        partially_fulfilled_count = StockRequest.objects.filter(
+            purpose="sale",
+            status="partially_fulfilled",
+        ).count()
+
+        open_processing_runs = ProcessingRun.objects.filter(
+            status="open"
+        ).count()
+
+        # ==========================================================
+        # CONTEXT
+        # ==========================================================
+
+        ctx.update({
+            "preset": preset,
+            "start_date": start_date,
+            "end_date": end_date,
+
+            # Executive summary
+            "orders_count": orders_count,
+            "gross_value_released": gross_value_released,
+            "net_sales_value": net_sales_value,
+            "cash_collected": cash_collected,
+
+            # Packs
+            "total_packs_released": total_packs_released,
+            "total_packs_sold": (
+                total_packs_released
+                - total_returned_packs
+            ),
+            "total_returned_packs": total_returned_packs,
+
+            # Finance
+            "outstanding_receivables": outstanding_receivables,
+            "credit_created": credit_created,
+            "payment_count": payment_count,
+            "return_credit": return_credit,
+            "payment_by_method": payment_by_method,
+
+            # Sales
+            "top_products": sorted(
+                product_stats.values(),
+                key=lambda x: x["value"],
+                reverse=True,
+            )[:10],
+
+            "sales_by_agent": sorted(
+                agent_stats.values(),
+                key=lambda x: x["value"],
+                reverse=True,
+            )[:10],
+
+            # Debtors
+            "debtors": debtors,
+
+            # Packaged inventory
+            "packaged_packs": packaged_packs,
+            "total_packaged_available": packaged_packs,
+            "low_packaged": low_packaged,
+            "low_packaged_count": len(low_packaged),
+
+            # Bulk inventory
+            "green_kg": green_kg,
+            "roasted_kg": roasted_kg,
+            "ground_kg": ground_kg,
+            "quaker_kg": quaker_kg,
+
+            "total_bulk_kg": (
+                green_kg
+                + roasted_kg
+                + ground_kg
+                + quaker_kg
+            ),
+
+            "low_bulk": low_bulk,
+            "low_bulk_count": len(low_bulk),
+
+            # Operations
+            "open_orders_count": open_orders_count,
+            "partially_fulfilled_count": partially_fulfilled_count,
+            "returns_count": len(returns),
+            "open_processing_runs": open_processing_runs,
+        })
+
         return ctx

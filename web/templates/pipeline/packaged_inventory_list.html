@@ -1,279 +1,243 @@
-
 {% extends "pipeline/base.html" %}
+{% load static %}
 
-{% block title %}Packaged Coffee{% endblock %}
+{% block title %}
+Packaged Coffee Inventory | Nonda
+{% endblock %}
 
 {% block breadcrumb %}
 Inventory / Packaged Coffee
 {% endblock %}
 
 {% block page_title %}
-Packaged Coffee
+<span class="text-slate-900 font-bold text-base">Packaged Coffee Inventory</span>
 {% endblock %}
 
 {% block header_action %}
 <div class="flex items-center gap-2">
     <a href="{% url 'packaged_product_form' %}"
-       class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-orange-700 rounded-lg hover:bg-orange-600 transition shadow-sm">
-        
-        Enter New Product
+       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-[#E4DECB] rounded-lg hover:bg-slate-50 transition shadow-sm">
+       
+        New Product SKU
     </a>
 
     <a href="{% url 'packaging_run_create' %}"
-       class="px-4 py-2 text-sm font-semibold text-white bg-green-700 rounded-lg hover:bg-green-500 transition">
+       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition shadow-sm">
+        
         Record Incoming Stock
     </a>
 </div>
 {% endblock %}
 
 {% block content %}
+<div class="space-y-3 max-w-7xl mx-auto">
 
-<div class="space-y-6 max-w-7xl">
-
-    <!-- INTRO -->
-    <div>
-        <p class="text-sm text-gray-500">
-            Current packaged coffee available for release, sales and events.
-        </p>
-    </div>
-
-    <!-- SUMMARY -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-
-        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Products
-            </p>
-            <p class="mt-2 text-2xl font-bold text-gray-900">
-                {{ products|length }}
-            </p>
-            <p class="mt-1 text-xs text-gray-500">
-                Active packaged SKUs
-            </p>
-        </div>
-
-        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Available Packs
-            </p>
-            <p class="mt-2 text-2xl font-bold text-gray-900">
-                {{ total_available|default:"0" }}
-            </p>
-            <p class="mt-1 text-xs text-gray-500">
-                Ready for release
-            </p>
-        </div>
-
-        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Released
-            </p>
-            <p class="mt-2 text-2xl font-bold text-gray-900">
-                {{ total_released|default:"0" }}
-            </p>
-            <p class="mt-1 text-xs text-gray-500">
-                Packs currently out
-            </p>
-        </div>
-
-        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Returned
-            </p>
-            <p class="mt-2 text-2xl font-bold text-gray-900">
-                {{ total_returned|default:"0" }}
-            </p>
-            <p class="mt-1 text-xs text-gray-500">
-                Packs returned
-            </p>
-        </div>
-
-    </div>
-
-
-    <!-- FILTER / SEARCH -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-
+    <!-- COMPACT KPI METRIC STRIP -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <!-- Active SKUs -->
+        <div class="bg-white border border-[#E4DECB] rounded-lg p-2.5 shadow-sm flex items-center justify-between">
             <div>
-                <h3 class="text-sm font-semibold text-gray-900">
-                    Packaged Products
-                </h3>
-                <p class="text-xs text-gray-500 mt-1">
-                    Select a product to view its packaging and movement history.
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active SKUs</p>
+                <p class="text-lg font-black text-slate-800 leading-tight mt-0.5">{{ products|length }}</p>
+            </div>
+            <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono font-medium border border-slate-200">Catalog</span>
+        </div>
+
+        <!-- Available Packs -->
+        <div class="bg-white border border-[#E4DECB] rounded-lg p-2.5 shadow-sm border-l-4 border-l-emerald-500 flex items-center justify-between">
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Available Stock</p>
+                <p class="text-lg font-black text-slate-800 leading-tight mt-0.5">
+                    {{ total_available|default:"0" }} <span class="text-[10px] font-normal text-slate-400">packs</span>
                 </p>
             </div>
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        </div>
 
-            <div class="relative">
-                <input
-                    type="text"
-                    id="productSearch"
-                    placeholder="Search product..."
-                    class="w-full md:w-64 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rust/20 focus:border-rust">
+        <!-- Released -->
+        <div class="bg-white border border-[#E4DECB] rounded-lg p-2.5 shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Released Out</p>
+                <p class="text-lg font-bold text-slate-800 leading-tight mt-0.5">
+                    {{ total_released|default:"0" }} <span class="text-[10px] font-normal text-slate-400">packs</span>
+                </p>
             </div>
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+        </div>
 
+        <!-- Returned -->
+        <div class="bg-white border border-[#E4DECB] rounded-lg p-2.5 shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Returned Units</p>
+                <p class="text-lg font-bold text-slate-800 leading-tight mt-0.5">
+                    {{ total_returned|default:"0" }} <span class="text-[10px] font-normal text-slate-400">packs</span>
+                </p>
+            </div>
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
         </div>
     </div>
 
+    <!-- CONTROL BAR: DATE FILTERS & SEARCH -->
+    <div class="bg-white border border-[#E4DECB] rounded-lg p-2.5 shadow-sm">
+        <form method="get" id="filterForm" class="flex flex-wrap items-center justify-between gap-2 text-xs">
+            
+            <!-- Quick Date Filter Pills -->
+            <div class="flex items-center gap-1 overflow-x-auto py-0.5">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Entry:</span>
+                <a href="?range=all{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
+                   class="px-2 py-1 rounded text-xs font-semibold transition {% if selected_range == 'all' or not selected_range %}bg-slate-800 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                    All
+                </a>
+                <a href="?range=today{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
+                   class="px-2 py-1 rounded text-xs font-semibold transition {% if selected_range == 'today' %}bg-slate-800 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                    Today
+                </a>
+                <a href="?range=yesterday{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
+                   class="px-2 py-1 rounded text-xs font-semibold transition {% if selected_range == 'yesterday' %}bg-slate-800 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                    Yesterday
+                </a>
+                <a href="?range=this_month{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
+                   class="px-2 py-1 rounded text-xs font-semibold transition {% if selected_range == 'this_month' %}bg-slate-800 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                    This Month
+                </a>
+            </div>
 
-    <!-- PRODUCT TABLE -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <!-- Custom Date Range & Text Search -->
+            <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+                <input type="hidden" name="range" value="{{ selected_range|default:'all' }}">
+                
+                <div class="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded px-2 py-1">
+                    <span class="text-[10px] text-slate-400 uppercase font-bold">From</span>
+                    <input type="date" name="start_date" value="{{ request.GET.start_date }}" onchange="document.getElementById('filterForm').submit();"
+                           class="bg-transparent text-slate-700 text-xs focus:outline-none">
+                    <span class="text-[10px] text-slate-400 uppercase font-bold ml-1">To</span>
+                    <input type="date" name="end_date" value="{{ request.GET.end_date }}" onchange="document.getElementById('filterForm').submit();"
+                           class="bg-transparent text-slate-700 text-xs focus:outline-none">
+                </div>
 
+                <div class="relative">
+                    <input type="text" id="productSearch" name="q" value="{{ request.GET.q }}"
+                           placeholder="Filter product..."
+                           class="w-44 px-2.5 py-1 text-xs bg-white border border-slate-200 rounded focus:outline-none focus:border-orange-500">
+                </div>
+            </div>
+
+        </form>
+    </div>
+
+    <!-- DENSE HIGH-EFFICIENCY DATA TABLE -->
+    <div class="bg-white border border-[#E4DECB] rounded-lg shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
-
-            <table class="w-full text-sm text-left">
-
-                <thead class="bg-gray-50 border-b border-gray-200">
+            <table class="w-full text-xs text-left border-collapse">
+                
+                <thead class="bg-slate-50 border-b border-[#E4DECB] text-slate-500 font-bold uppercase tracking-wider text-[10px]">
                     <tr>
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                            Product
-                        </th>
-
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                            Form
-                        </th>
-
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                            Pack Size
-                        </th>
-
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 text-right">
-                            Available
-                        </th>
-
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 text-right">
-                            Released
-                        </th>
-
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 text-right">
-                            Returned
-                        </th>
-
-                        <th class="px-6 py-3"></th>
+                        <th class="px-4 py-2">Product Specification</th>
+                        <th class="px-4 py-2">Form</th>
+                        <th class="px-4 py-2">Pack Size</th>
+                        <th class="px-4 py-2">Entry Date</th>
+                        <th class="px-4 py-2 text-right">Available</th>
+                        <th class="px-4 py-2 text-right">Released</th>
+                        <th class="px-4 py-2 text-right">Returned</th>
+                        <th class="px-4 py-2 text-center">Action</th>
                     </tr>
                 </thead>
 
-                <tbody id="productTable" class="divide-y divide-gray-100">
-
+                <tbody id="productTable" class="divide-y divide-slate-100 text-slate-700">
                     {% for item in inventory %}
-
-                    <tr class="hover:bg-gray-50 transition">
-
-                        <td class="px-6 py-4">
-                            <div class="font-semibold text-gray-900">
-                                {{ item.product.blend.name }}
-                            </div>
-
-                            <div class="text-xs text-gray-500 mt-0.5">
-                                {{ item.product }}
-                            </div>
+                    <tr class="hover:bg-slate-50/80 transition">
+                        
+                        <!-- Product Title -->
+                        <td class="px-4 py-2">
+                            <span class="font-bold text-slate-800 block">{{ item.product.blend.name }}</span>
+                            <span class="text-[10px] text-slate-400 font-mono">{{ item.product }}</span>
                         </td>
 
-                        <td class="px-6 py-4">
+                        <!-- Bean / Ground Form Tag -->
+                        <td class="px-4 py-2 whitespace-nowrap">
                             {% if item.product.form == "beans" %}
-                                <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">
+                                <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/60">
                                     Beans
                                 </span>
                             {% else %}
-                                <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-stone-100 text-stone-700 border border-stone-200">
+                                <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold bg-stone-100 text-stone-700 border border-stone-200">
                                     Ground
                                 </span>
                             {% endif %}
                         </td>
 
-                        <td class="px-6 py-4 font-medium text-gray-700">
+                        <!-- Size -->
+                        <td class="px-4 py-2 font-medium text-slate-700 whitespace-nowrap">
                             {{ item.product.pack_size.label }}
                         </td>
 
-                        <td class="px-6 py-4 text-right">
-                            <span class="font-bold
-                                {% if item.available <= 0 %}
-                                    text-red-600
-                                {% elif item.available <= 10 %}
-                                    text-amber-600
-                                {% else %}
-                                    text-gray-900
-                                {% endif %}
-                            ">
-                                {{ item.available }}
-                            </span>
-
-                            {% if item.available <= 10 %}
-                                <div class="text-[11px] text-amber-600 mt-1">
-                                    Low stock
-                                </div>
+                        <!-- Date Entered -->
+                        <td class="px-4 py-2 text-slate-500 whitespace-nowrap font-mono text-[11px]">
+                            {% if item.created_at %}
+                                {{ item.created_at|date:"Y-m-d" }}
+                            {% elif item.product.created_at %}
+                                {{ item.product.created_at|date:"Y-m-d" }}
+                            {% else %}
+                                —
                             {% endif %}
                         </td>
 
-                        <td class="px-6 py-4 text-right text-gray-700">
+                        <!-- Available Packs -->
+                        <td class="px-4 py-2 text-right font-mono font-bold whitespace-nowrap">
+                            {% if item.available <= 0 %}
+                                <span class="text-red-600 bg-red-50 px-1.5 py-0.5 rounded">0</span>
+                            {% elif item.available <= 10 %}
+                                <span class="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">{{ item.available }} <span class="text-[9px] font-sans text-amber-600 uppercase font-normal">(Low)</span></span>
+                            {% else %}
+                                <span class="text-slate-800">{{ item.available }}</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Released -->
+                        <td class="px-4 py-2 text-right font-mono text-slate-600 whitespace-nowrap">
                             {{ item.packs_released }}
                         </td>
 
-                        <td class="px-6 py-4 text-right text-gray-700">
+                        <!-- Returned -->
+                        <td class="px-4 py-2 text-right font-mono text-slate-600 whitespace-nowrap">
                             {{ item.packs_returned }}
                         </td>
 
-                        <td class="px-6 py-4 text-right">
+                        <!-- Action -->
+                        <td class="px-4 py-2 text-center whitespace-nowrap">
                             <a href="{% url 'packaged_product_detail' item.product.pk %}"
-                               class="text-sm font-semibold text-rust hover:underline">
-                                View 
+                               class="inline-flex items-center px-2 py-0.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-semibold text-[11px] transition">
+                                View
                             </a>
                         </td>
 
                     </tr>
-
                     {% empty %}
-
                     <tr>
-                        <td colspan="7" class="px-6 py-14 text-center">
-
-                            <div class="text-gray-400 text-3xl mb-3">
-                                ðŸ“¦
-                            </div>
-
-                            <p class="font-semibold text-gray-700">
-                                No packaged coffee yet
-                            </p>
-
-                            <p class="text-sm text-gray-500 mt-1">
-                                Packaged products will appear here after packaging is recorded.
-                            </p>
-
+                        <td colspan="8" class="px-4 py-8 text-center text-slate-400">
+                            <p class="font-semibold text-xs text-slate-600">No packaged inventory entries found</p>
+                            <p class="text-[11px] mt-0.5">Try clearing your search query or altering the selected date filter range.</p>
                         </td>
                     </tr>
-
                     {% endfor %}
-
                 </tbody>
 
             </table>
-
         </div>
-
     </div>
 
 </div>
 
-
 <script>
+// Real-time quick client-side filtering on typing
 const searchInput = document.getElementById("productSearch");
 const rows = document.querySelectorAll("#productTable tr");
 
 searchInput?.addEventListener("input", function () {
-
     const query = this.value.toLowerCase().trim();
-
     rows.forEach(row => {
-        row.style.display =
-            row.innerText.toLowerCase().includes(query)
-                ? ""
-                : "none";
+        row.style.display = row.innerText.toLowerCase().includes(query) ? "" : "none";
     });
-
 });
 </script>
-
 {% endblock %}
-
-
-

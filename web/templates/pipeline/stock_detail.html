@@ -10,9 +10,9 @@ Inventory / Coffee Stock / {{ stock.batch_number }}
 {% endblock %}
 
 {% block page_title %}
-<div class="flex flex-wrap items-center gap-3">
-    <span>{{ stock.variety_name }}</span>
-    <span class="font-mono text-xs font-semibold px-2.5 py-1 rounded-md bg-white border border-[#E4DECB] text-clay shadow-sm">
+<div class="flex items-center gap-2">
+    <span class="text-slate-900 font-bold text-base">{{ stock.variety_name }}</span>
+    <span class="font-mono text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-600">
         {{ stock.batch_number }}
     </span>
 </div>
@@ -21,133 +21,147 @@ Inventory / Coffee Stock / {{ stock.batch_number }}
 {% block header_action %}
 <div class="flex items-center gap-2">
     <a href="{% url 'stock_update' stock.pk %}"
-       class="inline-flex items-center px-4 py-2.5 rounded-lg bg-white border border-[#E4DECB] text-ink text-sm font-medium hover:bg-slate-50 transition shadow-sm">
-        Edit Batch
+       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#E4DECB] text-slate-700 text-xs font-semibold hover:bg-slate-50 transition shadow-sm">
+        Edit
     </a>
     <a href="{% url 'stock_list' %}"
-       class="inline-flex items-center px-4 py-2.5 rounded-lg bg-rust text-white text-sm font-semibold hover:bg-rust-dark transition shadow-sm">
-         Coffee Stock List
+       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-600 text-white text-xs font-semibold hover:bg-orange-700 transition shadow-sm">
+        
+        Stock List
     </a>
 </div>
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+<div class="space-y-3 max-w-7xl mx-auto">
 
-    <!-- 1. TOP OVERVIEW SUMMARY STRIP -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <!-- Main net total balance card -->
-        <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm p-5 md:col-span-1 flex flex-col justify-between">
-            <p class="text-xs uppercase tracking-wider text-slate-400 font-bold">Total Batch Mass</p>
-            <p class="font-semibold text-3xl text-slate-800 mt-2">
-                {{ stock.quantity_available|floatformat:2 }} <span class="text-sm font-normal text-slate-400">Kg</span>
-            </p>
-            <p class="text-xs text-slate-400 mt-1">Available balance in store</p>
+    <!-- COMPACT KPI STRIP -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <!-- Total -->
+        <div class="bg-white border border-[#E4DECB] rounded-lg p-3 shadow-sm border-l-4 border-l-orange-500 flex justify-between items-center">
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Mass</p>
+                <p class="text-xl font-black text-slate-800 leading-tight">
+                    {{ stock.quantity_available|floatformat:2 }} <span class="text-xs font-semibold text-slate-400">Kg</span>
+                </p>
+            </div>
+            <span class="text-[10px] bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-medium border border-orange-200">Active</span>
         </div>
 
-        <!-- Stage 1: Green -->
-        <div class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm flex flex-col justify-between">
-            <p class="text-xs uppercase tracking-wider text-slate-400 font-bold">Green Balance</p>
-            <p class="font-semibold text-2xl text-slate-800 mt-2">
-                {{ stock.quantity_green|floatformat:2 }} <span class="text-xs font-normal text-slate-400">Kg</span>
-            </p>
-            <p class="text-xs text-slate-400 mt-1">Raw unroasted kgs</p>
+        <!-- Green -->
+        <div class="bg-white border border-[#E4DECB] rounded-lg p-3 shadow-sm flex justify-between items-center">
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Green Stock</p>
+                <p class="text-lg font-bold text-slate-800 leading-tight">
+                    {{ stock.quantity_green|floatformat:2 }} <span class="text-xs font-normal text-slate-400">Kg</span>
+                </p>
+            </div>
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
         </div>
 
-        <!-- Stage 2: Roasted -->
-        <div class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm flex flex-col justify-between">
-            <p class="text-xs uppercase tracking-wider text-slate-400 font-bold">Roasted Balance</p>
-            <p class="font-semibold text-2xl text-slate-800 mt-2">
-                {{ stock.quantity_roasted|floatformat:2 }} <span class="text-xs font-normal text-slate-400">Kg</span>
-            </p>
-            <p class="text-xs text-slate-400 mt-1">Whole roasted bean kgs</p>
+        <!-- Roasted -->
+        <div class="bg-white border border-[#E4DECB] rounded-lg p-3 shadow-sm flex justify-between items-center">
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Roasted Stock</p>
+                <p class="text-lg font-bold text-slate-800 leading-tight">
+                    {{ stock.quantity_roasted|floatformat:2 }} <span class="text-xs font-normal text-slate-400">Kg</span>
+                </p>
+            </div>
+            <span class="w-2 h-2 rounded-full bg-amber-600"></span>
         </div>
 
-        <!-- Stage 3: Ground -->
-        <div class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm flex flex-col justify-between">
-            <p class="text-xs uppercase tracking-wider text-slate-400 font-bold">Ground Balance</p>
-            <p class="font-semibold text-2xl text-slate-800 mt-2">
-                {{ stock.quantity_ground|floatformat:2 }} <span class="text-xs font-normal text-slate-400">Kg</span>
-            </p>
-            <p class="text-xs text-slate-400 mt-1">Milled loose kgs</p>
+        <!-- Ground -->
+        <div class="bg-white border border-[#E4DECB] rounded-lg p-3 shadow-sm flex justify-between items-center">
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ground Stock</p>
+                <p class="text-lg font-bold text-slate-800 leading-tight">
+                    {{ stock.quantity_ground|floatformat:2 }} <span class="text-xs font-normal text-slate-400">Kg</span>
+                </p>
+            </div>
+            <span class="w-2 h-2 rounded-full bg-amber-800"></span>
         </div>
     </div>
 
-    <!-- 2. UNIFIED COFFEE PROFILE & TRACEABILITY LEDGER -->
-    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
-        <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-            <p class="text-[10px] uppercase font-bold tracking-widest text-slate-400">Material Profile</p>
-            <h3 class="font-display text-lg text-slate-800 mt-0.5">Comprehensive Batch Traceability</h3>
+    <!-- HIGH-DENSITY SPECIFICATIONS TABLE CARD -->
+    <div class="bg-white border border-[#E4DECB] rounded-lg shadow-sm overflow-hidden">
+        
+        <!-- Dense Table Header -->
+        <div class="px-4 py-2 border-b border-[#E4DECB] bg-slate-50/80 flex justify-between items-center">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Batch Record &amp; Chain of Custody</span>
+            <span class="text-[10px] font-mono text-slate-400">RECORD ID #{{ stock.pk }}</span>
         </div>
 
-        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 text-sm text-slate-700">
+        <!-- Dense Two-Column Grid -->
+        <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1.5 text-xs">
             
-            <!-- LEFT PANEL COLUMN: COFFEE IDENTITY SPECS -->
-            <div class="space-y-3.5 divide-y divide-slate-100 [&>:not(:first-child)]:pt-3.5">
-                <div class="flex justify-between gap-6">
-                    <span class="text-slate-400 font-medium">Coffee Variety</span>
-                    <span class="font-semibold text-slate-800 text-right">{{ stock.variety_name }}</span>
+            <!-- COLUMN 1: SPECS -->
+            <div class="space-y-1.5 divide-y divide-slate-100 [&>:not(:first-child)]:pt-1.5">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Coffee Variety</span>
+                    <span class="font-bold text-slate-800">{{ stock.variety_name }}</span>
                 </div>
-                <div class="flex justify-between gap-6">
-                    <span class="text-slate-400 font-medium">Classification Type</span>
-                    <span class="font-semibold text-slate-800 text-right">{{ stock.get_coffee_type_display }}</span>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Classification</span>
+                    <span class="font-semibold text-slate-800">{{ stock.get_coffee_type_display }}</span>
                 </div>
-                <div class="flex justify-between gap-6">
-                    <span class="text-slate-400 font-medium">Grade Designation</span>
-                    <span class="font-semibold text-slate-800 text-right">{{ stock.grade|default:"—" }}</span>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Grade Designation</span>
+                    <span class="font-semibold text-slate-800">{{ stock.grade|default:"—" }}</span>
                 </div>
-                <div class="flex justify-between gap-6">
-                    <span class="text-slate-400 font-medium">Processing Method</span>
-                    <span class="font-semibold text-slate-800 text-right">{{ stock.process|default:"—" }}</span>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Processing Method</span>
+                    <span class="font-semibold text-slate-800">{{ stock.process|default:"—" }}</span>
                 </div>
-                <div class="flex justify-between gap-6">
-                    <span class="text-slate-400 font-medium">Fermentation Type</span>
-                    <span class="font-semibold text-slate-800 text-right">{{ stock.get_fermentation_type_display|default:"—" }}</span>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Fermentation</span>
+                    <span class="font-semibold text-slate-800">{{ stock.get_fermentation_type_display|default:"—" }}</span>
                 </div>
-                <div class="flex justify-between gap-6">
-                    <span class="text-slate-400 font-medium">Harvest Season</span>
-                    <span class="font-semibold text-slate-800 text-right">{{ stock.season_of_harvest|default:"—" }}</span>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Harvest Season</span>
+                    <span class="font-semibold text-slate-800">{{ stock.season_of_harvest|default:"—" }}</span>
                 </div>
-                <div class="flex justify-between gap-6">
-                    <span class="text-slate-400 font-medium">Moisture Threshold</span>
-                    <span class="font-semibold text-slate-800 text-right">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Moisture</span>
+                    <span class="font-semibold text-slate-800">
                         {% if stock.moisture_content %}{{ stock.moisture_content|floatformat:2 }}%{% else %}—{% endif %}
                     </span>
                 </div>
             </div>
 
-            <!-- RIGHT PANEL COLUMN: SUPPLIER, FREIGHT & VERIFICATION RECORDS -->
-            <div class="space-y-3.5 divide-y divide-slate-100 md:border-l md:border-slate-100 md:pl-12 [&>:not(:first-child)]:pt-3.5">
-                <div class="flex justify-between gap-6">
-                    <span class="text-slate-400 font-medium">Supplier (Company)</span>
-                    <span class="font-semibold text-slate-800 text-right">{{ stock.supplier|default:"—" }}</span>
+            <!-- COLUMN 2: CUSTODY & LOGISTICS -->
+            <div class="space-y-1.5 divide-y divide-slate-100 md:border-l md:border-slate-100 md:pl-8 [&>:not(:first-child)]:pt-1.5">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Supplier</span>
+                    <span class="font-bold text-slate-800">{{ stock.supplier|default:"—" }}</span>
                 </div>
-                <div class="flex justify-between gap-6">
-                    <span class="text-slate-400 font-medium">Source / Origin Region</span>
-                    <span class="font-semibold text-slate-800 text-right">{{ stock.source|default:"—" }}</span>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Source Origin</span>
+                    <span class="font-semibold text-slate-800">{{ stock.source|default:"—" }}</span>
                 </div>
-                <div class="flex justify-between gap-6">
-                    <span class="text-slate-400 font-medium">Date Received</span>
-                    <span class="font-semibold text-slate-800 text-right">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Received Date</span>
+                    <span class="font-semibold text-slate-800">
                         {% if stock.received_date %}{{ stock.received_date|date:"j F Y" }}{% else %}—{% endif %}
                     </span>
                 </div>
-                <div class="flex justify-between gap-6">
-                    <span class="text-slate-400 font-medium">Delivered By (Driver)</span>
-                    <span class="font-semibold text-slate-800 text-right">{{ stock.delivered_by|default:"—" }}</span>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Delivered By</span>
+                    <span class="font-semibold text-slate-800">{{ stock.delivered_by|default:"—" }}</span>
                 </div>
-                <div class="flex justify-between gap-6">
-                    <span class="text-slate-400 font-medium">Received By (Clerk)</span>
-                    <span class="font-semibold text-slate-800 text-right">{{ stock.received_by|default:"—" }}</span>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Received By</span>
+                    <span class="font-semibold text-slate-800">{{ stock.received_by|default:"—" }}</span>
                 </div>
-                <div class="flex justify-between gap-6">
-                    <span class="text-slate-400 font-medium">Verified By (Manager)</span>
-                    <span class="font-semibold text-slate-800 text-right">{{ stock.verified_by|default:"—" }}</span>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Verified By</span>
+                    <span class="font-semibold text-slate-800">{{ stock.verified_by|default:"—" }}</span>
                 </div>
-                <div class="flex justify-between gap-6">
-                    <span class="text-slate-400 font-medium">Vehicle License Plate</span>
-                    <span class="font-semibold text-slate-800 text-right">
-                        {% if stock.car_number %}<span class="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">{{ stock.car_number }}</span>{% else %}—{% endif %}
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Vehicle Reg</span>
+                    <span>
+                        {% if stock.car_number %}
+                            <span class="font-mono text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">{{ stock.car_number }}</span>
+                        {% else %}—{% endif %}
                     </span>
                 </div>
             </div>
@@ -155,7 +169,5 @@ Inventory / Coffee Stock / {{ stock.batch_number }}
         </div>
     </div>
 
-    <!-- 3. DETAILED ACTIONABLE MOVEMENT HISTORY LEDGER -->
-         
 </div>
 {% endblock %}

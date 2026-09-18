@@ -1,7 +1,7 @@
 from decimal import Decimal
 from django import forms
 from .models import (
-    CoffeeStock, PackagedProduct, PackagingRun, 
+    AccountHolder, CoffeeStock, PackagedProduct, PackagingRun, 
 PackRelease, PackReturn, PackSize
 )
 from .models import Blend
@@ -763,16 +763,3 @@ class PackReleaseForm(forms.ModelForm):
 
         return price
 
-class PackReturnForm(forms.ModelForm):
-    class Meta:
-        model = PackReturn
-        fields = ['release', 'packs_returned', 'reason', 'notes', 'returned_at', 'received_by']
-        widgets = {
-            'release': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
-            'packs_returned': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'min': '1'}),
-            'reason': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
-            'notes': forms.Textarea(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'rows': 3}),
-            'returned_at': forms.DateTimeInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg',            'type': 'datetime-local'
-                }),
-                
-        }

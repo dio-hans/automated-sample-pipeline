@@ -82,10 +82,18 @@ def execute_pack_release(*, product: PackagedProduct, released_to, packs_out: in
         notes=notes,
     )
 
-
 @transaction.atomic
-def execute_pack_return(*, release: PackRelease, packs_returned: int,
-                       reason: str = "", user=None, notes: str = "") -> PackReturn:
+def execute_pack_return(
+    *,
+    release: PackRelease,
+    packs_returned: int,
+    user=None,
+    condition: str = "good",
+    disposition: str = "accepted",
+    reason: str = "",
+    notes: str = "",
+    **kwargs,  # Catches any additional unexpected keyword arguments
+) -> PackReturn:
     """Receive physical packs back into store stock."""
     release = PackRelease.objects.select_for_update().get(pk=release.pk)
     packs_returned = int(packs_returned)
@@ -100,6 +108,8 @@ def execute_pack_return(*, release: PackRelease, packs_returned: int,
     returned = PackReturn.objects.create(
         release=release,
         packs_returned=packs_returned,
+        condition=condition,
+        disposition=disposition,
         reason=reason,
         notes=notes,
         received_by=user,

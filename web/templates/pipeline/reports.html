@@ -1,0 +1,142 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}Reports | Nonda{% endblock %}
+
+{% block breadcrumb %}
+Management / Reports
+{% endblock %}
+
+{% block page_title %}
+Reports
+{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Sales, cash collection, outstanding debt and stock levels at a glance.
+</p>
+{% endblock %}
+
+{% block content %}
+
+<div class="space-y-6">
+
+    <!-- Date Filter -->
+    <div class="bg-white border border-line rounded-xl shadow-sm p-4 flex flex-wrap items-center gap-2">
+        <a href="?preset=today" class="px-4 py-2 rounded-lg border text-xs font-semibold transition {% if preset == 'today' %}bg-olive text-white border-olive{% else %}bg-slate-50 text-slate-600 border-line hover:bg-slate-100{% endif %}">Today</a>
+        <a href="?preset=this_month" class="px-4 py-2 rounded-lg border text-xs font-semibold transition {% if preset == 'this_month' %}bg-olive text-white border-olive{% else %}bg-slate-50 text-slate-600 border-line hover:bg-slate-100{% endif %}">This Month</a>
+        <a href="?preset=last_7_days" class="px-4 py-2 rounded-lg border text-xs font-semibold transition {% if preset == 'last_7_days' %}bg-olive text-white border-olive{% else %}bg-slate-50 text-slate-600 border-line hover:bg-slate-100{% endif %}">This Week</a>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white border border-line rounded-xl p-5 shadow-sm">
+            <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Gross Sales Value</p>
+            <p class="font-display text-2xl text-slate-800 mt-2">UGX {{ gross_value_released|floatformat:0|intcomma }}</p>
+        </div>
+        <div class="bg-white border border-line rounded-xl p-5 shadow-sm">
+            <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Cash Collected</p>
+            <p class="font-display text-2xl text-emerald-600 mt-2">UGX {{ cash_collected|floatformat:0|intcomma }}</p>
+        </div>
+        <div class="bg-white border border-line rounded-xl p-5 shadow-sm">
+            <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Outstanding Debt</p>
+            <p class="font-display text-2xl text-rose-600 mt-2">UGX {{ outstanding_receivables|floatformat:0|intcomma }}</p>
+        </div>
+        <div class="bg-white border border-line rounded-xl p-5 shadow-sm">
+            <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Packs Sold / Returned</p>
+            <p class="font-display text-2xl text-slate-800 mt-2">
+                {{ total_packs_sold }} <span class="text-sm text-slate-400">/ {{ total_returned_packs }}</span>
+            </p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Top Products -->
+        <div class="bg-white border border-line rounded-xl shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-line bg-slate-50/50">
+                <h2 class="text-sm font-bold text-slate-800">Top-Selling Products</h2>
+            </div>
+            <div class="divide-y divide-line">
+                {% for entry in top_products %}
+                <div class="px-5 py-3 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-800">{{ entry.product.blend.name }} &middot; {{ entry.product.pack_size.label }}</p>
+                        <p class="text-[11px] text-slate-400">{{ entry.packs }} packs issued</p>
+                    </div>
+                    <p class="text-sm font-bold text-slate-800">UGX {{ entry.value|floatformat:0|intcomma }}</p>
+                </div>
+                {% empty %}
+                <p class="px-5 py-10 text-center text-sm text-slate-400">No sales recorded for this period.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Outstanding Debtors -->
+        <div class="bg-white border border-line rounded-xl shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-line bg-slate-50/50">
+                <h2 class="text-sm font-bold text-slate-800">Largest Outstanding Debtors</h2>
+            </div>
+            <div class="divide-y divide-line">
+                {% for debtor in debtors %}
+                <div class="px-5 py-3 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-800">{{ debtor.name }}</p>
+                        <p class="text-[11px] text-slate-400">{{ debtor.orders }} active order{% if debtor.orders != 1 %}s{% endif %}</p>
+                    </div>
+                    <span class="text-sm font-bold text-rose-600">
+                        UGX {{ debtor.balance|floatformat:0|intcomma }}
+                    </span>
+                </div>
+                {% empty %}
+                <p class="px-5 py-10 text-center text-sm text-slate-400">No outstanding balances. 🎉</p>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Stock Levels -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Packaged Stock Alerts -->
+        <div class="bg-white border border-line rounded-xl shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-line bg-slate-50/50 flex items-center justify-between">
+                <h2 class="text-sm font-bold text-slate-800">Packaged Stock Alerts</h2>
+                <span class="font-display text-lg text-slate-800">{{ total_packaged_available }} pcs</span>
+            </div>
+            <div class="divide-y divide-line">
+                {% for item in low_packaged %}
+                <div class="px-5 py-3 flex items-center justify-between">
+                    <p class="text-sm font-semibold text-slate-800">{{ item.product.blend.name }} &middot; {{ item.product.pack_size.label }}</p>
+                    <span class="text-xs font-bold text-amber-700">{{ item.available }} left</span>
+                </div>
+                {% empty %}
+                <p class="px-5 py-8 text-center text-sm text-slate-400">All packaged variants are healthy.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Bulk Coffee Alerts -->
+        <div class="bg-white border border-line rounded-xl shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-line bg-slate-50/50 flex items-center justify-between">
+                <h2 class="text-sm font-bold text-slate-800">Bulk Coffee Alerts</h2>
+                <span class="font-display text-lg text-slate-800">{{ total_bulk_kg|floatformat:0 }} kg</span>
+            </div>
+            <div class="divide-y divide-line">
+                {% for stock in low_bulk %}
+                <div class="px-5 py-3 flex items-center justify-between">
+                    <p class="text-sm font-semibold text-slate-800">{{ stock.variety.name }} &middot; {{ stock.batch_number }}</p>
+                    <span class="text-xs font-bold text-amber-700">{{ stock.available_kg|floatformat:1 }} kg</span>
+                </div>
+                {% empty %}
+                <p class="px-5 py-8 text-center text-sm text-slate-400">All bulk batches are above reorder level.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -326,9 +326,6 @@
              NAVIGATION
              ===================================================== -->
 
-       <!-- =========================================================
-     NAVIGATION
-     ========================================================= -->
 <nav class="flex-1
             overflow-y-auto
             px-3
@@ -356,6 +353,16 @@
 
             </div>
         </div>
+
+         <div class="space-y-1">
+
+                <a href="{% url 'reports' %}"
+                   class="nav-link">
+                    <span class="nav-icon">⌂</span>
+                    <span>Reports</span>
+                </a>
+
+            </div>
 
 
         <!-- INVENTORY -->
@@ -522,6 +529,8 @@
     <p class="nav-section-title">Cashier Desk</p> 
     <div class="space-y-1"> 
         <a href="{% url 'order_queue' %}" class="nav-link">Order Queue</a> 
+
+       
         
         <!-- 🪙 New Standalone Credit Book Link Element -->
         <a href="{% url 'credit_control_ledger' %}" class="nav-link">
@@ -726,7 +735,8 @@
         <!-- =====================================================
              PAGE CONTENT
              ===================================================== -->
-        <main class="flex-1 px-4 sm:px-6 lg:px-8 py-6 page-content">
+        <main class="flex-1 p-4 sm:p-5 page-content">
+            <div class="max-w-6xl mx-auto space-y-4">
 
 
             <!-- =================================================
@@ -738,19 +748,19 @@
 
             
 
-            <div class="mb-6
+            <div class="mb-2
                         flex flex-col
                         sm:flex-row
                         sm:items-center
                         sm:justify-between
-                        gap-4">
+                        gap-2">
 
 
                 <div>
 
                     <h1 class="font-display
-                               text-2xl
-                               sm:text-3xl
+                               text-xl
+                               sm:text-xl
                                text-ink">
 
                         {% block page_title %}
@@ -823,7 +833,7 @@
 
             {% block content %}
             {% endblock %}
-
+        </div>
         </main>
 
 
