@@ -239,6 +239,7 @@ class StockRequestCreateView(RoleRequiredMixin, View):
                     user=request.user,
                     purpose=form.cleaned_data["purpose"],
                     company=form.cleaned_data.get("company"),
+                    account_holder=form.cleaned_data.get("account_holder"),
                     notes=form.cleaned_data.get("notes", ""),
                     items=items,
                 )
@@ -750,4 +751,42 @@ class PackReturnFromReleaseView(RoleRequiredMixin, View):
                 "form": form,
             },
         )
-    
+
+    class AccountHolderLedgerView(RoleRequiredMixin, DetailView):
+        """
+        Dedicated view to display an individual's personal statement:
+        - Total goods taken (value)
+        - Total paid
+        - Net outstanding debt
+        """
+    model = AccountHolder
+    template_name = "pipeline/account_ledger_detail.html"
+    context_object_name = "account"
+    allowed_roles = (
+        User.Role.CASHIER,
+        User.Role.ACCOUNTS,
+        User.Role.MANAGER,
+        User.Role.ADMIN,
+    )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        account = self.object
+
+        # Fetch all releases made to this person
+        releases = PackRelease.objects.filter(released_to=account).select_related(
+            "product__blend", "product__pack_size"
+        ).prefetch_related("payments", "returns")
+
+        # High-performance DB summaries
+        total_taken_value = sum(r.gross_amount for r in releases)
+        total_paid = sum(r.total_amount_paid for r in releases)
+        net_owed = sum(r.outstanding_balance for r in releases)
+
+        context.update({
+            "releases": releases,
+            "total_taken_value": total_taken_value,
+            "total_paid": total_paid,
+            "net_owed": net_owed,
+        })
+        return context

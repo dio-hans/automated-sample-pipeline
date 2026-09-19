@@ -1,4 +1,7 @@
 from django.core.exceptions import ValidationError
+from django.db.models.signals import post_save
+from django.db import models
+from django.dispatch import receiver
 from decimal import Decimal
 from django.utils import timezone
 import uuid
@@ -20,6 +23,12 @@ class Coffee_type(models.TextChoices):
     ROBUSTA = 'robusta', 'Robusta'
 
 
+# Place these imports at the top of models.py
+from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+
 class Company(models.Model):
     name = models.CharField(max_length=250, unique=True)
     country = models.CharField(max_length=250, unique=False)
@@ -29,8 +38,13 @@ class Company(models.Model):
     phone_number = models.CharField(max_length=20, unique=True)
     address = models.TextField()
     is_acquired_client = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    account_holder = models.OneToOneField(
+        'AccountHolder',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='company_profile'
+    )
     pipeline_stage = models.CharField(
         max_length=50, 
         choices=[
@@ -45,10 +59,160 @@ class Company(models.Model):
         ],
         default='new_lead'
     )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name
 
+
+# Signal defined outside the model class
+@receiver(post_save, sender=Company)
+def ensure_company_has_account_holder(sender, instance, created, **kwargs):
+    """Automatically creates an AccountHolder ledger whenever a Company is created."""
+    if created or not instance.account_holder:
+        account, _ = AccountHolder.objects.get_or_create(
+            name=instance.name,
+            defaults={
+                "account_type": "customer",
+                "is_active": True,
+                "notes": f"Automated ledger account for company: {instance.name}"
+            }
+        )
+        Company.objects.filter(pk=instance.pk).update(account_holder=account)
+
+class CompanyBranch(models.Model):
+    company = models.ForeignKey(
+        Company, 
+        on_delete=models.CASCADE, 
+        related_name="branches"
+    )
+    branch_name = models.CharField(
+        max_length=150, 
+        help_text="e.g. Oasis Mall Branch, Village Mall Bugolobi, Lugogo Branch"
+    )
+    address = models.CharField(max_length=255, blank=True)
+    contact_person = models.CharField(max_length=100, blank=True)
+    phone_number = models.CharField(max_length=30, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    # Helper methods inside CompanyBranch model
+
+    def get_stock_level(self, product, stock_location=None):
+        """
+        Computes exact current stock level from immutable ledger history.
+        If stock_location is 'shelf', gets shelf stock.
+        If stock_location is 'backroom', gets backroom stock.
+        If None, returns total stock at branch.
+        """
+        qs = BranchStockLedger.objects.filter(branch=self, product=product)
+        if stock_location:
+            qs = qs.filter(stock_location=stock_location)
+        
+        result = qs.aggregate(total=models.Sum('quantity'))['total']
+        return result or 0
+
+    def __str__(self):
+        return f"{self.company.name} - {self.branch_name}"
+    
+
+
+class BranchStockLedger(models.Model):
+    LOCATION_CHOICES = (
+        ("shelf", "Active Display Shelf"),
+        ("backroom", "Backroom Warehouse"),
+    )
+
+    TRANSACTION_TYPES = (
+        ("delivery", "Stock Delivered from Nonda Main Warehouse"),
+        ("restock_shelf", "Moved from Backroom to Display Shelf"),
+        ("audit_sale", "Confirmed Sold via Audit"),
+        ("shrinkage", "Damaged / Expired / Missing Stock"),
+        ("return", "Returned to Nonda Central Warehouse"),
+    )
+
+    branch = models.ForeignKey(
+        CompanyBranch, 
+        on_delete=models.CASCADE, 
+        related_name="stock_ledger_entries"
+    )
+    product = models.ForeignKey('Product', on_delete=models.PROTECT)
+    stock_location = models.CharField(max_length=20, choices=LOCATION_CHOICES, default="shelf")
+    transaction_type = models.CharField(max_length=30, choices=TRANSACTION_TYPES)
+    
+    # Positive for additions (deliveries), negative for deductions (sales/shrinkage)
+    quantity = models.IntegerField(help_text="+ Quantity added, - Quantity removed")
+    
+    # Reference to relevant audit or release doc
+    audit = models.ForeignKey('StockAudit', on_delete=models.SET_NULL, null=True, blank=True)
+    release = models.ForeignKey('PackRelease', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+
+    def __str__(self):
+        return f"{self.branch} | {self.product} | {self.transaction_type}: {self.quantity}"
+
+#stock consignement inventorr/ tracking stock sitting on shelves
+class ConsignmentInventory(models.Model):
+    company = models.ForeignKey(
+        Company, 
+        on_delete=models.CASCADE, 
+        related_name="display_inventories"
+    )
+    product = models.ForeignKey(
+        'Product', 
+        on_delete=models.PROTECT, 
+        related_name="consignment_inventories"
+    )
+    current_display_quantity = models.PositiveIntegerField(
+        default=0,
+        help_text="Units currently sitting on the supermarket shelf/display."
+    )
+    last_audited_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ("company", "product")
+
+    def __str__(self):
+        return f"{self.company.name} - {self.product}: {self.current_display_quantity} units on display"
+
+class StockAudit(models.Model):
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="audits")
+    audited_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    audit_date = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True, default="")
+
+    def __str__(self):
+        return f"Audit for {self.company.name} on {self.audit_date.strftime('%Y-%m-%d')}"
+
+
+class StockAuditItem(models.Model):
+    audit = models.ForeignKey(StockAudit, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey('Product', on_delete=models.PROTECT)
+    
+    expected_quantity = models.PositiveIntegerField(
+        help_text="Quantity system expected based on previous deliveries."
+    )
+    actual_physical_count = models.PositiveIntegerField(
+        help_text="Physical count on shelf entered by sales rep."
+    )
+    quantity_sold = models.PositiveIntegerField(
+        default=0,
+        help_text="Calculated: Expected minus Actual Physical Count."
+    )
+    selling_price = models.DecimalField(max_digits=12, decimal_places=2)
+    calculated_amount_due = models.DecimalField(max_digits=12, decimal_places=2)
+
+    def save(self, *args, **kwargs):
+        # Automatically calculate quantity sold and balance due
+        if self.expected_quantity >= self.actual_physical_count:
+            self.quantity_sold = self.expected_quantity - self.actual_physical_count
+        else:
+            self.quantity_sold = 0  # Handling over-stock anomaly if any
+            
+        self.calculated_amount_due = self.quantity_sold * self.selling_price
+        super().save(*args, **kwargs)
 
 # --- 2. INVENTORY & STOCK ---
 
@@ -1422,6 +1586,7 @@ class StockRequest(models.Model):
         ("display", "Display"),
         ("sampling", "Sampling"),
         ("event", "Event"),
+        ("field_agent", "Field Agent Stock")
         ("other", "Other"),
     )
 
@@ -1437,6 +1602,15 @@ class StockRequest(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="stock_requests",
+    )
+
+    account_holder = models.ForeignKey(
+        'AccountHolder', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name="stock_requests",
+        help_text="The individual/account responsible for taking and paying for this stock."
     )
     company = models.ForeignKey(
         Company,

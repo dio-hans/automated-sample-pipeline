@@ -7,12 +7,16 @@ from django.utils import timezone
 
 from .models import (
     AccountHolder,
+    BranchStockLedger,
+    ConsignmentInventory,
     PackRelease,
     PackReturn,
     PackSettlement,
     PackagedProduct,
     PackagedInventory,
     PaymentReceipt,
+    StockAudit,
+    StockAuditItem,
     StockRequest,
     StockRequestItem,
 )
@@ -26,7 +30,7 @@ def _available(product):
 
 
 @transaction.atomic
-def create_stock_request(*, user, purpose, items, company=None, notes=""):
+def create_stock_request(*, user, purpose, items, account_holder=None, company=None, notes=""):
     """Create one internal stock request containing one or more products."""
     if not items:
         raise ValidationError("Add at least one product to the request.")
@@ -36,6 +40,7 @@ def create_stock_request(*, user, purpose, items, company=None, notes=""):
         company=company,
         purpose=purpose,
         notes=notes,
+        account_holder=account_holder,
     )
 
     seen = set()
@@ -88,12 +93,13 @@ def fulfill_request_item(*, item, quantity, selling_price, manager, notes=""):
     # ---------------------------------------------------------
     request_user = item.request.requested_by # This is the "User" instance
     
-    # Check if this user already has an AccountHolder profile card linked
-    account_holder = AccountHolder.objects.filter(system_user=request_user).first()
-    
-    # Auto-bootstrap profile if they don't have an account card entry yet
-    if not account_holder:
-        account_holder, _ = AccountHolder.objects.get_or_create(
+
+    target_account = item.request.account_holder
+
+# Fallback: if no dedicated customer account was chosen, use/create the requesting user's profile card
+    if not target_account:
+        request_user = item.request.requested_by
+        target_account, _ = AccountHolder.objects.get_or_create(
             system_user=request_user,
             defaults={
                 "name": request_user.get_full_name() or request_user.username,
@@ -102,11 +108,11 @@ def fulfill_request_item(*, item, quantity, selling_price, manager, notes=""):
             }
         )
 
-    # 🚀 Create the release record using the valid AccountHolder instance!
+    # Create the release record bound to the correct target account holder
     release = PackRelease.objects.create(
         product=product, 
         request_item=item, 
-        released_to=account_holder,  #  Fixed: We pass the AccountHolder here!
+        released_to=target_account,  # Accurately assigns stock & balance to account holder
         packs_out=quantity, 
         selling_price=selling_price, 
         created_by=manager, 
@@ -287,3 +293,135 @@ def record_payment(
 
     return payment
 
+@transaction.atomic
+def process_branch_audit(*, branch, user, audit_counts_data):
+    """
+    audit_counts_data format:
+    [
+      {
+        'product': product_obj,
+        'shelf_count': 5,
+        'backroom_count': 30,
+        'selling_price': Decimal('15000.00')
+      },
+      ...
+    ]
+    """
+    audit = StockAudit.objects.create(
+        company=branch.company,
+        branch=branch,
+        audited_by=user,
+    )
+
+    total_amount_billed = 0
+
+    for data in audit_counts_data:
+        product = data['product']
+        actual_shelf = data['shelf_count']
+        actual_backroom = data['backroom_count']
+        selling_price = data['selling_price']
+
+        # 1. Fetch exact current baseline from ledger
+        expected_shelf = branch.get_stock_level(product, stock_location='shelf')
+        expected_backroom = branch.get_stock_level(product, stock_location='backroom')
+
+        # 2. Calculate sold quantities
+        shelf_sold = max(0, expected_shelf - actual_shelf)
+        backroom_sold = max(0, expected_backroom - actual_backroom)
+        total_sold = shelf_sold + backroom_sold
+
+        amount_due = total_sold * selling_price
+        total_amount_billed += amount_due
+
+        # 3. Create Audit Record
+        StockAuditItem.objects.create(
+            audit=audit,
+            product=product,
+            expected_shelf=expected_shelf,
+            actual_shelf=actual_shelf,
+            expected_backroom=expected_backroom,
+            actual_backroom=actual_backroom,
+            total_sold=total_sold,
+            selling_price=selling_price,
+            amount_due=amount_due,
+        )
+
+        # 4. Write negative adjustments to ledger to bring system baseline 
+        # EXACTLY in sync with physical count for next time
+        if shelf_sold > 0:
+            BranchStockLedger.objects.create(
+                branch=branch,
+                product=product,
+                stock_location='shelf',
+                transaction_type='audit_sale',
+                quantity=-shelf_sold, # Deducts sold quantity from shelf
+                audit=audit,
+                created_by=user,
+            )
+
+        if backroom_sold > 0:
+            BranchStockLedger.objects.create(
+                branch=branch,
+                product=product,
+                stock_location='backroom',
+                transaction_type='audit_sale',
+                quantity=-backroom_sold, # Deducts sold quantity from backroom
+                audit=audit,
+                created_by=user,
+            )
+
+    return audit, total_amount_billed
+
+
+@transaction.atomic
+def process_supermarket_audit(*, company, user, audit_items_data):
+    """
+    Processes physical shelf audit for consignment/display stock:
+    1. Compares expected display quantity vs actual physical count.
+    2. Calculates sold units.
+    3. Updates ConsignmentInventory to match the actual physical count.
+    4. Converts sold units into a billable balance on the company's AccountHolder ledger.
+    """
+    audit = StockAudit.objects.create(
+        company=company,
+        audited_by=user,
+    )
+
+    total_invoice_amount = 0
+
+    for item_data in audit_items_data:
+        product = item_data["product"]
+        actual_count = item_data["actual_count"]
+        selling_price = item_data["selling_price"]
+
+        # Retrieve current recorded consignment balance
+        consignment_record, _ = ConsignmentInventory.objects.get_or_create(
+            company=company,
+            product=product,
+            defaults={"current_display_quantity": 0}
+        )
+
+        expected_qty = consignment_record.current_display_quantity
+
+        # Create audit line item
+        audit_item = StockAuditItem.objects.create(
+            audit=audit,
+            product=product,
+            expected_quantity=expected_qty,
+            actual_physical_count=actual_count,
+            selling_price=selling_price,
+        )
+
+        total_invoice_amount += audit_item.calculated_amount_due
+
+        # Update consignment display quantity to match ground truth
+        consignment_record.current_display_quantity = actual_count
+        consignment_record.last_audited_at = timezone.now()
+        consignment_record.save()
+
+    # Move company pipeline stage to recurring supply if not already set
+    if company.pipeline_stage != 'recurring_supply':
+        company.pipeline_stage = 'recurring_supply'
+        company.save(update_fields=['pipeline_stage'])
+
+    return audit

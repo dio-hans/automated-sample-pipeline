@@ -1,4 +1,4 @@
-from .models import PackReturn
+from .models import AccountHolder, PackReturn
 from decimal import Decimal
 
 from django import forms
@@ -21,12 +21,18 @@ FIELD_CLASS = (
 class StockRequestForm(forms.ModelForm):
     class Meta:
         model = StockRequest
-        fields = ("purpose", "company", "notes")
+        fields = ("purpose", "company", "notes", "account_holder")
         widgets = {
             "purpose": forms.Select(attrs={"class": FIELD_CLASS}),
             "company": forms.Select(attrs={"class": FIELD_CLASS}),
             "notes": forms.Textarea(attrs={"class": FIELD_CLASS, "rows": 3}),
+            "account_holder": forms.Select(attrs={"class": FIELD_CLASS}),
         }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["account_holder"].queryset = AccountHolder.objects.filter(is_active=True)
+        self.fields["account_holder"].required = False
+        self.fields["account_holder"].empty_label = "-- Select Account (Optional) --"   
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

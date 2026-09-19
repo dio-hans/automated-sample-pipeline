@@ -2278,3 +2278,46 @@ class ManagementReportsView(RoleRequiredMixin, TemplateView):
         })
 
         return ctx
+
+    class CompanyAccountDetailView(RoleRequiredMixin, DetailView):
+        """
+        Displays complete financial ledger for Supermarkets or Restaurants:
+        1. Direct Sales & Balances
+        2. Stock currently out on Display / Consignment
+        3. Total Payments Received
+        """
+    model = Company
+    template_name = "pipeline/company_ledger.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        company = self.object
+        account = company.account_holder
+
+        # 1. Total releases delivered to this company
+        company_releases = PackRelease.objects.filter(
+            request_item__request__company=company
+        ).select_related("product")
+
+        # 2. Stock on Display vs Sold
+        display_releases = company_releases.filter(
+            request_item__request__purpose="display"
+        )
+        direct_sales_releases = company_releases.filter(
+            request_item__request__purpose="sales"
+        )
+
+        total_display_value = sum(r.gross_amount for r in display_releases)
+        total_sales_value = sum(r.gross_amount for r in direct_sales_releases)
+        
+        # 3. Total Payments Received from this Company Account
+        total_paid = sum(r.total_amount_paid for r in company_releases)
+
+        context.update({
+            "total_display_value": total_display_value,
+            "total_sales_value": total_sales_value,
+            "total_paid": total_paid,
+            "net_owed": (total_sales_value + total_display_value) - total_paid,
+            "company_releases": company_releases,
+        })
+        return context
