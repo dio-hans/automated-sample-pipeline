@@ -1,163 +1,150 @@
 {% extends "pipeline/base.html" %}
+{% load static humanize %}
 
-{% block title %}Returns | Nonda{% endblock %}
+{% block title %}Pack Returns | Nonda{% endblock %}
 {% block breadcrumb %}Stock Control / Returns{% endblock %}
-{% block page_title %}Pack Returns{% endblock %}
+{% block page_title %}Pack Returns Log{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-0.5 text-xs text-slate-500">
+    Audit trail of all packaged coffee returns, condition logs, and store re-entry records.
+</p>
+{% endblock %}
+
+{% block header_action %}
+<div class="flex items-center gap-2">
+    <a href="{% url 'credit_control_ledger' %}"
+       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 transition shadow-sm">
+        Credit Ledger
+    </a>
+</div>
+{% endblock %}
 
 {% block content %}
+<div class="max-w-6xl mx-auto space-y-3">
 
-<div class="bg-white border border-line rounded-xl overflow-hidden shadow-sm">
+    <!-- MAIN LOG CARD -->
+    <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <!-- TABLE HEADER -->
+                <thead>
+                    <tr class="bg-slate-50/80 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <th class="py-2.5 px-3.5">Date & Time</th>
+                        <th class="py-2.5 px-3.5">Product Detail</th>
+                        <th class="py-2.5 px-3.5">Returned By (Account)</th>
+                        <th class="py-2.5 px-3.5 text-center">Qty Returned</th>
+                        <th class="py-2.5 px-3.5">Condition & Status</th>
+                        <th class="py-2.5 px-3.5">Received By</th>
+                    </tr>
+                </thead>
 
-    <div class="overflow-x-auto">
+                <!-- TABLE BODY -->
+                <tbody class="divide-y divide-slate-100 text-xs">
+                    {% for item in returns %}
+                    <tr class="hover:bg-slate-50/70 transition-colors">
 
-        <table class="w-full text-sm text-left">
-
-            <!-- TABLE HEADER -->
-            <thead class="bg-olive text-white">
-                <tr>
-
-                    <th class="px-5 py-3 font-semibold whitespace-nowrap">
-                        Date
-                    </th>
-
-                    <th class="px-5 py-3 font-semibold whitespace-nowrap">
-                        Product
-                    </th>
-
-                    <th class="px-5 py-3 font-semibold whitespace-nowrap">
-                        Salesperson
-                    </th>
-
-                    <th class="px-5 py-3 font-semibold text-right whitespace-nowrap">
-                        Returned
-                    </th>
-
-                    <th class="px-5 py-3 font-semibold whitespace-nowrap">
-                        Reason
-                    </th>
-
-                    <th class="px-5 py-3 font-semibold whitespace-nowrap">
-                        Received By
-                    </th>
-
-                </tr>
-            </thead>
-
-
-            <!-- TABLE BODY -->
-            <tbody class="divide-y divide-line">
-
-                {% for item in returns %}
-
-                <tr class="hover:bg-slate-50 transition">
-
-                    <!-- DATE -->
-                    <td class="px-5 py-4 whitespace-nowrap text-slate-500">
-                        {{ item.returned_at|date:"d M Y, H:i" }}
-                    </td>
-
-
-                    <!-- PRODUCT -->
-                    <td class="px-5 py-4 whitespace-nowrap">
-
-                        <p class="font-semibold text-slate-800">
-                            {{ item.release.product.blend.name }}
-                            <span class="text-slate-400">·</span>
-                            {{ item.release.product.pack_size.label }}
-                        </p>
-
-                    </td>
-
-
-                    <!-- SALESPERSON / RECIPIENT -->
-                    <td class="px-5 py-4 whitespace-nowrap text-slate-700">
-
-                        {% if item.release.released_to_account %}
-
-                            {{ item.release.released_to_account.name }}
-
-                        {% elif item.release.released_to_user %}
-
-                            {% if item.release.released_to_user.get_full_name %}
-
-                                {{ item.release.released_to_user.get_full_name }}
-
-                            {% else %}
-
-                                {{ item.release.released_to_user.username }}
-
-                            {% endif %}
-
-                        {% else %}
-
-                            <span class="text-slate-400 italic">
-                                Unassigned
+                        <!-- DATE & TIME -->
+                        <td class="py-2.5 px-3.5 whitespace-nowrap">
+                            <span class="font-medium text-slate-700 block">
+                                {{ item.returned_at|date:"d M Y" }}
                             </span>
+                            <span class="text-[10px] text-slate-400 font-mono">
+                                {{ item.returned_at|date:"H:i" }}
+                            </span>
+                        </td>
 
-                        {% endif %}
+                        <!-- PRODUCT -->
+                        <td class="py-2.5 px-3.5 whitespace-nowrap">
+                            <div class="font-semibold text-slate-800">
+                                {{ item.release.product.blend.name }}
+                            </div>
+                            <div class="text-[10px] text-slate-500">
+                                {{ item.release.product.pack_size.label }}
+                            </div>
+                        </td>
 
-                    </td>
+                        <!-- SALESPERSON / ACCOUNT -->
+                        <td class="py-2.5 px-3.5 whitespace-nowrap">
+                            {% if item.release.released_to_account %}
+                                <div class="font-medium text-slate-800">
+                                    {{ item.release.released_to_account.name }}
+                                </div>
+                                <span class="inline-block px-1.5 py-0.2 text-[9px] font-semibold bg-slate-100 text-slate-600 rounded">
+                                    Account
+                                </span>
+                            {% elif item.release.released_to_user %}
+                                <div class="font-medium text-slate-800">
+                                    {% if item.release.released_to_user.get_full_name %}
+                                        {{ item.release.released_to_user.get_full_name }}
+                                    {% else %}
+                                        {{ item.release.released_to_user.username }}
+                                    {% endif %}
+                                </div>
+                                <span class="inline-block px-1.5 py-0.2 text-[9px] font-semibold bg-blue-50 text-blue-700 rounded">
+                                    Staff / Rep
+                                </span>
+                            {% else %}
+                                <span class="text-slate-400 italic">Unassigned</span>
+                            {% endif %}
+                        </td>
 
+                        <!-- QTY RETURNED -->
+                        <td class="py-2.5 px-3.5 text-center whitespace-nowrap">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-md font-bold text-xs bg-amber-50 text-amber-800 border border-amber-200/60">
+                                {{ item.packs_returned }} packs
+                            </span>
+                        </td>
 
-                    <!-- RETURNED -->
-                    <td class="px-5 py-4 text-right whitespace-nowrap">
-
-                        <span class="font-semibold text-slate-800">
-                            {{ item.packs_returned }}
-                        </span>
-
-                    </td>
-
-
-                    <!-- REASON -->
-                    <td class="px-5 py-4 text-slate-600">
-
-                        {{ item.reason|default:"—" }}
-
-                    </td>
-
-
-                    <!-- RECEIVED BY -->
-                    <td class="px-5 py-4 whitespace-nowrap text-slate-600">
-
-                        {{ item.received_by|default:"—" }}
-
-                    </td>
-
-                </tr>
-
-
-                {% empty %}
-
-                <!-- EMPTY STATE -->
-                <tr>
-
-                    <td colspan="6" class="px-5 py-12 text-center">
-
-                        <div class="max-w-sm mx-auto">
-
-                            <p class="text-sm font-semibold text-slate-700">
-                                No returns recorded
+                        <!-- CONDITION / DISPOSITION / REASON -->
+                        <td class="py-2.5 px-3.5">
+                            <div class="flex items-center gap-1.5 mb-0.5">
+                                {% if item.condition %}
+                                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+                                        {{ item.condition }}
+                                    </span>
+                                {% endif %}
+                                {% if item.disposition %}
+                                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        {{ item.disposition }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                            <p class="text-slate-600 truncate max-w-xs text-[11px]">
+                                {{ item.reason|default:"—" }}
                             </p>
+                        </td>
 
-                            <p class="mt-1 text-xs text-clay">
-                                Pack returns will appear here once they are recorded.
-                            </p>
+                        <!-- RECEIVED BY -->
+                        <td class="py-2.5 px-3.5 whitespace-nowrap">
+                            <div class="text-slate-700 font-medium">
+                                {{ item.received_by|default:"—" }}
+                            </div>
+                        </td>
 
-                        </div>
-
-                    </td>
-
-                </tr>
-
-                {% endfor %}
-
-            </tbody>
-
-        </table>
-
+                    </tr>
+                    {% empty %}
+                    <!-- EMPTY STATE -->
+                    <tr>
+                        <td colspan="6" class="py-12 text-center">
+                            <div class="max-w-xs mx-auto space-y-2">
+                                <div class="w-10 h-10 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                    </svg>
+                                </div>
+                                <p class="text-xs font-bold text-slate-700">No stock returns recorded</p>
+                                <p class="text-[11px] text-slate-400">
+                                    When return transactions are logged against active releases, they will appear in this registry.
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
 </div>
-
 {% endblock %}

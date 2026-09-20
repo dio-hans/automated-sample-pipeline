@@ -17,27 +17,92 @@ FIELD_CLASS = (
     "text-sm text-ink focus:outline-none focus:ring-2 focus:ring-rust/20 focus:border-rust"
 )
 
+# sales_forms.py
+from django import forms
+from django.core.exceptions import ValidationError
+from .models import AccountHolder, PackRelease, StockRequest, PackagedProduct
+
+class AccountHolderForm(forms.ModelForm):
+    class Meta:
+        model = AccountHolder
+        fields = ['name', 'account_type', 'system_user', 'phone_number', 'email', 'is_active', 'notes']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none'}),
+            'account_type': forms.Select(attrs={'class': 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none'}),
+            'system_user': forms.Select(attrs={'class': 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none'}),
+            'phone_number': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none'}),
+            'email': forms.EmailInput(attrs={'class': 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4'}),
+            'notes': forms.Textarea(attrs={'rows': 3, 'class': 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none'}),
+        }
+
+class DirectPackReleaseForm(forms.Form):
+    released_to = forms.ModelChoiceField(
+        queryset=AccountHolder.objects.filter(is_active=True),
+        required=True,
+        widget=forms.Select(attrs={'class': 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none'})
+    )
+    product = forms.ModelChoiceField(
+        queryset=PackagedProduct.objects.all(),
+        required=True,
+        widget=forms.Select(attrs={'class': 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none'})
+    )
+    packs_out = forms.IntegerField(
+        min_value=1,
+        widget=forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none'})
+    )
+    selling_price = forms.DecimalField(
+        max_digits=12, decimal_places=2,
+        widget=forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none'})
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 2, 'class': 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none'})
+    )
 
 class StockRequestForm(forms.ModelForm):
     class Meta:
         model = StockRequest
-        fields = ("purpose", "company", "notes", "account_holder")
+        fields = ("purpose", "company", "account_holder")
         widgets = {
             "purpose": forms.Select(attrs={"class": FIELD_CLASS}),
             "company": forms.Select(attrs={"class": FIELD_CLASS}),
-            "notes": forms.Textarea(attrs={"class": FIELD_CLASS, "rows": 3}),
             "account_holder": forms.Select(attrs={"class": FIELD_CLASS}),
         }
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["account_holder"].queryset = AccountHolder.objects.filter(is_active=True)
+        self.fields["account_holder"].queryset = (
+            AccountHolder.objects.filter(is_active=True).order_by("name")
+        )
+        self.fields["company"].queryset = (
+            Company.objects.all().order_by("name")
+        )
         self.fields["account_holder"].required = False
-        self.fields["account_holder"].empty_label = "-- Select Account (Optional) --"   
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
         self.fields["company"].required = False
-        self.fields["company"].queryset = Company.objects.order_by("name")
+        self.fields["account_holder"].empty_label = "— No dedicated account —"
+        self.fields["company"].empty_label = "— No company —"
+
+
+    def clean(self):
+        cleaned = super().clean()
+        destination = cleaned.get("destination_type")
+        company = cleaned.get("company")
+        account = cleaned.get("account_holder")
+
+        if destination in {"company", "direct_restaurant"} and not company:
+            self.add_error(
+                "company",
+                "Select the company / restaurant receiving this stock.",
+            )
+
+        if destination == "agent_float" and not account:
+            self.add_error(
+                "account_holder",
+                "Select the account responsible for this stock.",
+            )
+
+        return cleaned
+
 
 
 class StockRequestItemForm(forms.Form):
@@ -142,8 +207,6 @@ class FulfillItemForm(forms.Form):
         widget=forms.TextInput(attrs={"class": FIELD_CLASS, "placeholder": "Optional issue note"}),
     )
 
-from django import forms
-from .models import PackReturn
 
 FIELD_CLASS = (
     "w-full rounded-md border border-line px-3 py-2.5 bg-white text-sm "
@@ -207,54 +270,3 @@ class SettlementForm(forms.Form):
 
 
 
-class PaymentReceiptForm(forms.ModelForm):
-
-    class Meta:
-        model = PaymentReceipt
-        fields = [
-            "amount",
-            "method",
-            "payment_reference",
-            "notes",
-        ]
-
-        widgets = {
-            "amount": forms.NumberInput(
-                attrs={
-                    "class": FIELD_CLASS,
-                    "min": "0.01",
-                    "step": "0.01",
-                }
-            ),
-
-            "method": forms.Select(
-                attrs={"class": FIELD_CLASS}
-            ),
-
-            "payment_reference": forms.TextInput(
-                attrs={
-                    "class": FIELD_CLASS,
-                    "placeholder": "MoMo / bank transaction reference",
-                }
-            ),
-
-            "notes": forms.Textarea(
-                attrs={
-                    "class": FIELD_CLASS,
-                    "rows": 3,
-                    "placeholder": "Optional payment note",
-                }
-            ),
-        }
-
-    def clean_amount(self):
-        amount = self.cleaned_data["amount"]
-
-        if amount <= Decimal("0.00"):
-            raise forms.ValidationError(
-                "Payment amount must be greater than zero."
-            )
-
-        return amount
-
-    

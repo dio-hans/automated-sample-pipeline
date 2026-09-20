@@ -3,568 +3,346 @@
 {% load humanize %}
 {% block title %}Credit Control Ledger | Nonda{% endblock %}
 {% block breadcrumb %}Financials / Credit Control Ledger{% endblock %}
-
 {% block page_title %}Receivables & Credit Control Ledger{% endblock %}
-
 {% block page_subtitle %}
 <p class="mt-1 text-sm text-slate-500">
     Dedicated accounting control deck. Audit active salesperson debts,
     monitor running cash collections, and log incoming installments.
 </p>
 {% endblock %}
-
 {% block content %}
-
-<div class="space-y-6">
-
+<div class="space-y-4">
     <!-- =========================================================
          1. LIVE SUMMARY METRIC DECK
          ========================================================= -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-max">
         <!-- Total dispatched -->
-        <div class="bg-white border border-line rounded-xl p-5 shadow-sm">
-            <p class="text-xs uppercase font-bold tracking-wider text-slate-400">
-                Total Value Dispatched
-            </p>
-
-            <p class="font-semibold text-2xl mt-2 text-slate-800">
-                <!-- ✅ FIXED: Use intcomma directly so it processes the number correctly -->
-                {{ total_value_issued|intcomma }}
-                <span class="text-xs font-normal text-slate-400">UGX</span>
-            </p>
-
-            <p class="text-xs text-slate-400 mt-1">
-                Value of packed stock issued for this timeline
-            </p>
+        <div class="bg-white border border-slate-200 rounded-lg p-3 shadow-sm w-56">
+            <div>
+                <p class="text-[11px] uppercase font-bold tracking-wider text-slate-400">
+                    Total Value Dispatched
+                </p>
+                <p class="text-[10px] text-slate-400 mb-2">
+                    Packed stock issued
+                </p>
+            </div>
+            <div>
+                <p class="font-bold text-lg text-slate-800 leading-tight">
+                    {{ total_value_issued|floatformat:0|intcomma }}
+                    <span class="text-xs font-normal text-slate-400">UGX</span>
+                </p>
+            </div>
         </div>
-
-
         <!-- Total collected -->
-        <div class="bg-white border border-line rounded-xl p-5 shadow-sm">
-            <p class="text-xs uppercase font-bold tracking-wider text-slate-400">
-                Liquid Cash Collected
-            </p>
-
-            <p class="font-semibold text-2xl mt-2 text-emerald-600">
-                {{ total_collected_revenue|floatformat:0|intcomma }}
-                <span class="text-xs font-normal text-slate-400">UGX</span>
-            </p>
-
-            <p class="text-xs text-slate-400 mt-1">
-                Payments collected against released stock
-            </p>
+        <div class="bg-white border border-slate-200 rounded-lg p-3 shadow-sm w-56">
+            <div>
+                <p class="text-[11px] uppercase font-bold tracking-wider text-slate-400">
+                    Liquid Cash Collected
+                </p>
+                <p class="text-[10px] text-slate-400 mb-2">
+                    Payments collected
+                </p>
+            </div>
+            <div>
+                <p class="font-bold text-lg text-emerald-600 leading-tight">
+                    {{ total_collected_revenue|floatformat:0|intcomma }}
+                    <span class="text-xs font-normal text-slate-400">UGX</span>
+                </p>
+            </div>
         </div>
-
-
         <!-- Outstanding -->
-        <div class="bg-rose-50/30 border border-rose-200 rounded-xl p-5 shadow-sm">
-            <p class="text-xs uppercase font-bold tracking-wider text-rose-500">
-                Outstanding Debt
-            </p>
-
-            <p class="font-semibold text-2xl mt-2 text-rose-600">
-                {{ total_outstanding_debt|floatformat:0|intcomma }}
-                <span class="text-xs font-normal text-slate-400">UGX</span>
-            </p>
-
-            <p class="text-xs text-slate-400 mt-1">
-                Currently pending settlement
-            </p>
+        <div class="bg-rose-50/30 border border-rose-200 rounded-lg p-3 shadow-sm w-56">
+            <div>
+                <p class="text-[11px] uppercase font-bold tracking-wider text-rose-500">
+                    Outstanding Debt
+                </p>
+                <p class="text-[10px] text-rose-400 mb-2">
+                    Pending settlement
+                </p>
+            </div>
+            <div>
+                <p class="font-bold text-lg text-rose-600 leading-tight">
+                    {{ total_outstanding_debt|floatformat:0|intcomma }}
+                    <span class="text-xs font-normal text-slate-400">UGX</span>
+                </p>
+            </div>
         </div>
-
     </div>
-
 
     <!-- =========================================================
          2. DATE / CONTROL FILTER BAR
          ========================================================= -->
-    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4
-                bg-white border border-line rounded-xl p-4 shadow-sm">
-
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm">
         <!-- Timeline -->
-        <div class="flex flex-wrap items-center gap-2">
-
+        <div class="flex flex-wrap items-center gap-1.5">
             <a href="?preset=this_month&scope={{ view_scope }}"
-               class="px-3 py-1.5 rounded-lg border text-xs font-medium transition
+               class="px-3 py-1 rounded-md text-xs font-medium transition
                {% if preset == 'this_month' %}
-                   bg-olive text-white border-olive
+                   bg-olive text-white
                {% else %}
-                   bg-slate-50 text-slate-600 border-line hover:bg-slate-100
+                   bg-white text-slate-600 border border-slate-200 hover:bg-slate-50
                {% endif %}">
                 This Month
             </a>
-
             <a href="?preset=last_7_days&scope={{ view_scope }}"
-               class="px-3 py-1.5 rounded-lg border text-xs font-medium transition
+               class="px-3 py-1 rounded-md text-xs font-medium transition
                {% if preset == 'last_7_days' %}
-                   bg-olive text-white border-olive
+                   bg-olive text-white
                {% else %}
-                   bg-slate-50 text-slate-600 border-line hover:bg-slate-100
+                   bg-white text-slate-600 border border-slate-200 hover:bg-slate-50
                {% endif %}">
                 This Week
             </a>
-
             <a href="?preset=today&scope={{ view_scope }}"
-               class="px-3 py-1.5 rounded-lg border text-xs font-medium transition
+               class="px-3 py-1 rounded-md text-xs font-medium transition
                {% if preset == 'today' %}
-                   bg-olive text-white border-olive
+                   bg-olive text-white
                {% else %}
-                   bg-slate-50 text-slate-600 border-line hover:bg-slate-100
+                   bg-white text-slate-600 border border-slate-200 hover:bg-slate-50
                {% endif %}">
                 Today
             </a>
-
-
         </div>
-
-
         <!-- Scope -->
-        <div class="flex items-center gap-2
-                    border-t lg:border-t-0
-                    pt-2 lg:pt-0
-                    border-slate-100">
-
+        <div class="flex items-center gap-1.5 border-t lg:border-t-0 pt-2 lg:pt-0 border-slate-100">
             <a href="?preset={{ preset }}&scope=active"
-               class="px-3 py-1.5 rounded-lg border text-xs font-semibold transition
+               class="px-3 py-1 rounded-md text-xs font-semibold transition
                {% if view_scope == 'active' %}
-                   bg-rust text-white border-rust shadow-sm
+                   bg-rust text-white shadow-sm
                {% else %}
-                   bg-slate-50 text-slate-600 border-line hover:bg-slate-100
+                   bg-white text-slate-600 border border-slate-200 hover:bg-slate-50
                {% endif %}">
                 Active Debtors Only
             </a>
-
             <a href="?preset={{ preset }}&scope=all"
-               class="px-3 py-1.5 rounded-lg border text-xs font-semibold transition
+               class="px-3 py-1 rounded-md text-xs font-semibold transition
                {% if view_scope == 'all' %}
-                   bg-slate-700 text-white border-slate-700 shadow-sm
+                   bg-slate-700 text-white shadow-sm
                {% else %}
-                   bg-slate-50 text-slate-600 border-line hover:bg-slate-100
+                   bg-white text-slate-600 border border-slate-200 hover:bg-slate-50
                {% endif %}">
                 All Historical Runs
             </a>
-
         </div>
-
     </div>
-
 
     <!-- =========================================================
          3. RECEIVABLES TABLE
          ========================================================= -->
-    <div class="bg-white border border-line rounded-xl shadow-sm overflow-hidden">
-
+    <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
-
-            <table class="w-full text-sm text-center overflow-x-auto pr-4 padding border-collapse bg-white">
-
+            <table class="w-full text-left border-collapse text-xs">
                 <thead>
-                    <tr class="bg-slate-50 border-b border-line
-                               text-slate-600 font-semibold
-                               text-xs uppercase tracking-wider">
-
-                        <th class="px-6 py-4">
-                            Date Issued
-                        </th>
-
-                        <th class="px-6 py-4">
-                            Product
-                        </th>
-
-                        <th class="px-6 py-4">
-                            Account Holder / Agent
-                        </th>
-
-                        <th class="px-6 py-4 text-center">
-                            Out
-                        </th>
-
-                        <th class="px-6 py-4 text-center">
-                            Outstanding
-                        </th>
-
-                        <th class="px-6 py-4 text-right">
-                            Total Value
-                        </th>
-
-                        <th class="px-6 py-4 text-right">
-                            Total Paid
-                        </th>
-
-                        <th class="px-6 py-4 text-right">
-                            Balance Owed
-                        </th>
+                    <tr class="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold uppercase text-[11px] tracking-wider">
+                        <th class="py-2.5 px-3">Date Issued</th>
+                        <th class="py-2.5 px-3">Product</th>
+                        <th class="py-2.5 px-3">Account Holder / Agent</th>
+                        <th class="py-2.5 px-3 text-center">Out</th>
+                        <th class="py-2.5 px-3 text-center">Outstanding</th>
+                        <th class="py-2.5 px-3 text-right">Total Value</th>
+                        <th class="py-2.5 px-3 text-right">Total Paid</th>
+                        <th class="py-2.5 px-3 text-right">Balance Owed</th>
                         {% if request.user.role == "cashier" or request.user.role == "CASHIER" or request.user.is_superuser %}
-                        <th class="px-6 py-4 text-center">
-                            Actions
-                        </th>
+                        <th class="py-2.5 px-3 text-center">Actions</th>
                         {% endif %}
-
                     </tr>
                 </thead>
-
-
-                <tbody class="divide-y divide-line text-slate-700 text-xs">
-
+                <tbody class="divide-y divide-slate-100 text-slate-700">
                     {% for release in releases %}
-
-                    <!-- =================================================
-                         MAIN RELEASE ROW
-                         ================================================= -->
-                    <tr class="hover:bg-slate-50/50 transition">
-
+                    <!-- MAIN RELEASE ROW -->
+                    <tr class="odd:bg-white even:bg-slate-50/70 hover:bg-slate-100/60 transition-colors">
                         <!-- Date -->
-                        <td class="px-6 py-4 whitespace-nowrap text-slate-400 font-medium">
+                        <td class="py-2 px-3 whitespace-nowrap text-slate-500 font-medium">
                             {{ release.released_at|date:"d M Y, H:i" }}
                         </td>
-
-
                         <!-- Product -->
-                        <td class="px-6 py-4 whitespace-nowrap font-bold text-slate-900">
-
+                        <td class="py-2 px-3 whitespace-nowrap font-semibold text-slate-900">
                             {% if release.product.blend %}
                                 {{ release.product.blend.name }}
                             {% else %}
                                 {{ release.product }}
                             {% endif %}
-
                             {% if release.product.pack_size %}
                                 <span class="text-slate-400 font-normal">
                                     · {{ release.product.pack_size.label }}
                                 </span>
                             {% endif %}
-
                         </td>
-
-
                         <!-- Recipient -->
-                        <td class="px-6 py-4 whitespace-nowrap font-semibold text-slate-800">
-
+                        <td class="py-2 px-3 whitespace-nowrap font-medium text-slate-800">
                             {% if release.released_to_account %}
-
-                                {{ release.released_to_account.name }}
-
+                                <a href="{% url 'account_holder_detail' release.released_to_account.pk %}" class="text-emerald-600 hover:text-emerald-800 hover:underline font-bold">
+                                    {{ release.released_to_account.name }}
+                                </a>
+                                <span class="text-[10px] text-slate-400 font-normal block">
+                                    ({{ release.released_to_account.get_account_type_display|default:release.released_to_account.account_type|title }})
+                                </span>
                             {% elif release.released_to_user %}
-
                                 {% if release.released_to_user.get_full_name %}
                                     {{ release.released_to_user.get_full_name }}
                                 {% else %}
                                     {{ release.released_to_user.username }}
                                 {% endif %}
-
                             {% else %}
-
                                 <span class="text-slate-400 font-normal italic">
                                     Unassigned
                                 </span>
-
                             {% endif %}
-
                         </td>
-
-
                         <!-- Packs issued -->
-                        <td class="px-6 py-4 text-center font-medium text-slate-500">
+                        <td class="py-2 px-3 text-center font-medium text-slate-600">
                             {{ release.packs_out }}
                         </td>
-
-
                         <!-- Packs outstanding -->
-                        <td class="px-6 py-4 text-center font-bold
-                                   text-slate-800 bg-slate-50/40">
-
+                        <td class="py-2 px-3 text-center font-bold text-slate-800">
                             {{ release.packs_outstanding }}
-
                         </td>
-
-
                         <!-- Gross value -->
-                        <td class="px-6 py-4 text-right font-medium text-slate-500">
+                        <td class="py-2 px-3 text-right font-medium text-slate-600">
                             {{ release.gross_amount|floatformat:0|intcomma }}
                         </td>
-
-
                         <!-- Paid -->
-                        <td class="px-6 py-4 text-right font-bold text-emerald-600">
+                        <td class="py-2 px-3 text-right font-semibold text-emerald-600">
                             {{ release.total_amount_paid|floatformat:0|intcomma }}
                         </td>
-
-
                         <!-- Balance -->
-                        <td class="px-6 py-4 text-right font-black
-                                   text-rose-600 bg-rose-50/10">
-
+                        <td class="py-2 px-3 text-right font-bold text-rose-600">
                             {{ release.outstanding_balance|floatformat:0|intcomma }}
-
                         </td>
-
-
                         <!-- Actions -->
-                         <!-- Actions column inside your credit ledger table rows loop -->
-                          {% if request.user.role == "cashier" or request.user.role == "CASHIER" or request.user.is_superuser %}
-                                    <td class="px-6 py-4 text-center whitespace-nowrap space-x-1">
-                                        <!-- View Receipts Trigger -->
-                                        <button type="button" onclick="toggleReceipts('drawer_{{ release.pk }}')"
-                                                class="px-2 py-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded transition">
-                                            Receipts ({{ release.payments.count|default:"0" }})
-                                        </button>
-                                        
-                                        <!-- 🔄 THE NEW LOG RETURN TRIGGER BUTTON -->
-                                        {% if release.packs_outstanding > 0 %}
-                                            <a href="{% url 'pack_return_form' release.pk %}" 
-                                            class="inline-flex px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded text-[11px] font-bold shadow-sm transition">
-                                                Log Return
-                                            </a>
-                                        {% endif %}
+                        {% if request.user.role == "cashier" or request.user.role == "CASHIER" or request.user.is_superuser %}
+                        <td class="py-2 px-3 text-center whitespace-nowrap space-x-1">
+                            <!-- View Receipts Trigger -->
+                            <button type="button" onclick="toggleReceipts('drawer_{{ release.pk }}')"
+                                    class="px-2 py-0.5 text-[11px] font-medium text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 rounded transition">
+                                Receipts ({{ release.payments.count|default:"0" }})
+                            </button>
+                            
+                            <!-- Log Return Button -->
+                            {% if release.packs_outstanding > 0 %}
+                                <a href="{% url 'pack_return_form' release.pk %}" 
+                                   class="inline-flex px-2 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded text-[11px] font-semibold transition">
+                                    Log Return
+                                </a>
+                            {% endif %}
+                            <!-- Collect Payment Button -->
+                            {% if not release.is_fully_cleared %}
+                                <a href="{% url 'record_installment' release.pk %}" class="inline-flex px-2 py-0.5 bg-rust hover:opacity-90 text-white rounded text-[11px] font-semibold transition">
+                                    Collect UGX
+                                </a>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
 
-                                        <!-- Collect Payment Trigger -->
-                                        {% if not release.is_fully_cleared %}
-                                            <a href="{% url 'record_installment' release.pk %}" class="inline-flex px-2.5 py-1 bg-rust hover:bg-rust-dark text-white rounded text-[11px] font-bold shadow-sm transition">
-                                                Collect UGX
-                                            </a>
-                                        {% endif %}
-                                    </td>
-                                    {% endif %}
-
-                          </tr>
-
-
-                    <!-- =================================================
-                         RECEIPT DRAWER
-                         ================================================= -->
-                    <tr
-                        id="drawer_{{ release.pk }}"
-                        class="hidden bg-slate-50/50">
-
-                        <td colspan="9"
-                            class="px-8 py-4">
-
-                            <div class="space-y-4">
-
+                    <!-- RECEIPT DRAWER -->
+                    <tr id="drawer_{{ release.pk }}" class="hidden bg-slate-50/80 border-b border-slate-200">
+                        <td colspan="9" class="px-6 py-3">
+                            <div class="space-y-3">
                                 <!-- Header -->
                                 <div class="flex items-center justify-between">
-
-                                    <p class="font-bold
-                                              text-slate-400
-                                              uppercase
-                                              tracking-wider
-                                              text-[10px]">
-
-                                             Collection History
-
+                                    <p class="font-bold text-slate-500 uppercase tracking-wider text-[10px]">
+                                       Collection History
                                     </p>
-
-                                    <p class="text-xs text-slate-400">
-
+                                    <p class="text-xs text-slate-500">
                                         Balance:
                                         <span class="font-bold text-rose-600">
                                             {{ release.outstanding_balance|floatformat:0|intcomma }} UGX
                                         </span>
-
                                     </p>
-
                                 </div>
-
-
-                                <!-- Initial / current account summary -->
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-
-                                    <div class="bg-white border border-line rounded-lg p-3">
-
-                                        <p class="text-[10px] uppercase tracking-wider text-slate-400">
-                                            Gross Value
-                                        </p>
-
-                                        <p class="mt-1 font-bold text-slate-800">
-                                            {{ release.gross_amount|floatformat:0|intcomma }} UGX
-                                        </p>
-
+                                <!-- Summary Cards -->
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    <div class="bg-white border border-slate-200 rounded p-2">
+                                        <p class="text-[10px] uppercase tracking-wider text-slate-400">Gross Value</p>
+                                        <p class="mt-0.5 font-semibold text-slate-800">{{ release.gross_amount|floatformat:0|intcomma }} UGX</p>
                                     </div>
-
-
-                                    <div class="bg-white border border-line rounded-lg p-3">
-
-                                        <p class="text-[10px] uppercase tracking-wider text-slate-400">
-                                            Return Credit
-                                        </p>
-
-                                        <p class="mt-1 font-bold text-emerald-600">
-                                            {{ release.return_credit|floatformat:0|intcomma }} UGX
-                                        </p>
-
+                                    <div class="bg-white border border-slate-200 rounded p-2">
+                                        <p class="text-[10px] uppercase tracking-wider text-slate-400">Return Credit</p>
+                                        <p class="mt-0.5 font-semibold text-emerald-600">{{ release.return_credit|floatformat:0|intcomma }} UGX</p>
                                     </div>
-
-
-                                    <div class="bg-white border border-line rounded-lg p-3">
-
-                                        <p class="text-[10px] uppercase tracking-wider text-slate-400">
-                                            Net Amount Due
-                                        </p>
-
-                                        <p class="mt-1 font-bold text-slate-800">
-                                            {{ release.net_amount_due|floatformat:0|intcomma }} UGX
-                                        </p>
-
+                                    <div class="bg-white border border-slate-200 rounded p-2">
+                                        <p class="text-[10px] uppercase tracking-wider text-slate-400">Net Amount Due</p>
+                                        <p class="mt-0.5 font-semibold text-slate-800">{{ release.net_amount_due|floatformat:0|intcomma }} UGX</p>
                                     </div>
-
                                 </div>
-
-
-                                <!-- Payment history -->
-                                <div class="bg-white
-                                            border border-line
-                                            rounded-lg
-                                            overflow-hidden">
-
-                                    <div class="px-4 py-3
-                                                border-b border-line
-                                                bg-slate-50">
-
-                                        <p class="text-xs font-bold text-slate-700">
-                                            Payment Log
-                                        </p>
-
+                                <!-- Payment Log -->
+                                <div class="bg-white border border-slate-200 rounded overflow-hidden">
+                                    <div class="px-3 py-1.5 border-b border-slate-200 bg-slate-100/70">
+                                        <p class="text-[11px] font-bold text-slate-700">Payment Log</p>
                                     </div>
-
-
                                     {% if release.payments.all %}
-
-                                        <div class="divide-y divide-line">
-
+                                        <div class="divide-y divide-slate-100">
                                             {% for receipt in release.payments.all %}
-
-                                                <div class="px-4 py-3
-                                                            flex flex-col
-                                                            sm:flex-row
-                                                            sm:items-center
-                                                            sm:justify-between
-                                                            gap-2">
-
+                                                <div class="px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                                                     <div>
-
                                                         <p class="text-xs font-semibold text-slate-800">
-
                                                             {{ receipt.method|title }}
-
                                                             {% if receipt.payment_reference %}
                                                                 <span class="text-slate-400 font-normal">
                                                                     · {{ receipt.payment_reference }}
                                                                 </span>
                                                             {% endif %}
-
                                                         </p>
-
-                                                        <p class="text-[11px] text-slate-400">
-
+                                                        <p class="text-[10px] text-slate-400">
                                                             {{ receipt.collected_at|date:"d M Y, H:i" }}
-
                                                             {% if receipt.collected_by %}
                                                                 · Collected by {{ receipt.collected_by.username }}
                                                             {% endif %}
-
                                                         </p>
-
                                                         {% if receipt.notes %}
-                                                            <p class="mt-1 text-[11px] text-slate-500">
+                                                            <p class="mt-0.5 text-[10px] text-slate-500">
                                                                 {{ receipt.notes }}
                                                             </p>
                                                         {% endif %}
-
                                                     </div>
-
-
                                                     <div class="text-right">
-
-                                                        <p class="font-bold text-emerald-600">
+                                                        <p class="font-bold text-emerald-600 text-xs">
                                                             {{ receipt.amount|floatformat:0|intcomma }} UGX
                                                         </p>
-
                                                     </div>
-
                                                 </div>
-
                                             {% endfor %}
-
                                         </div>
-
                                     {% else %}
-
-                                        <div class="px-4 py-5 text-center">
-
+                                        <div class="px-3 py-3 text-center">
                                             <p class="text-xs text-slate-400 italic">
                                                 No payment records have been entered for this release.
                                             </p>
-
                                         </div>
-
                                     {% endif %}
-
                                 </div>
-
                             </div>
-
                         </td>
-
                     </tr>
-
                     {% empty %}
-
-                    <!-- =================================================
-                         EMPTY STATE
-                         ================================================= -->
+                    <!-- EMPTY STATE -->
                     <tr>
-
-                        <td colspan="9" class="px-6 py-12 text-center">
-
+                        <td colspan="9" class="px-6 py-10 text-center">
                             <div class="max-w-md mx-auto">
-
-                                <div class="text-3xl mb-3">
-                                    
-                                </div>
-
-                                <p class="font-semibold text-slate-700">
+                                <p class="font-semibold text-slate-700 text-sm">
                                     No receivable records found
                                 </p>
-
                                 <p class="mt-1 text-xs text-slate-400">
-                                    There are no releases matching the selected
-                                    timeline and display filter.
+                                    There are no releases matching the selected timeline and display filter.
                                 </p>
-
                             </div>
-
                         </td>
-
                     </tr>
-
                     {% endfor %}
-
                 </tbody>
-
             </table>
-
         </div>
-
     </div>
-
 </div>
-
 {% endblock %}
 
-
 {% block extra_scripts %}
-
 <script>
 function toggleReceipts(drawerId) {
     const element = document.getElementById(drawerId);
-
-    if (!element) {
-        return;
-    }
-
+    if (!element) return;
     element.classList.toggle("hidden");
 }
 </script>
-
 {% endblock %}

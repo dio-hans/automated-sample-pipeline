@@ -1,0 +1,85 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}Account Holders | Nonda{% endblock %}
+{% block breadcrumb %}Sales / Account Holders{% endblock %}
+{% block page_title %}Account Holder Directory{% endblock %}
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Manage field sales agents, internal staff profiles, and corporate accounts assigned stock liabilities.
+</p>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header Controls -->
+    <div class="flex items-center justify-between bg-white p-4 border border-slate-200 rounded-xl shadow-sm">
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            Total Accounts: {{ accounts.count }}
+        </span>
+        <a href="{% url 'account_holder_create' %}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition">
+            + New Account Holder
+        </a>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left border-collapse">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[11px] font-bold tracking-wider">
+                    <tr>
+                        <th class="px-6 py-3">Account Name</th>
+                        <th class="px-6 py-3">Type</th>
+                        <th class="px-6 py-3">Linked User</th>
+                        <th class="px-6 py-3">Contact</th>
+                        <th class="px-6 py-3 text-center">Status</th>
+                        <th class="px-6 py-3 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 text-xs">
+                    {% for account in accounts %}
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-6 py-4 font-bold text-slate-800">
+                            {{ account.name }}
+                        </td>
+                        <td class="px-6 py-4 font-medium text-slate-600">
+                            <span class="px-2 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                                {{ account.get_account_type_display|default:account.account_type|title }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-slate-500">
+                            {% if account.system_user %}
+                                {{ account.system_user.get_full_name|default:account.system_user.username }}
+                            {% else %}
+                                <span class="italic text-slate-400">Unlinked</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-slate-500">
+                            {{ account.phone_number|default:"—" }}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            {% if account.is_active %}
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">Active</span>
+                            {% else %}
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{% url 'account_holder_detail' account.pk %}" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded text-xs transition">
+                                View Portfolio
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-10 text-center text-slate-400 italic">
+                            No account holders registered yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

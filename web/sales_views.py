@@ -1,20 +1,17 @@
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 from django.views.generic import DetailView, ListView, TemplateView
 from django.forms import formset_factory
-from .sales_forms import PackReturnForm, PaymentReceiptForm
-from .sales_workflow import record_payment
-from .models import  AccountHolder
+from .sales_forms import PackReturnForm
+from .models import  AccountHolder, ConsignmentInventory, PackagedProduct
 from .models import (
     Company,
     PackRelease,
-    PackReturn,
     PackSettlement,
     PackagedInventory,
     StockRequest,
@@ -70,7 +67,7 @@ class AdminDashboardView(RoleRequiredMixin, TemplateView):
 from django.db.models import Sum
 from .models import PackagedInventory, StockRequest, PackRelease, CoffeeStock
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from django.views.generic import TemplateView
 
 class InventoryDashboardView(RoleRequiredMixin, TemplateView):
@@ -238,6 +235,7 @@ class StockRequestCreateView(RoleRequiredMixin, View):
                 stock_request = create_stock_request(
                     user=request.user,
                     purpose=form.cleaned_data["purpose"],
+                    destination_type=form.cleaned_data["destination_type"],
                     company=form.cleaned_data.get("company"),
                     account_holder=form.cleaned_data.get("account_holder"),
                     notes=form.cleaned_data.get("notes", ""),
@@ -421,9 +419,8 @@ class SalesStockView(RoleRequiredMixin, ListView):
             "product__blend", "product__pack_size", "released_to", "request_item__request"
         ).prefetch_related("returns")
         if self.request.user.role == User.Role.SALES:
-            qs = qs.filter(released_to=self.request.user)
+            qs = qs.filter(released_to__system_user=self.request.user)
         return qs
-
 
 
 class CashierQueueView(RoleRequiredMixin, ListView):
@@ -434,24 +431,34 @@ class CashierQueueView(RoleRequiredMixin, ListView):
     )
 
     template_name = "pipeline/order_queue.html"
-    context_object_name = "releases"
+    context_object_name = "orders"  # Grouped by Order (StockRequest) instead of single releases
 
     def get_queryset(self):
         from .utils.util import apply_date_filters
 
+        # ---------------------------------------------------------
+        # BASE QUERYSET: Stock Requests for Sales
+        # ---------------------------------------------------------
         qs = (
-            PackRelease.objects
+            StockRequest.objects.filter(purpose="sale")
             .select_related(
-                "product__blend",
-                "product__pack_size",
-                "released_to",
-                "request_item__request",
+                "requested_by",
+                "account_holder",
+                "company",
             )
             .prefetch_related(
-                "returns",
-                "payments",
+                Prefetch(
+                    "items",
+                    queryset=StockRequestItem.objects.select_related(
+                        "product__blend",
+                        "product__pack_size",
+                    ).prefetch_related(
+                        "releases__returns",
+                        "releases__settlement",
+                    ),
+                )
             )
-            .order_by("-released_at")
+            .order_by("-requested_at")
         )
 
         # ---------------------------------------------------------
@@ -460,44 +467,57 @@ class CashierQueueView(RoleRequiredMixin, ListView):
         qs, preset, today, start, end = apply_date_filters(
             self.request,
             qs,
-            "released_at",
+            "requested_at",
         )
 
         self._preset = preset
 
         # ---------------------------------------------------------
-        # CASHIER QUEUE
-        # Only sales releases that are still awaiting clearance.
+        # ORDER QUEUE FILTERING
+        # Only keep orders that have active releases with money outstanding.
         # ---------------------------------------------------------
-        result = []
+        orders = []
+        for order in qs:
+            releases = []
+            total_value = Decimal("0.00")
+            total_paid = Decimal("0.00")
+            total_outstanding = Decimal("0.00")
+            total_issued = 0
+            total_remaining = 0
 
-        for release in qs:
+            # Aggregate across all items and releases under this single order card
+            for item in order.items.all():
+                total_remaining += item.outstanding_quantity
+                for release in item.releases.all():
+                    releases.append(release)
+                    total_issued += release.packs_out
+                    total_value += release.gross_amount
+                    total_paid += release.total_amount_paid
+                    total_outstanding += release.outstanding_balance
 
-            # Ignore releases not generated from a sale request
-            if (
-                not release.request_item_id
-                or release.request_item.request.purpose != "sale"
-            ):
+            # Keep order in queue if stock has been issued and balance remains
+            if not releases or total_outstanding <= Decimal("0.00"):
                 continue
 
-            # Only keep releases that still have money outstanding
-            if release.outstanding_balance > 0:
-                result.append(release)
+            # Attach transient values used only by the template.
+            order.queue_releases = releases
+            order.total_value = total_value
+            order.total_paid = total_paid
+            order.total_outstanding = total_outstanding
+            order.total_issued = total_issued
+            order.total_remaining = total_remaining
+            orders.append(order)
 
-        return result
+        return orders
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
         context["preset"] = getattr(
             self,
             "_preset",
             "this_month",
         )
-
         return context
-
-
 
 class CashierClearanceView(RoleRequiredMixin, View):
     allowed_roles = ("cashier", User.Role.CASHIER, User.Role.ACCOUNTS, User.Role.ADMIN)
@@ -513,10 +533,10 @@ class CashierClearanceView(RoleRequiredMixin, View):
 
     def get(self, request, pk):
         release = self.get_release(pk)
-        return render(request, self.template_name, {
+        return render(request, self.template_name), {
             "release": release,
             "form": SettlementForm(initial={"packs_sold": release.packs_outstanding, "amount_paid": release.packs_outstanding * release.selling_price}),
-        })
+        }
 
     def post(self, request, pk):
         release = self.get_release(pk)
@@ -559,6 +579,7 @@ class RecordInstallmentPaymentView(RoleRequiredMixin, View):
                 "product__blend",
                 "product__pack_size",
                 "released_to",
+                "company",
             ).prefetch_related("returns", "payments"),
             pk=pk,
         )
@@ -575,64 +596,38 @@ class RecordInstallmentPaymentView(RoleRequiredMixin, View):
                 "pack_release_detail",
                 pk=release.pk,
             )
-
-        form = PaymentReceiptForm()
-
         return render(
             request,
             self.template_name,
-            {
-                "release": release,
-                "form": form,
-            },
-        )
+            {"release": release, "form": SettlementForm()},
+        )  # FIXED: Added missing closing parenthesis
 
     def post(self, request, pk):
         release = self.get_release(pk)
-
-        form = PaymentReceiptForm(request.POST)
+        form = SettlementForm(request.POST)
 
         if form.is_valid():
             try:
-                payment = record_payment(
+                settlement = settle_release(
                     release=release,
-                    amount=form.cleaned_data["amount"],
-                    method=form.cleaned_data["method"],
-                    payment_reference=form.cleaned_data.get(
-                        "payment_reference",
-                        "",
-                    ),
-                    collected_by=request.user,
-                    notes=form.cleaned_data.get(
-                        "notes",
-                        "",
-                    ),
+                    amount_paid=form.cleaned_data["amount_paid"],  # FIXED: Removed stray ']' in key
+                    payment_method=form.cleaned_data["payment_method"],
+                    payment_reference=form.cleaned_data.get("payment_reference", ""),
+                    cashier=request.user,
+                    notes=form.cleaned_data.get("notes", ""),
                 )
-
                 messages.success(
                     request,
-                    f"UGX {payment.amount:,.2f} payment "
-                    f"recorded successfully.",
+                    f"UGX {settlement.amount_paid:,.0f} payment recorded successfully.",
                 )
-
-                return redirect(
-                    "pack_release_detail",
-                    pk=release.pk,
-                )
-
+                return redirect("pack_release_detail", pk=release.pk)
             except ValidationError as exc:
-                form.add_error(
-                    None,
-                    str(exc),
-                )
+                form.add_error(None, exc)
 
         return render(
             request,
             self.template_name,
-            {
-                "release": release,
-                "form": form,
-            },
+            {"release": release, "form": form},
         )
 
 class PackReturnFromReleaseView(RoleRequiredMixin, View):
@@ -690,7 +685,7 @@ class PackReturnFromReleaseView(RoleRequiredMixin, View):
             self.template_name,
             {
                 "release": release,
-                "form": PackReturnCleanForm(),
+                "form": PackReturnForm(),
             },
         )
 
@@ -790,3 +785,199 @@ class PackReturnFromReleaseView(RoleRequiredMixin, View):
             "net_owed": net_owed,
         })
         return context
+
+#consignment views
+class ConsignmentListView(RoleRequiredMixin, ListView):
+    allowed_roles = (
+        User.Role.SALES,
+        User.Role.MANAGER,
+        User.Role.CASHIER,
+        User.Role.ACCOUNTS,
+        User.Role.ADMIN,
+    )
+    template_name = "pipeline/consignment_list.html"
+    context_object_name = "companies"
+
+    def get_queryset(self):
+        return (
+            Company.objects
+            .filter(display_inventories__isnull=False)
+            .distinct()
+            .select_related("account_holder")
+            .prefetch_related(
+                "display_inventories__product__blend",
+                "display_inventories__product__pack_size",
+                "audits__items__product",
+            )
+            .order_by("name")
+        )
+
+
+# ------------------------------------------------------------
+# SUPERMARKET CONSIGNMENT DETAIL
+# ------------------------------------------------------------
+class ConsignmentDetailView(RoleRequiredMixin, DetailView):
+    allowed_roles = (
+        User.Role.SALES,
+        User.Role.MANAGER,
+        User.Role.CASHIER,
+        User.Role.ACCOUNTS,
+        User.Role.ADMIN,
+    )
+    model = Company
+    template_name = "pipeline/consignment_detail.html"
+    context_object_name = "company"
+
+    def get_queryset(self):
+        return (
+            Company.objects
+            .select_related("account_holder")
+            .prefetch_related(
+                "display_inventories__product__blend",
+                "display_inventories__product__pack_size",
+                "audits__items__product",
+            )
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        company = self.object
+
+        display_releases = list(
+            PackRelease.objects
+            .filter(company=company, purpose="display")
+            .select_related("product__blend", "product__pack_size", "released_to")
+            .prefetch_related("returns", "settlements")
+            .order_by("-released_at")
+        )
+
+        context["display_releases"] = display_releases
+        context["display_value"] = sum(
+            r.gross_amount for r in display_releases
+        )
+        context["display_paid"] = sum(
+            r.total_amount_paid for r in display_releases
+        )
+        context["display_outstanding"] = sum(
+            r.outstanding_balance for r in display_releases
+        )
+        context["audits"] = company.audits.all().order_by("-audit_date")[:10]
+        return context
+
+
+# ------------------------------------------------------------
+# SUPERMARKET AUDIT
+# ------------------------------------------------------------
+class ConsignmentAuditView(RoleRequiredMixin, View):
+    allowed_roles = (
+        User.Role.SALES,
+        User.Role.MANAGER,
+        User.Role.ADMIN,
+    )
+    template_name = "pipeline/consignment_audit.html"
+
+    def get_company(self, pk):
+        return get_object_or_404(Company, pk=pk)
+
+    def get(self, request, pk):
+        company = self.get_company(pk)
+        inventories = list(
+            ConsignmentInventory.objects
+            .filter(company=company)
+            .select_related("product__blend", "product__pack_size")
+            .order_by("product__blend__name", "product__pack_size__grams")
+        )
+        return render(
+            request,
+            self.template_name,
+            {"company": company, "inventories": inventories},
+        )
+
+    def post(self, request, pk):
+        company = self.get_company(pk)
+        product_ids = request.POST.getlist("product_id")
+        audit_rows = []
+
+        for product_id in product_ids:
+            actual_key = f"actual_count_{product_id}"
+            price_key = f"selling_price_{product_id}"
+
+            actual_raw = request.POST.get(actual_key, "0").strip()
+            price_raw = request.POST.get(price_key, "0").strip()
+
+            try:
+                actual_count = int(actual_raw)
+                selling_price = Decimal(price_raw)
+            except (ValueError, TypeError, InvalidOperation):
+                messages.error(request, "One or more audit values are invalid.")
+                return self.get(request, pk)
+
+            product = get_object_or_404(PackagedProduct, pk=product_id)
+            audit_rows.append({
+                "product": product,
+                "actual_count": actual_count,
+                "selling_price": selling_price,
+            })
+
+        try:
+            audit, total_invoice_amount = process_supermarket_audit(
+                company=company,
+                user=request.user,
+                audit_items_data=audit_rows,
+                notes=request.POST.get("notes", "").strip(),
+            )
+            messages.success(
+                request,
+                f"Audit saved. Newly billable display sales: UGX {total_invoice_amount:,.0f}.",
+            )
+            return redirect("consignment_detail", pk=company.pk)
+        except ValidationError as exc:
+            messages.error(request, str(exc))
+            return self.get(request, pk)
+
+
+# IMPORTANT: PackRelease.released_to is AccountHolder, not User.
+# In PackReleaseListView.get_queryset() and PackReleaseDetailView.get_queryset(),
+# change the SALES filters to:
+#     qs = qs.filter(released_to__system_user=self.request.user)
+# instead of `released_to=self.request.user`.
+
+# PackReleaseDetailView should also prefetch settlements:
+#     .prefetch_related("returns", "settlements")
+
+# Add this get_queryset override body inside ConsignmentListView after retrieving qs,
+# so the template has a trustworthy display total without doing arithmetic in Django templates.
+# If you prefer, replace ConsignmentListView with the version below:
+
+class ConsignmentListView(RoleRequiredMixin, ListView):
+    allowed_roles = (
+        User.Role.SALES,
+        User.Role.MANAGER,
+        User.Role.CASHIER,
+        User.Role.ACCOUNTS,
+        User.Role.ADMIN,
+    )
+    template_name = "pipeline/consignment_list.html"
+    context_object_name = "companies"
+
+    def get_queryset(self):
+        qs = list(
+            Company.objects
+            .filter(display_inventories__isnull=False)
+            .distinct()
+            .select_related("account_holder")
+            .prefetch_related(
+                "display_inventories__product__blend",
+                "display_inventories__product__pack_size",
+                "audits__items__product",
+            )
+            .order_by("name")
+        )
+        for company in qs:
+            inventories = list(company.display_inventories.all())
+            company.display_inventory_count = len(inventories)
+            company.display_total_packs = sum(i.current_display_quantity for i in inventories)
+            company.last_display_audit = company.audits.all().order_by("-audit_date").first()
+        return qs
+
+    

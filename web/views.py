@@ -7,7 +7,9 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
-from .models import PaymentReceipt, StockRequest, PackagedProduct, StockStage
+
+from .sales_workflow import fulfill_request_item
+from .models import AccountHolder, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage
 from decimal import Decimal
 from .services.processing import complete_roasting, complete_sorting
 from django.views.generic import TemplateView
@@ -76,7 +78,7 @@ from .services.processing import (
     issue_for_processing, complete_grinding, complete_sorting
 )
 from .utils.util import apply_date_filters
-from .sales_forms import PackReturnForm
+from .sales_forms import AccountHolderForm, PackReturnForm
 
 
 def redirect_user_by_role(user):
@@ -2288,36 +2290,107 @@ class ManagementReportsView(RoleRequiredMixin, TemplateView):
         """
     model = Company
     template_name = "pipeline/company_ledger.html"
+    context_object_name = "company"
+
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+        User.Role.CASHIER,
+    )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         company = self.object
-        account = company.account_holder
 
         # 1. Total releases delivered to this company
         company_releases = PackRelease.objects.filter(
             request_item__request__company=company
-        ).select_related("product")
+        ).select_related(
+            "product",
+            "product__blend",
+            "product__pack_size",
+            "request_item__request",
+        ).prefetch_related("payments", "returns")
 
         # 2. Stock on Display vs Sold
         display_releases = company_releases.filter(
             request_item__request__purpose="display"
         )
         direct_sales_releases = company_releases.filter(
-            request_item__request__purpose="sales"
+            request_item__request__purpose="sale"  # FIXED: Changed 'sales' to 'sale'
         )
 
         total_display_value = sum(r.gross_amount for r in display_releases)
         total_sales_value = sum(r.gross_amount for r in direct_sales_releases)
-        
+
         # 3. Total Payments Received from this Company Account
         total_paid = sum(r.total_amount_paid for r in company_releases)
 
         context.update({
+            "company_releases": company_releases,  # FIXED: Removed bracket typo 'company_rele]ases'
+            "display_releases": display_releases,
+            "direct_sales_releases": direct_sales_releases,
             "total_display_value": total_display_value,
             "total_sales_value": total_sales_value,
             "total_paid": total_paid,
             "net_owed": (total_sales_value + total_display_value) - total_paid,
-            "company_releases": company_releases,
         })
+        
         return context
+
+    # views.py
+
+# ---------------------------------------------------------
+# ACCOUNT HOLDER MANAGEMENT VIEWS
+# ---------------------------------------------------------
+@login_required
+def account_holder_list(request):
+    accounts = AccountHolder.objects.all().select_related('system_user')
+    return render(request, 'pipeline/account_holder_list.html', {'accounts': accounts})
+
+@login_required
+def account_holder_create(request):
+    if request.method == 'POST':
+        form = AccountHolderForm(request.POST)
+        if form.is_valid():
+            account = form.save()
+            messages.success(request, f"Account Holder '{account.name}' created successfully.")
+            return redirect('account_holder_list')
+    else:
+        form = AccountHolderForm()
+    return render(request, 'pipeline/account_holder_form.html', {'form': form, 'title': 'Create Account Holder'})
+
+@login_required
+def account_holder_detail(request, pk):
+    account = get_object_or_404(AccountHolder, pk=pk)
+    releases = PackRelease.objects.filter(released_to=account).order_by('-released_at')
+    return render(request, 'pipeline/account_holder_detail.html', {
+        'account': account,
+        'releases': releases
+    })
+
+# ---------------------------------------------------------
+# ITEM FULFILLMENT & PACK RELEASE
+# ---------------------------------------------------------
+@login_required
+def fulfill_item_view(request, item_pk):
+    item = get_object_or_404(StockRequestItem, pk=item_pk)
+    if request.method == 'POST':
+        quantity = request.POST.get('quantity')
+        selling_price = request.POST.get('selling_price')
+        notes = request.POST.get('notes', '')
+        try:
+            fulfill_request_item(
+                item=item,
+                quantity=quantity,
+                selling_price=selling_price,
+                manager=request.user,
+                notes=notes
+            )
+            messages.success(request, "Stock item fulfilled successfully.")
+            return redirect('credit_control_ledger')
+        except Exception as e:
+            messages.error(request, str(e))
+    
+    return render(request, 'pipeline/fulfill_item.html', {'item': item})

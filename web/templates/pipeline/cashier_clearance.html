@@ -1,5 +1,149 @@
 {% extends "pipeline/base.html" %}
+{% load static humanize %}
+
 {% block title %}Clear Release | Nonda{% endblock %}
 {% block breadcrumb %}Cashier / Clearance{% endblock %}
-{% block page_title %}Clear Release{% endblock %}
-{% block content %}<div class="max-w-2xl"><section class="bg-white border border-line rounded-xl p-6 mb-6"><p class="text-xs uppercase text-clay">Salesperson</p><p class="font-semibold mt-1">{{ release.released_to }}</p><p class="font-display text-2xl mt-5">{{ release.product.blend.name }} · {{ release.product.pack_size.label }}</p><p class="text-sm text-clay mt-1">{{ release.product.get_form_display }}</p><div class="grid grid-cols-3 gap-4 mt-6 pt-5 border-t border-line"><div><p class="text-xs text-clay">Issued</p><p class="text-2xl font-semibold mt-1">{{ release.packs_out }}</p></div><div><p class="text-xs text-clay">Returned</p><p class="text-2xl font-semibold mt-1">{{ release.packs_returned }}</p></div><div><p class="text-xs text-clay">Available to sell</p><p class="text-2xl font-semibold mt-1">{{ release.packs_outstanding }}</p></div></div><p class="mt-5 text-sm text-clay">Price per pack: <span class="font-semibold text-ink">UGX {{ release.selling_price|floatformat:0 }}</span></p></section><form method="post" class="bg-white border border-line rounded-xl p-6 space-y-5">{% csrf_token %}{% if form.non_field_errors %}<div class="p-4 rounded-lg bg-rust/5 border border-rust/20 text-sm text-rust">{{ form.non_field_errors }}</div>{% endif %}{% for field in form %}<div><label for="{{ field.id_for_label }}" class="block text-sm font-semibold mb-1">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<p class="text-xs text-rust mt-1">{{ error }}</p>{% endfor %}</div>{% endfor %}<div class="pt-4 border-t border-line flex justify-end gap-3"><a href="{% url 'order_queue' %}" class="px-4 py-2.5 border border-line rounded-lg text-sm">Cancel</a><button class="px-5 py-2.5 bg-rust text-white rounded-lg text-sm font-semibold">Record Payment</button></div></form></div>{% endblock %}
+{% block page_title %}Clear Release Payment{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-0.5 text-xs text-slate-500">
+    Reconcile cash collections against released packaged coffee stock.
+</p>
+{% endblock %}
+
+{% block header_action %}
+<a href="{% url 'order_queue' %}"
+   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 transition shadow-sm">
+    Order Queue
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <!-- MAIN CONTAINER CARD -->
+    <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
+            
+            <!-- LEFT PANEL: RELEASE ACCOUNTABILITY SUMMARY -->
+            <div class="lg:col-span-5 p-4 bg-slate-50/50 flex flex-col justify-between space-y-3">
+                <div class="space-y-3">
+                    <div>
+                        <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                            Account Holder / Salesperson
+                        </p>
+                        <h2 class="text-base font-bold text-slate-800 leading-tight">
+                            {{ release.released_to }}
+                        </h2>
+                        <p class="text-xs text-slate-600 font-medium mt-0.5">
+                            {{ release.product.blend.name }} <span class="text-slate-400">·</span> {{ release.product.pack_size.label }}
+                        </p>
+                        <p class="text-[11px] text-slate-400">
+                            {{ release.product.get_form_display }}
+                        </p>
+                    </div>
+
+                    <!-- METRICS GRID -->
+                    <div class="grid grid-cols-3 gap-2">
+                        <!-- Issued -->
+                        <div class="p-2 bg-white border border-slate-200 rounded-md">
+                            <p class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Issued</p>
+                            <p class="text-xs font-bold text-slate-800 mt-0.5">{{ release.packs_out }}</p>
+                        </div>
+
+                        <!-- Returned -->
+                        <div class="p-2 bg-white border border-slate-200 rounded-md">
+                            <p class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Returned</p>
+                            <p class="text-xs font-bold text-slate-800 mt-0.5">{{ release.packs_returned }}</p>
+                        </div>
+
+                        <!-- Avail to Sell -->
+                        <div class="p-2 bg-amber-50/50 border border-amber-200 rounded-md">
+                            <p class="text-[9px] uppercase tracking-wider font-bold text-amber-600">To Sell</p>
+                            <p class="text-xs font-black text-amber-700 mt-0.5">{{ release.packs_outstanding }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PRICE PER PACK BADGE -->
+                <div class="rounded-md border border-slate-200 bg-white p-2.5 flex items-center justify-between text-xs">
+                    <span class="text-slate-500 font-medium text-[11px]">Price per pack</span>
+                    <span class="font-bold text-slate-800">UGX {{ release.selling_price|floatformat:0|intcomma }}</span>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL: PAYMENT FORM -->
+            <div class="lg:col-span-7 p-4 bg-white flex flex-col justify-between">
+                <form method="post" class="space-y-3">
+                    {% csrf_token %}
+
+                    <!-- Non-field Errors -->
+                    {% if form.non_field_errors %}
+                        <div class="rounded-md border border-rose-200 bg-rose-50 p-2 text-xs font-semibold text-rose-700">
+                            <p class="font-bold uppercase tracking-wider text-[9px] mb-0.5">Form Error</p>
+                            {% for error in form.non_field_errors %}
+                                <p>{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <!-- FORM FIELDS (GRID LAYOUT FOR COMPACTNESS) -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {% for field in form %}
+                            <div class="{% if field.field.widget.input_type == 'textarea' %}sm:col-span-2{% endif %}">
+                                <label for="{{ field.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
+                                    {{ field.label }}
+                                </label>
+                                
+                                {{ field }}
+
+                                {% if field.errors %}
+                                    {% for error in field.errors %}
+                                        <p class="mt-1 text-[11px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
+                                            {{ error }}
+                                        </p>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- ACTION BUTTONS -->
+                    <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-2">
+                        <a href="{% url 'order_queue' %}" class="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+                            Cancel
+                        </a>
+                        <button type="submit" class="px-4 py-1.5 rounded-md bg-rust hover:bg-rust/90 text-white text-xs font-bold shadow-sm transition active:scale-95">
+                            Record Payment
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- FORM INPUT STYLING SCRIPT -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const inputs = document.querySelectorAll(
+        "form input[type='text'], " +
+        "form input[type='number'], " +
+        "form select, " +
+        "form textarea"
+    );
+
+    inputs.forEach(function (input) {
+        input.className =
+            "w-full rounded-md " +
+            "border border-slate-200 " +
+            "px-2.5 py-1.5 " +
+            "bg-white text-xs text-slate-800 " +
+            "focus:outline-none " +
+            "focus:ring-2 focus:ring-rust " +
+            "focus:border-rust " +
+            "transition duration-150";
+    });
+});
+</script>
+{% endblock %}

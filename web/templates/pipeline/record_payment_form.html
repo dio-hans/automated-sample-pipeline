@@ -6,135 +6,157 @@
 {% block page_title %}Record Cashier Collection{% endblock %}
 
 {% block page_subtitle %}
-<p class="mt-1 text-sm text-slate-500">
+<p class="mt-0.5 text-xs text-slate-500">
     Record a partial or full payment installment received against this active distribution account.
 </p>
 {% endblock %}
 
+{% block header_action %}
+<a href="{% url 'credit_control_ledger' %}"
+   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 transition shadow-sm">
+    View Credit Ledger
+</a>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-3xl mx-auto space-y-6">
+<div class="max-w-5xl mx-auto">
+    <!-- MAIN CONTAINER CARD -->
+    <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
+            
+            <!-- LEFT PANEL: DEBTOR METRICS SUMMARY -->
+            <div class="lg:col-span-5 p-4 bg-slate-50/50 flex flex-col justify-between space-y-3">
+                <div class="space-y-3">
+                    <div>
+                        <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                            Account Debtor Profile
+                        </p>
+                        <h2 class="text-base font-bold text-slate-800 leading-tight">
+                            {{ release.released_to.name }}
+                        </h2>
+                    </div>
 
-    <!-- LIVE METRICS DEBIT ACCOUNT OVERVIEW CARD -->
-    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden animate-pageEnter">
-        <div class="px-6 py-5 border-b border-[#E4DECB] bg-slate-50/50">
-            <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Account Debtor Profile</p>
-            <h2 class="mt-1 font-display text-xl font-bold text-slate-800">
-                {{ release.released_to.name }}
-            </h2>
+                    <!-- 3x1 COMPACT METRICS GRID -->
+                    <div class="space-y-2">
+                        <!-- Total Release Value -->
+                        <div class="p-2 bg-white border border-slate-200 rounded-md flex justify-between items-center">
+                            <p class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Total Value</p>
+                            <p class="text-xs font-bold text-slate-800">
+                                UGX {{ calculated_total_value|intcomma|default:"0" }}
+                            </p>
+                        </div>
 
-            <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
-                <!-- Total Release Value Card -->
-                                <!-- Total Release Value Card -->
-                <div class="p-3 bg-white border border-[#E4DECB]/60 rounded-xl">
-                    <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Total Release Value</p>
-                    <p class="mt-1 text-sm font-bold text-slate-800">
-                        <!-- ✅ FIXED: Using the computed context variable with native intcomma -->
-                        UGX {{ calculated_total_value|intcomma|default:"0" }}
-                    </p>
+                        <!-- Paid So Far -->
+                        <div class="p-2 bg-white border border-slate-200 rounded-md flex justify-between items-center">
+                            <p class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Paid So Far</p>
+                            <p class="text-xs font-bold text-emerald-600">
+                                UGX {{ release.total_amount_paid|intcomma|default:"0" }}
+                            </p>
+                        </div>
+
+                        <!-- Outstanding Balance -->
+                        <div class="p-2 bg-rose-50/50 border border-rose-200 rounded-md flex justify-between items-center">
+                            <p class="text-[9px] uppercase tracking-wider font-bold text-rose-500">Outstanding Balance</p>
+                            <p class="text-xs font-black text-rose-600">
+                                UGX {{ release.outstanding_balance|intcomma|default:"0" }}
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
-                
-                <!-- Paid So Far Card -->
-                <div class="p-3 bg-white border border-[#E4DECB]/60 rounded-xl">
-                    <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Total Paid So Far</p>
-                    <p class="mt-1 text-sm font-bold text-emerald-600">
-                        UGX {{ release.total_amount_paid|intcomma|default:"0" }}
-                    </p>
-                </div>
-                
-                <!-- Outstanding Balance Card -->
-                <div class="p-3 bg-rose-50/50 border border-rose-100 rounded-xl">
-                    <p class="text-[10px] uppercase tracking-wider font-bold text-rose-500">Outstanding Balance</p>
-                    <p class="mt-1 text-sm font-black text-rose-600">
-                        UGX {{ release.outstanding_balance|intcomma|default:"0" }}
-                    </p>
+                <!-- CONTROL LIMIT NOTE -->
+                <div class="rounded-md border border-dashed border-slate-200 bg-white p-2.5 text-[11px] text-slate-600 flex justify-between items-center">
+                    <span class="text-[10px] uppercase font-bold text-slate-400">Max Limit</span>
+                    <span class="font-bold text-slate-800 text-xs">UGX {{ release.outstanding_balance|intcomma|default:"0" }}</span>
                 </div>
             </div>
+
+            <!-- RIGHT PANEL: COMPACT PAYMENT FORM -->
+            <div class="lg:col-span-7 p-4 bg-white flex flex-col justify-between">
+                <form method="post" class="space-y-3">
+                    {% csrf_token %}
+
+                    <!-- Non-field Errors -->
+                    {% if form.non_field_errors %}
+                        <div class="rounded-md border border-rose-200 bg-rose-50 p-2 text-xs font-semibold text-rose-700">
+                            <p class="font-bold uppercase tracking-wider text-[9px] mb-0.5">Form Error</p>
+                            {% for error in form.non_field_errors %}
+                                <p>{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <!-- FORM GRID (DIRECT TAILWIND INPUT STYLING - NO JS REQUIRED) -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 [&_input]:w-full [&_input]:rounded-md [&_input]:border [&_input]:border-slate-200 [&_input]:px-2.5 [&_input]:py-1.5 [&_input]:text-xs [&_input]:text-slate-800 [&_input]:focus:outline-none [&_input]:focus:ring-2 [&_input]:focus:ring-rust [&_input]:focus:border-rust [&_select]:w-full [&_select]:rounded-md [&_select]:border [&_select]:border-slate-200 [&_select]:px-2.5 [&_select]:py-1.5 [&_select]:text-xs [&_select]:text-slate-800 [&_select]:focus:outline-none [&_select]:focus:ring-2 [&_select]:focus:ring-rust [&_select]:focus:border-rust [&_textarea]:w-full [&_textarea]:rounded-md [&_textarea]:border [&_textarea]:border-slate-200 [&_textarea]:px-2.5 [&_textarea]:py-1.5 [&_textarea]:text-xs [&_textarea]:text-slate-800 [&_textarea]:rows-2 [&_textarea]:focus:outline-none [&_textarea]:focus:ring-2 [&_textarea]:focus:ring-rust [&_textarea]:focus:border-rust">
+                        
+                        <!-- Amount Received -->
+                        {% if form.amount %}
+                        <div>
+                            <label for="{{ form.amount.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
+                                {{ form.amount.label|default:"Amount Received (UGX)" }}
+                            </label>
+                            {{ form.amount }}
+                            {% for error in form.amount.errors %}
+                                <p class="mt-1 text-[11px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Collection Channel / Method -->
+                        {% if form.method %}
+                        <div>
+                            <label for="{{ form.method.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
+                                {{ form.method.label|default:"Payment Method" }}
+                            </label>
+                            {{ form.method }}
+                            {% for error in form.method.errors %}
+                                <p class="mt-1 text-[11px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Payment Reference -->
+                        {% if form.payment_reference %}
+                        <div>
+                            <label for="{{ form.payment_reference.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
+                                {{ form.payment_reference.label|default:"MoMo / Bank Ref No." }}
+                            </label>
+                            {{ form.payment_reference }}
+                            {% for error in form.payment_reference.errors %}
+                                <p class="mt-1 text-[11px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Remarks / Notes -->
+                        {% if form.notes %}
+                        <div class="md:col-span-2">
+                            <label for="{{ form.notes.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
+                                {{ form.notes.label|default:"Internal Remarks" }}
+                            </label>
+                            {{ form.notes }}
+                            {% for error in form.notes.errors %}
+                                <p class="mt-1 text-[11px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                    </div>
+
+                    <!-- ACTION BUTTONS -->
+                    <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-2">
+                        <a href="{% url 'credit_control_ledger' %}" class="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+                            Cancel
+                        </a>
+                        <button type="submit" class="px-4 py-1.5 rounded-md bg-rust hover:bg-rust/90 text-white text-xs font-bold shadow-sm transition active:scale-95">
+                            Post Payment Receipt
+                        </button>
+                    </div>
+                </form>
+            </div>
+
         </div>
-
-        <!-- TRANSACTION COLLECTION INPUT FORM -->
-        <form method="post" class="p-6 space-y-5">
-            {% csrf_token %}
-
-            {% if form.non_field_errors %}
-                <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700 animate-fade-in">
-                    {{ form.non_field_errors }}
-                </div>
-            {% endif %}
-
-            <!-- Amount Input Box -->
-            <div>
-                <label for="{{ form.amount.id_for_label }}" class="block text-xs uppercase tracking-wider font-bold text-slate-600 mb-1.5">
-                    Amount Received (UGX)
-                </label>
-                {{ form.amount }}
-                {% for error in form.amount.errors %}
-                    <p class="mt-1 text-xs text-rose-600 font-medium">{{ error }}</p>
-                {% endfor %}
-            </div>
-
-            <!-- Payment Method Input Box -->
-            <div>
-                <label for="{{ form.method.id_for_label }}" class="block text-xs uppercase tracking-wider font-bold text-slate-600 mb-1.5">
-                    Collection Channel / Method
-                </label>
-                {{ form.method }}
-                {% for error in form.method.errors %}
-                    <p class="mt-1 text-xs text-rose-600 font-medium">{{ error }}</p>
-                {% endfor %}
-            </div>
-
-            <!-- Transaction Reference Input Box -->
-            <div>
-                <label for="{{ form.payment_reference.id_for_label }}" class="block text-xs uppercase tracking-wider font-bold text-slate-600 mb-1.5">
-                    MoMo Reference / Bank Receipt Number
-                </label>
-                {{ form.payment_reference }}
-                {% for error in form.payment_reference.errors %}
-                    <p class="mt-1 text-xs text-rose-600 font-medium">{{ error }}</p>
-                {% endfor %}
-            </div>
-
-            <!-- Internal Cashier Notes Input Box -->
-            <div>
-                <label for="{{ form.notes.id_for_label }}" class="block text-xs uppercase tracking-wider font-bold text-slate-600 mb-1.5">
-                    Internal Cashier Remarks
-                </label>
-                {{ form.notes }}
-                {% for error in form.notes.errors %}
-                    <p class="mt-1 text-xs text-rose-600 font-medium">{{ error }}</p>
-                {% endfor %}
-            </div>
-
-            <!-- Automation Threshold Alert Rule Info Banner Box -->
-            <div class="rounded-xl border border-dashed border-[#E4DECB] bg-slate-50/50 p-4 flex justify-between items-center text-xs text-slate-500 font-medium">
-                <span>Maximum valid collection limit permitted:</span>
-                <strong class="text-slate-800 text-sm font-black">UGX {{ release.outstanding_balance|intcomma|default:"0" }}</strong>
-            </div>
-
-            <!-- Action Controls Buttons Row -->
-            <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <a href="{% url 'credit_control_ledger' %}"
-                   class="px-4 py-2.5 rounded-lg border border-[#E4DECB] bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
-                    Cancel
-                </a>
-                <button type="submit"
-                        class="px-5 py-2.5 rounded-lg bg-rust hover:bg-rust-dark text-white text-xs font-bold shadow-sm transition active:scale-95">
-                     Post Payment Receipt
-                </button>
-            </div>
-        </form>
     </div>
 </div>
-
-<!-- Dynamic Form Widget Styles Overrides Script Block -->
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    // Automatically apply our beautiful form classes onto native Django inputs
-    const inputs = document.querySelectorAll('form input[type="text"], form input[type="number"], form select, form textarea');
-    inputs.forEach(input => {
-        input.className = "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-rust focus:border-rust transition duration-150";
-    });
-});
-</script>
 {% endblock %}

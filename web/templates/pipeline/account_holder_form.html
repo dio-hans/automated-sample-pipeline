@@ -1,0 +1,107 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}{{ title }} | Nonda{% endblock %}
+{% block breadcrumb %}Account Holders / {{ title }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto">
+    <form method="POST" class="bg-white border border-slate-200 rounded-xl shadow-sm p-3.5 space-y-2.5">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="p-2 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-semibold">
+            {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        <!-- Account Holder Name -->
+        <div>
+            <label for="{{ form.name.id_for_label }}" class="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-0.5">
+                Account Holder Name *
+            </label>
+            {{ form.name }}
+            {% if form.name.errors %}
+                <div class="text-rose-600 text-[10px] font-semibold mt-0.5">
+                    {{ form.name.errors.0 }}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Type & System User -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+                <label for="{{ form.account_type.id_for_label }}" class="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-0.5">
+                    Account Type *
+                </label>
+                {{ form.account_type }}
+                {% if form.account_type.errors %}
+                    <div class="text-rose-600 text-[10px] font-semibold mt-0.5">
+                        {{ form.account_type.errors.0 }}
+                    </div>
+                {% endif %}
+            </div>
+            <div>
+                <label for="{{ form.system_user.id_for_label }}" class="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-0.5">
+                    Link System User <span class="text-slate-400 font-normal lowercase">(optional)</span>
+                </label>
+                {{ form.system_user }}
+                {% if form.system_user.errors %}
+                    <div class="text-rose-600 text-[10px] font-semibold mt-0.5">
+                        {{ form.system_user.errors.0 }}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Phone & Notes Side-by-Side to save vertical space -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+                <label for="{{ form.phone_number.id_for_label }}" class="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-0.5">
+                    Phone Number
+                </label>
+                {{ form.phone_number }}
+                {% if form.phone_number.errors %}
+                    <div class="text-rose-600 text-[10px] font-semibold mt-0.5">
+                        {{ form.phone_number.errors.0 }}
+                    </div>
+                {% endif %}
+            </div>
+            <div>
+                <label for="{{ form.notes.id_for_label }}" class="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-0.5">
+                    Notes / Particulars
+                </label>
+                {{ form.notes }}
+                {% if form.notes.errors %}
+                    <div class="text-rose-600 text-[10px] font-semibold mt-0.5">
+                        {{ form.notes.errors.0 }}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Active Checkbox -->
+        <div class="flex items-center gap-2 pt-0.5">
+            {{ form.is_active }}
+            <label for="{{ form.is_active.id_for_label }}" class="text-[11px] font-semibold text-slate-700 cursor-pointer">
+                Account Active
+            </label>
+            {% if form.is_active.errors %}
+                <span class="text-rose-600 text-[10px] font-semibold ml-2">
+                    {{ form.is_active.errors.0 }}
+                </span>
+            {% endif %}
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <a href="{% url 'account_holder_list' %}" class="px-3 py-1 border border-slate-200 text-slate-600 font-bold text-xs rounded-lg hover:bg-slate-50 transition">
+                Cancel
+            </a>
+            <button type="submit" class="px-3.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition">
+                Save Account Holder
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,173 +1,91 @@
-
 {% extends 'pipeline/base.html' %}
 
-{% block main  %}
+{% block title %}Issue Stock Release | Nonda{% endblock %}
+{% block breadcrumb %}Fulfillment / Issue Stock Release{% endblock %}
+{% block page_title %}Issue Stock Release{% endblock %}
 
- <form method="POST" action="#" id="unifiedIntakeForm" class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-5">
-            {% csrf_token %}
-            
-            <div>
-                <label for="product_name" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
-                    Material Item Name 
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <form method="POST" id="unifiedIntakeForm" class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-5">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <!-- Target Account Holder -->
+        <div>
+            <div class="flex items-center justify-between mb-2">
+                <label for="{{ form.released_to.id_for_label }}" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                    Assign To (Account Holder) *
                 </label>
-                <input 
-                    type="text" 
-                    name="name" 
-                    id="product_name" 
-                    value="{{ product.name|default:'' }}" 
-                    list="existing-products-list" 
-                    autocomplete="off" 
-                    required 
-                    placeholder="e.g.,Nyanja blend)" 
-                    oninput="handleProductSelection()"
-                    class="w-full px-3 py-2.5 bg-slate-50/50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                >
-                
-                <span class="text-[9px] text-slate-400 font-semibold block mt-1.5 leading-normal">
-                    Typing matching descriptions restocks current lines; custom inputs auto-generate new unique stock definitions.
-                </span>
+                <!-- Shortcut to create an account without losing their place -->
+                <a href="{% url 'account_holder_create' %}" target="_blank" class="text-[10px] font-bold text-emerald-600 hover:underline">
+                    + Create New
+                </a>
+            </div>
+            {{ form.released_to }}
+            {% if form.released_to.errors %}
+                <p class="text-[11px] text-rose-600 mt-1 font-medium">{{ form.released_to.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Product Selection -->
+        <div>
+            <label for="{{ form.product.id_for_label }}" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
+                Packaged Product *
+            </label>
+            {{ form.product }}
+            {% if form.product.errors %}
+                <p class="text-[11px] text-rose-600 mt-1 font-medium">{{ form.product.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Quantity & Price -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+                <label for="{{ form.packs_out.id_for_label }}" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
+                    Packs Quantity *
+                </label>
+                {{ form.packs_out }}
+                {% if form.packs_out.errors %}
+                    <p class="text-[11px] text-rose-600 mt-1 font-medium">{{ form.packs_out.errors.0 }}</p>
+                {% endif %}
             </div>
 
             <div>
-                <label for="category" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
-                    Stock Classification Group 
+                <label for="{{ form.selling_price.id_for_label }}" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
+                    Selling Price (Per Pack UGX) *
                 </label>
-                
-                
-                </div>
+                {{ form.selling_price }}
+                {% if form.selling_price.errors %}
+                    <p class="text-[11px] text-rose-600 mt-1 font-medium">{{ form.selling_price.errors.0 }}</p>
+                {% endif %}
+            </div>
+        </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                    <label for="quantity" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
-                        Quantity Appending *
-                    </label>
-                    <input 
-                        type="number" 
-                        name="quantity" 
-                        id="quantity" 
-                        min="1" 
-                        required 
-                        placeholder="e.g., 150" 
-                        oninput="calculateFinancialTotals()"
-                        class="w-full px-3 py-2.5 bg-slate-50/50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                    >
-                </div>
-                <div>
-                
-                    </label>
-    <input 
-        type="number" 
-        name="reorder_level" 
-        id="reorder_level"
-        value="{{ product.reorder_level|default:'10' }}" 
-        min="0" 
-        required
-        oninput="calculateFinancialTotals()" class="w-full px-3 py-2.5 bg-slate-50/50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-    >
+        <!-- Notes -->
+        <div>
+            <label for="{{ form.notes.id_for_label }}" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
+                Dispatch Particulars / Notes
+            </label>
+            {{ form.notes }}
+            {% if form.notes.errors %}
+                <p class="text-[11px] text-rose-600 mt-1 font-medium">{{ form.notes.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <a href="{% url 'credit_control_ledger' %}" class="px-4 py-2 border border-slate-200 text-slate-600 font-bold text-xs rounded-lg hover:bg-slate-50 transition">
+                Cancel
+            </a>
+            <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition">
+                Confirm & Issue Packs
+            </button>
+        </div>
+    </form>
 </div>
-            </div>
-
-            <div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-               
-                <div>
-                    <label for="selling_price" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
-                        Active Retail Price (Selling UGX) 
-                    </label>
-                    <input 
-                        type="number" 
-                        name="selling_price" 
-                        id="selling_price" 
-                        value="{{ product.selling_price|default:'' }}" 
-                        min="0" 
-                        required 
-                        placeholder="Outbound base price" 
-                        oninput="calculateFinancialTotals()"
-                        class="w-full px-3 py-2.5 bg-slate-50/50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                    >
-                </div>
-            </div>
-
-            <div class="border-t border-slate-100 pt-4 space-y-3">
-                <div class="flex items-center gap-2.5 bg-blue-50/40 border border-blue-100/50 p-4 rounded-xl">
-                    <input 
-                        type="checkbox" 
-                        name="is_credit" 
-                        id="is_credit" 
-                        class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/40 h-4 w-4 bg-white cursor-pointer" 
-                        onchange="toggleCreditSubform()"
-                    >
-                    <label for="is_credit" class="text-[10px] font-black text-slate-700 uppercase tracking-wider select-none cursor-pointer">
-                        This shipment arrived via Supplier Credit Scheme
-                    </label>
-                </div>
-
-                <div id="creditSubFormFields" class="hidden space-y-4 bg-slate-50 border border-slate-200 p-5 rounded-xl transition-all duration-200 text-slate-800">
-                    
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label for="supplier_id" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
-                                Sourcing Supplier Profile
-                            </label>
-
-                            </select>
-                        </div>
-                        
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                        <div class="bg-white border border-slate-200 rounded-lg p-3 relative overflow-hidden shadow-xs">
-                            <div class="absolute top-0 left-0 w-0.5 h-full bg-blue-500"></div>
-                            <span class="block text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Total Valuation</span>
-                            <div id="display_total_cost" class="text-xs font-bold text-blue-600 font-mono">UGX 0</div>
-                        </div>
-                        <div class="bg-white border border-slate-200 rounded-lg p-3 shadow-xs">
-                            <label for="amount_paid" class="block text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1">Immediate Outlay (Paid)</label>
-                            <input 
-                                type="number" 
-                                name="amount_paid" 
-                                id="amount_paid" 
-                                value="0" 
-                                min="0" 
-                                oninput="calculateFinancialTotals()"
-                                class="w-full bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-xs font-bold text-slate-800 font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                            >
-                        </div>
-                        <div class="bg-white border border-slate-200 rounded-lg p-3 relative overflow-hidden shadow-xs">
-                            <div class="absolute top-0 left-0 w-0.5 h-full bg-rose-500"></div>
-                            <span class="block text-[9px] font-black text-rose-500 uppercase tracking-wider mb-1">Outstanding Debt</span>
-                            <div id="display_balance_owed" class="text-xs font-black text-rose-600 font-mono">UGX 0</div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="notes" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Procurement Log Notes</label>
-                        <textarea 
-                            name="notes" 
-                            id="notes" 
-                            rows="2" 
-                            placeholder="Describe procurement terms, freight updates, or damage allowances..." 
-                            class="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                        ></textarea>
-                    </div>
-                </div>
-            </div>
-
-            <div id="priceWarning" class="hidden p-4 bg-rose-50 border border-rose-100 text-rose-800 rounded-lg text-[11px] font-bold items-center gap-2">
-              <span class="text-rose-600 font-black"> COMPLIANCE FAULT:</span> Selling price parameter must be strictly higher than the base inbound warehouse product unit cost.
-            </div>
-
-            <div class="pt-2">
-                <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded-lg text-xs uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer">
-                     
-                </button>
-            </div>
-        </form>
-
 {% endblock %}
-
-
-

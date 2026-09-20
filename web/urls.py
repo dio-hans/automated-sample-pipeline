@@ -1,6 +1,5 @@
 from .views import ManagementReportsView
 from django.urls import path
-
 from . import sales_views, views
 
 urlpatterns = [
@@ -114,4 +113,16 @@ urlpatterns = [
 
 path("stock-requests/<int:pk>/add-item/",views.add_item_to_request_view,name="stock_request_add_item",),
 path("reports/",ManagementReportsView.as_view(),name="reports",),
+
+#account holder urls
+path('accounts/', views.account_holder_list, name='account_holder_list'),
+path('accounts/create/', views.account_holder_create, name='account_holder_create'),
+path('accounts/<int:pk>/', views.account_holder_detail, name='account_holder_detail'),
+
+# # Add these to web/urls.py
+
+path("sales/consignments/", sales_views.ConsignmentListView.as_view(), name="consignment_list"),
+path("sales/consignments/<int:pk>/", sales_views.ConsignmentDetailView.as_view(), name="consignment_detail"),
+path("sales/consignments/<int:pk>/audit/", sales_views.ConsignmentAuditView.as_view(), name="consignment_audit"),
+
 ]

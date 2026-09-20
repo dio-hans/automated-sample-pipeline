@@ -23,12 +23,6 @@ class Coffee_type(models.TextChoices):
     ROBUSTA = 'robusta', 'Robusta'
 
 
-# Place these imports at the top of models.py
-from django.db import models
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-
-
 class Company(models.Model):
     name = models.CharField(max_length=250, unique=True)
     country = models.CharField(max_length=250, unique=False)
@@ -66,7 +60,6 @@ class Company(models.Model):
         return self.name
 
 
-# Signal defined outside the model class
 @receiver(post_save, sender=Company)
 def ensure_company_has_account_holder(sender, instance, created, **kwargs):
     """Automatically creates an AccountHolder ledger whenever a Company is created."""
@@ -80,6 +73,7 @@ def ensure_company_has_account_holder(sender, instance, created, **kwargs):
             }
         )
         Company.objects.filter(pk=instance.pk).update(account_holder=account)
+
 
 class CompanyBranch(models.Model):
     company = models.ForeignKey(
@@ -95,8 +89,6 @@ class CompanyBranch(models.Model):
     contact_person = models.CharField(max_length=100, blank=True)
     phone_number = models.CharField(max_length=30, blank=True)
     is_active = models.BooleanField(default=True)
-
-    # Helper methods inside CompanyBranch model
 
     def get_stock_level(self, product, stock_location=None):
         """
@@ -114,7 +106,6 @@ class CompanyBranch(models.Model):
 
     def __str__(self):
         return f"{self.company.name} - {self.branch_name}"
-    
 
 
 class BranchStockLedger(models.Model):
@@ -136,7 +127,7 @@ class BranchStockLedger(models.Model):
         on_delete=models.CASCADE, 
         related_name="stock_ledger_entries"
     )
-    product = models.ForeignKey('Product', on_delete=models.PROTECT)
+    product = models.ForeignKey('PackagedProduct', on_delete=models.PROTECT)
     stock_location = models.CharField(max_length=20, choices=LOCATION_CHOICES, default="shelf")
     transaction_type = models.CharField(max_length=30, choices=TRANSACTION_TYPES)
     
@@ -153,66 +144,123 @@ class BranchStockLedger(models.Model):
     def __str__(self):
         return f"{self.branch} | {self.product} | {self.transaction_type}: {self.quantity}"
 
-#stock consignement inventorr/ tracking stock sitting on shelves
+
 class ConsignmentInventory(models.Model):
-    company = models.ForeignKey(
-        Company, 
+    """
+    Tracks real-time stock sitting at a specific branch on consignment.
+    Mapped per Branch (not just Company) to support multi-branch supermarket chains.
+    """
+    branch = models.ForeignKey(
+        CompanyBranch, 
         on_delete=models.CASCADE, 
-        related_name="display_inventories"
+        related_name="consignment_inventories",
+        null=True,
+        blank=True,
     )
     product = models.ForeignKey(
-        'Product', 
+        'PackagedProduct', 
         on_delete=models.PROTECT, 
         related_name="consignment_inventories"
     )
-    current_display_quantity = models.PositiveIntegerField(
+    current_shelf_quantity = models.PositiveIntegerField(
         default=0,
-        help_text="Units currently sitting on the supermarket shelf/display."
+        help_text="Units sitting on active retail shelf display."
+    )
+    current_backroom_quantity = models.PositiveIntegerField(
+        default=0,
+        help_text="Units sitting in branch store room."
     )
     last_audited_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        unique_together = ("company", "product")
+        unique_together = ("branch", "product")
+        verbose_name_plural = "Consignment Inventories"
+
+    @property
+    def total_consignment_stock(self):
+        return self.current_shelf_quantity + self.current_backroom_quantity
 
     def __str__(self):
-        return f"{self.company.name} - {self.product}: {self.current_display_quantity} units on display"
+        return f"{self.branch} - {self.product}: {self.total_consignment_stock} units on site"
+
 
 class StockAudit(models.Model):
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="audits")
-    audited_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name="audits",
+    )
+    branch = models.ForeignKey(
+        "CompanyBranch",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="audits",
+    )
+    audited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+    )
     audit_date = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, default="")
 
     def __str__(self):
-        return f"Audit for {self.company.name} on {self.audit_date.strftime('%Y-%m-%d')}"
+        target = self.branch or self.company
+        return f"Audit for {target} on {self.audit_date.strftime('%Y-%m-%d')}"
+
 
 
 class StockAuditItem(models.Model):
+    """
+    Itemized audit line comparing expected ledger levels against physical counts
+    across shelf and backroom locations.
+    """
     audit = models.ForeignKey(StockAudit, on_delete=models.CASCADE, related_name="items")
-    product = models.ForeignKey('Product', on_delete=models.PROTECT)
+    product = models.ForeignKey('PackagedProduct', on_delete=models.PROTECT)
     
-    expected_quantity = models.PositiveIntegerField(
-        help_text="Quantity system expected based on previous deliveries."
-    )
-    actual_physical_count = models.PositiveIntegerField(
-        help_text="Physical count on shelf entered by sales rep."
-    )
+    # Detailed Expected Counts
+    expected_shelf = models.PositiveIntegerField(default=0)
+    expected_backroom = models.PositiveIntegerField(default=0)
+
+    # Detailed Actual Physical Counts (Entered by Auditor)
+    actual_shelf = models.PositiveIntegerField(default=0)
+    actual_backroom = models.PositiveIntegerField(default=0)
+
+    # Reconciled Quantities
     quantity_sold = models.PositiveIntegerField(
         default=0,
-        help_text="Calculated: Expected minus Actual Physical Count."
+        help_text="Calculated units sold: (Expected Total - Actual Total - Shrinkage)"
     )
-    selling_price = models.DecimalField(max_digits=12, decimal_places=2)
-    calculated_amount_due = models.DecimalField(max_digits=12, decimal_places=2)
+    shrinkage_quantity = models.PositiveIntegerField(
+        default=0,
+        help_text="Damaged, expired, or missing stock identified during audit"
+    )
+
+    selling_price = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    calculated_amount_due = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+
+    @property
+    def expected_total(self):
+        return self.expected_shelf + self.expected_backroom
+
+    @property
+    def actual_total(self):
+        return self.actual_shelf + self.actual_backroom
 
     def save(self, *args, **kwargs):
-        # Automatically calculate quantity sold and balance due
-        if self.expected_quantity >= self.actual_physical_count:
-            self.quantity_sold = self.expected_quantity - self.actual_physical_count
+        # Automatically calculate quantity sold and billable debt
+        net_unaccounted = self.expected_total - self.actual_total
+        
+        if net_unaccounted > self.shrinkage_quantity:
+            self.quantity_sold = net_unaccounted - self.shrinkage_quantity
         else:
-            self.quantity_sold = 0  # Handling over-stock anomaly if any
-            
+            self.quantity_sold = 0  # Prevents negative values on over-stock anomalies
+
         self.calculated_amount_due = self.quantity_sold * self.selling_price
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.audit.branch} | {self.product}: {self.quantity_sold} Sold"
 
 # --- 2. INVENTORY & STOCK ---
 
@@ -1041,6 +1089,78 @@ class PackagedProduct(models.Model):
             f"({self.form})"
         )
 
+class StockRequest(models.Model):
+    DESTINATION_CHOICES = (
+        ("company", "Company / Supermarket"),
+        ("agent_float", "Sales Agent Stock / Float"),
+        ("direct_restaurant", "Direct Restaurant / Café Sale"),
+        ("event_display", "Event / Exhibition"),
+    )
+
+    PURPOSE_CHOICES = (
+        ("sale", "For Sale"),
+        ("display", "Display"),
+        ("sampling", "Sampling"),
+        ("event", "Event"),
+        ("field_agent", "Field Agent Stock"),
+        ("other", "Other"),
+    )
+
+    STATUS_CHOICES = (
+        ("pending", "Pending"),
+        ("partially_fulfilled", "Partially Fulfilled"),
+        ("fulfilled", "Fulfilled"),
+        ("cancelled", "Cancelled"),
+    )
+
+    request_number = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="stock_requests",
+    )
+
+    account_holder = models.ForeignKey(
+        'AccountHolder', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name="stock_requests",
+        help_text="The individual/account responsible for taking and paying for this stock."
+    )
+    destination_type = models.CharField(
+        max_length=30, 
+        choices=DESTINATION_CHOICES, 
+        default="agent_float"
+    )
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_requests",
+    )
+    purpose = models.CharField(max_length=20, choices=PURPOSE_CHOICES, default="sale")
+    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default="pending")
+    notes = models.TextField(blank=True)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    fulfilled_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-requested_at"]
+
+    def __str__(self):
+        return f"Request {str(self.request_number)[:8]} — {self.requested_by}"
+
+    @property
+    def short_number(self):
+        return str(self.request_number).split("-")[0].upper()
+
+    @property
+    def is_fully_issued(self):
+        items = list(self.items.all())
+        return bool(items) and all(item.outstanding_quantity == 0 for item in items)
+
 
 # 5. PACKAGING RUN
 class PackagingRun(models.Model):
@@ -1256,6 +1376,7 @@ class AccountHolder(models.Model):
     )
 
     is_active = models.BooleanField(default=True)
+    email = models.EmailField(blank=True, null=True)
 
     notes = models.TextField(blank=True, default="")
 
@@ -1268,11 +1389,134 @@ class AccountHolder(models.Model):
     def __str__(self):
         return self.name
 
+from django.db import models
+from django.conf import settings
+from decimal import Decimal
+
+class EventExecution(models.Model):
+    """
+    Tracks a specific pop-up event or concert execution.
+    """
+    STATUS_CHOICES = (
+        ('draft', 'Draft / Planning'),
+        ('dispatched', 'Stock Dispatched'),
+        ('reconciled', 'Reconciled & Closed'),
+    )
+
+    name = models.CharField(max_length=200, help_text="e.g., Blankets & Wine September Edition")
+    location = models.CharField(max_length=250, blank=True)
+    event_date = models.DateField()
+    lead_attendant = models.ForeignKey(
+        'web.AccountHolder',
+        on_delete=models.PROTECT,
+        related_name="managed_events"
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    
+    # Financial Summaries (Calculated upon reconciliation)
+    total_cash_collected = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    total_momo_collected = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    notes = models.TextField(blank=True, default="")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.event_date})"
+
+    # --- NEW FINANCE-READY PROPERTIES ---
+    
+    @property
+    def total_actual_revenue(self):
+        """Total hard cash physically brought back by the attendant."""
+        return self.total_cash_collected + self.total_momo_collected
+
+    @property
+    def total_expected_revenue(self):
+        """Sum of expected sales calculated from individual item logs."""
+        return sum(item.expected_revenue for item in self.items.all())
+
+    @property
+    def total_event_cogs(self):
+        """Sum of the raw cost values of all inventory consumed at the event."""
+        return sum(item.total_consumed_cost for item in self.items.all())
+
+    @property
+    def gross_profit(self):
+        """Actual financial returns generated after accounting for ingredient costs."""
+        return self.total_actual_revenue - self.total_event_cogs
+
+    @property
+    def revenue_variance(self):
+        """
+        Calculates cash discrepancies. 
+        Negative values mean money went missing. Positive values mean an overage.
+        """
+        return self.total_actual_revenue - self.total_expected_revenue
+
+
+class EventItemReconciliation(models.Model):
+    """
+    Tracks itemization per product issued for the event.
+    """
+    event = models.ForeignKey(EventExecution, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey('PackagedProduct', on_delete=models.PROTECT)
+
+    # Issued from warehouse
+    quantity_issued = models.PositiveIntegerField(default=0)
+    
+    # NEW FEATURE: Snapshot cost at dispatch time to protect against future price changes
+    unit_cost_price = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="The raw production/purchase cost per pack for margin calculation"
+    )
+
+    # Reconciliation Breakdown
+    quantity_sold_retail = models.PositiveIntegerField(default=0, help_text="Packs sold sealed to retail customers")
+    unit_sale_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+
+    quantity_brewed = models.PositiveIntegerField(default=0, help_text="Packs opened for cup sales/brewing")
+    cups_sold = models.PositiveIntegerField(default=0, help_text="Total cups sold from brewed packs")
+    cup_sale_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+
+    quantity_sampled = models.PositiveIntegerField(default=0, help_text="Packs used for free samples / promo")
+    quantity_returned = models.PositiveIntegerField(default=0, help_text="Sealed packs returned back to inventory")
+
+    @property
+    def expected_revenue(self):
+        retail_rev = self.quantity_sold_retail * self.unit_sale_price
+        cup_rev = self.cups_sold * self.cup_sale_price
+        return retail_rev + cup_rev
+
+    @property
+    def total_accounted_packs(self):
+        return self.quantity_sold_retail + self.quantity_brewed + self.quantity_sampled + self.quantity_returned
+
+    @property
+    def variance(self):
+        """Discrepancy between stock taken out vs accounted for"""
+        return self.quantity_issued - self.total_accounted_packs
+
+    # --- NEW STRATEGIC COST TRACKING PROPERTIES ---
+
+    @property
+    def total_consumed_packs(self):
+        """Packs that left the warehouse and were NOT returned."""
+        return self.quantity_issued - self.quantity_returned
+
+    @property
+    def total_consumed_cost(self):
+        """Financial cost value of inventory used up (sold, brewed, sampled, or lost)."""
+        return self.total_consumed_packs * self.unit_cost_price
+
+
 class PackRelease(models.Model):
     STATUS_CHOICES = (
         ("released", "Released"),
         ("partially_returned", "Partially Returned"),
         ("fully_returned", "Fully Returned"),
+        ("settled", "Paid / Settled"),
     )
 
     PAYMENT_METHOD_CHOICES = (
@@ -1306,6 +1550,24 @@ class PackRelease(models.Model):
 
     packs_out = models.PositiveIntegerField()
 
+    billable_packs = models.PositiveIntegerField(
+    default=0,
+    help_text=(
+        "Units that have actually become billable. For normal sales this "
+        "defaults to packs_out in the property below; for display/consignment "
+        "this is increased by supermarket audits."
+    ),
+)
+
+
+    company = models.ForeignKey(
+        'Company',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pack_releases",
+    )
+
     selling_price = models.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -1330,6 +1592,12 @@ class PackRelease(models.Model):
     )
 
     notes = models.TextField(blank=True, default="")
+
+    purpose = models.CharField(
+        max_length=20, 
+        choices=StockRequest.PURPOSE_CHOICES, 
+        default="sale"
+    )
 
     @property
     def released_to_user(self):
@@ -1375,15 +1643,23 @@ class PackRelease(models.Model):
         )
 
     @property
-    def gross_amount(self):
-        return Decimal(self.packs_out) * self.selling_price
+    def billable_quantity(self):
+        if self.purpose == "display":
+            return self.billable_packs
+        return self.packs_out
 
     @property
     def return_credit(self):
+        # Display/consignment stock was never charged merely because it was
+        # delivered, so returning unsold display stock does not create a credit.
+        if self.purpose == "display":
+            return Decimal("0.00")
+
         return sum(
             ret.financial_credit
             for ret in self.returns.all()
         )
+
 
     @property
     def net_amount_due(self):
@@ -1394,11 +1670,11 @@ class PackRelease(models.Model):
 
     @property
     def total_amount_paid(self):
-        total = self.payments.aggregate(
-            total=models.Sum("amount")
-        )["total"]
+        try:
+            return self.settlement.amount_paid
+        except PackSettlement.DoesNotExist:
+            return Decimal("0.00")
 
-        return total or Decimal("0.00")
 
     @property
     def outstanding_balance(self):
@@ -1406,7 +1682,11 @@ class PackRelease(models.Model):
             self.net_amount_due - self.total_amount_paid,
             Decimal("0.00"),
         )
-
+    @property
+    def gross_amount(self):
+        """Calculates total gross monetary value of the released packs before returns."""
+        return Decimal(self.billable_quantity) * self.selling_price
+    
     @property
     def payment_status(self):
         if self.outstanding_balance <= Decimal("0.00"):
@@ -1580,66 +1860,6 @@ class PackReturn(models.Model):
         return Decimal("0.00")
 
 # 9. INTERNAL SALES STOCK REQUEST
-class StockRequest(models.Model):
-    PURPOSE_CHOICES = (
-        ("sale", "For Sale"),
-        ("display", "Display"),
-        ("sampling", "Sampling"),
-        ("event", "Event"),
-        ("field_agent", "Field Agent Stock")
-        ("other", "Other"),
-    )
-
-    STATUS_CHOICES = (
-        ("pending", "Pending"),
-        ("partially_fulfilled", "Partially Fulfilled"),
-        ("fulfilled", "Fulfilled"),
-        ("cancelled", "Cancelled"),
-    )
-
-    request_number = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
-    requested_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name="stock_requests",
-    )
-
-    account_holder = models.ForeignKey(
-        'AccountHolder', 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
-        related_name="stock_requests",
-        help_text="The individual/account responsible for taking and paying for this stock."
-    )
-    company = models.ForeignKey(
-        Company,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="stock_requests",
-    )
-    purpose = models.CharField(max_length=20, choices=PURPOSE_CHOICES, default="sale")
-    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default="pending")
-    notes = models.TextField(blank=True)
-    requested_at = models.DateTimeField(auto_now_add=True)
-    fulfilled_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        ordering = ["-requested_at"]
-
-    def __str__(self):
-        return f"Request {str(self.request_number)[:8]} — {self.requested_by}"
-
-    @property
-    def short_number(self):
-        return str(self.request_number).split("-")[0].upper()
-
-    @property
-    def is_fully_issued(self):
-        items = list(self.items.all())
-        return bool(items) and all(item.outstanding_quantity == 0 for item in items)
-
 
 class StockRequestItem(models.Model):
     request = models.ForeignKey(
@@ -1710,17 +1930,22 @@ class PackSettlement(models.Model):
     class Meta:
         ordering = ["-cleared_at"]
 
-    @property
-    def amount_due(self):
-        return Decimal(self.packs_sold) * self.release.selling_price
+    def __str__(self):
+        return (
+            f"UGX {self.amount_paid:,.0f} — "
+            f"{self.release.recipient_name} — "
+            f"{self.get_payment_method_display()}"
+        )
+
 
     @property
-    def balance(self):
-        return max(self.amount_due - self.amount_paid, Decimal("0.00"))
+    def balance_after_payment(self):
+        return self.release.outstanding_balance
 
     @property
     def is_cleared(self):
-        return self.status == "cleared" and self.balance == 0
+        return self.balance_after_payment <= Decimal("0.00")
+
 
 
 # 9. ROASTED SACK SALE  (occasional bulk roasted sale)

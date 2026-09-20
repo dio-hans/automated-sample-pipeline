@@ -6,285 +6,195 @@
 {% block page_title %}Receive Returned Stock{% endblock %}
 
 {% block page_subtitle %}
-<p class="mt-1 text-sm text-slate-500">
-    Record packaged coffee returned from the account holder and update the
-    quantity of stock physically received back into store.
+<p class="mt-0.5 text-xs text-slate-500">
+    Record packaged coffee returned from the account holder and update store stock.
 </p>
 {% endblock %}
 
 {% block header_action %}
 <a href="{% url 'credit_control_ledger' %}"
-   class="inline-flex items-center gap-2
-          px-4 py-2.5
-          rounded-lg
-          border border-line
-          bg-white
-          text-slate-700
-          text-xs
-          font-semibold
-          hover:bg-slate-50
-          transition
-          shadow-sm">
+   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 transition shadow-sm">
     View Credit Ledger
 </a>
 {% endblock %}
 
-
 {% block content %}
-
-<div class="max-w-4xl mx-auto space-y-6">
-
-    <!-- =========================================================
-         RELEASE ACCOUNTABILITY SUMMARY
-         ========================================================= -->
-    <div class="bg-white
-                border border-line
-                rounded-xl
-                shadow-sm
-                overflow-hidden">
-
-        <div class="px-6 py-5
-                    border-b border-line
-                    bg-slate-50/50">
-
-            <p class="text-[10px]
-                      uppercase
-                      tracking-wider
-                      font-bold
-                      text-slate-400">
-                Return Against Release
-            </p>
-
-            <h2 class="mt-1
-                       font-display
-                       text-xl
-                       font-bold
-                       text-slate-800">
-                {{ release.released_to }}
-            </h2>
-
-            <p class="mt-1
-                      text-xs
-                      text-slate-500
-                      font-semibold">
-                Product:
-                <span class="text-slate-800">
-                    {{ release.product }}
-                </span>
-            </p>
-
-
-            <!-- Release quantities -->
-            <div class="mt-5
-                        grid
-                        grid-cols-2
-                        sm:grid-cols-4
-                        gap-4">
-
-                <!-- Total issued -->
-                <div class="p-3
-                            bg-white
-                            border border-line
-                            rounded-xl">
-
-                    <p class="text-[10px]
-                              uppercase
-                              tracking-wider
-                              font-bold
-                              text-slate-400">
-                        Total Issued
+<div class="max-w-5xl mx-auto">
+    <!-- MAIN CONTAINER CARD -->
+    <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+        
+        <div class="p-4 space-y-4">
+            <!-- TOP SECTION: ACCOUNTABILITY SUMMARY & METRICS -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-50/70 p-3 rounded-lg border border-slate-200">
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                        Return Against Release
                     </p>
-
-                    <p class="mt-1
-                              text-sm
-                              font-bold
-                              text-slate-800">
-                        {{ release.packs_out }} packs
+                    <h2 class="text-base font-bold text-slate-800 leading-tight">
+                        {{ release.released_to }}
+                    </h2>
+                    <p class="text-xs text-slate-500 font-medium mt-0.5">
+                        Product: <span class="text-slate-800 font-semibold">{{ release.product }}</span>
                     </p>
-
                 </div>
 
+                <!-- METRICS IN A SINGLE LINE -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <!-- Total Issued -->
+                    <div class="px-3 py-1.5 bg-white border border-slate-200 rounded-md">
+                        <p class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Issued</p>
+                        <p class="text-xs font-bold text-slate-800 mt-0.5">{{ release.packs_out }} packs</p>
+                    </div>
 
-                <!-- Already returned -->
-                <div class="p-3
-                            bg-white
-                            border border-line
-                            rounded-xl">
+                    <!-- Already Returned -->
+                    <div class="px-3 py-1.5 bg-white border border-slate-200 rounded-md">
+                        <p class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Returned</p>
+                        <p class="text-xs font-bold text-slate-800 mt-0.5">{{ release.packs_returned }} packs</p>
+                    </div>
 
-                    <p class="text-[10px]
-                              uppercase
-                              tracking-wider
-                              font-bold
-                              text-slate-400">
-                        Already Returned
-                    </p>
+                    <!-- Available to Return -->
+                    <div class="px-3 py-1.5 bg-amber-50/50 border border-amber-200 rounded-md">
+                        <p class="text-[9px] uppercase tracking-wider font-bold text-amber-600">Available</p>
+                        <p class="text-xs font-black text-amber-700 mt-0.5">{{ release.packs_outstanding }} packs</p>
+                    </div>
 
-                    <p class="mt-1
-                              text-sm
-                              font-bold
-                              text-slate-800">
-                        {{ release.packs_returned }} packs
-                    </p>
-
+                    <!-- Balance -->
+                    <div class="px-3 py-1.5 bg-rose-50/50 border border-rose-200 rounded-md">
+                        <p class="text-[9px] uppercase tracking-wider font-bold text-rose-500">Balance</p>
+                        <p class="text-xs font-black text-rose-600 mt-0.5">UGX {{ release.outstanding_balance|intcomma }}</p>
+                    </div>
                 </div>
-
-
-                <!-- Available to return -->
-                <div class="p-3
-                            bg-amber-50/40
-                            border border-amber-200
-                            rounded-xl">
-
-                    <p class="text-[10px]
-                              uppercase
-                              tracking-wider
-                              font-bold
-                              text-amber-600">
-                        Available to Return
-                    </p>
-
-                    <p class="mt-1
-                              text-sm
-                              font-black
-                              text-amber-700">
-                        {{ release.packs_outstanding }} packs
-                    </p>
-
-                </div>
-
-
-                <!-- Balance -->
-                <div class="p-3
-                            bg-rose-50/40
-                            border border-rose-200
-                            rounded-xl">
-
-                    <p class="text-[10px]
-                              uppercase
-                              tracking-wider
-                              font-bold
-                              text-rose-500">
-                        Current Balance
-                    </p>
-
-                    <p class="mt-1
-                              text-sm
-                              font-black
-                              text-rose-600">
-                        UGX {{ release.outstanding_balance|intcomma }}
-                    </p>
-
-                </div>
-
             </div>
 
+            <!-- BOTTOM SECTION: SIDE-BY-SIDE FORM -->
+            <form method="post" class="space-y-3">
+                {% csrf_token %}
+
+                <!-- Non-field Errors -->
+                {% if form.non_field_errors %}
+                    <div class="rounded-md border border-rose-200 bg-rose-50 p-2 text-xs font-semibold text-rose-700">
+                        <p class="font-bold uppercase tracking-wider text-[9px] mb-0.5">Form Error</p>
+                        {% for error in form.non_field_errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <!-- 2-COLUMN GRID FOR FORM FIELDS -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Packs Returned Field -->
+                    {% if form.packs_returned %}
+                    <div>
+                        <label for="{{ form.packs_returned.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
+                            {{ form.packs_returned.label|default:"Packs Returned" }}
+                        </label>
+                        {{ form.packs_returned }}
+                        {% if form.packs_returned.errors %}
+                            {% for error in form.packs_returned.errors %}
+                                <p class="mt-1 text-[11px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
+                                    {{ error }}
+                                </p>
+                            {% endfor %}
+                        {% endif %}
+                        <p class="mt-1 text-[10px] text-slate-400">
+                            Max returnable: <strong class="text-slate-600">{{ release.packs_outstanding }} packs</strong>
+                        </p>
+                    </div>
+                    {% endif %}
+
+                    <!-- Condition Field -->
+                    {% if form.condition %}
+                    <div>
+                        <label for="{{ form.condition.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
+                            {{ form.condition.label|default:"Condition" }}
+                        </label>
+                        {{ form.condition }}
+                        {% if form.condition.errors %}
+                            {% for error in form.condition.errors %}
+                                <p class="mt-1 text-[11px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
+                                    {{ error }}
+                                </p>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Disposition Field -->
+                    {% if form.disposition %}
+                    <div>
+                        <label for="{{ form.disposition.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
+                            {{ form.disposition.label|default:"Disposition" }}
+                        </label>
+                        {{ form.disposition }}
+                        {% if form.disposition.errors %}
+                            {% for error in form.disposition.errors %}
+                                <p class="mt-1 text-[11px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
+                                    {{ error }}
+                                </p>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Reason / Additional Field (if defined on model/form) -->
+                    {% if form.reason %}
+                    <div>
+                        <label for="{{ form.reason.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
+                            {{ form.reason.label|default:"Reason" }}
+                        </label>
+                        {{ form.reason }}
+                        {% if form.reason.errors %}
+                            {% for error in form.reason.errors %}
+                                <p class="mt-1 text-[11px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
+                                    {{ error }}
+                                </p>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- CONTROL WARNING NOTE & ACTIONS -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-100 mt-2">
+                    <div class="text-[11px] text-amber-800 bg-amber-50/50 border border-amber-200/80 px-2.5 py-1.5 rounded-md">
+                        This action returns accepted units to store inventory and updates <strong>{{ release.packs_outstanding }}</strong> outstanding packs.
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 shrink-0">
+                        <a href="{% url 'credit_control_ledger' %}" class="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+                            Cancel
+                        </a>
+                        <button type="submit" class="px-4 py-1.5 rounded-md bg-rust hover:bg-rust/90 text-white text-xs font-bold shadow-sm transition active:scale-95">
+                            Record Return
+                        </button>
+                    </div>
+                </div>
+            </form>
         </div>
 
-
-        <!-- =====================================================
-             RETURN FORM
-             ===================================================== -->
-        <!-- =====================================================
-     RETURN FORM FIELDS (AUTOMATED LOOP)
-     ===================================================== -->
-<form method="post" class="p-6 space-y-5">
-    {% csrf_token %}
-    
-    <!-- Global errors -->
-    {% if form.non_field_errors %}
-        <div class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-700">
-            <p class="font-bold uppercase tracking-wider text-[10px] mb-1">Form Error</p>
-            {% for error in form.non_field_errors %}
-                <p>{{ error }}</p>
-            {% endfor %}
-        </div>
-    {% endif %}
-
-    <!-- 🔄 DYNAMICALLY LOOP THROUGH ALL FIELDS -->
-    {% for field in form %}
-        <div>
-            <label for="{{ field.id_for_label }}" class="block text-xs uppercase tracking-wider font-bold text-slate-600 mb-1.5">
-                {{ field.label }}
-            </label>
-            
-            {{ field }}
-            
-            <!-- Show specific errors right under the field if it fails validation -->
-            {% if field.errors %}
-                {% for error in field.errors %}
-                    <p class="mt-1.5 text-xs text-rose-600 font-bold bg-rose-50/50 px-2 py-1 rounded border border-rose-100">
-                        {{ error }}
-                    </p>
-                {% endfor %}
-            {% endif %}
-
-            <!-- Special helper note specifically for the quantity field -->
-            {% if field.name == "packs_returned" %}
-                <p class="mt-1.5 text-[11px] text-slate-400">
-                    Maximum returnable quantity:
-                    <strong class="text-slate-600">
-                        {{ release.packs_outstanding }} packs
-                    </strong>
-                </p>
-            {% endif %}
-        </div>
-    {% endfor %}
-
-    <!-- =================================================
-         ACCOUNTING / STOCK WARNING
-         ================================================= -->
-    <div class="rounded-xl border border-dashed border-amber-200 bg-amber-50/40 p-4 text-xs text-amber-700 leading-relaxed">
-        <p class="font-bold text-amber-800 uppercase tracking-wider text-[10px] mb-1">Return Control</p>
-        This transaction will record <strong>{{ release.packs_outstanding }}</strong> currently outstanding packs against <strong>{{ release.released_to }}</strong> and return the accepted quantity to packaged inventory.
     </div>
-
-    <!-- =================================================
-         ACTIONS
-         ================================================= -->
-    <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-        <a href="{% url 'credit_control_ledger' %}" class="px-4 py-2.5 rounded-lg border border-line bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
-            Cancel
-        </a>
-        <button type="submit" class="px-5 py-2.5 rounded-lg bg-rust hover:bg-rust/90 text-white text-xs font-bold shadow-sm transition active:scale-95">
-            Record Return
-        </button>
-    </div>
-</form>
-
-
-    </div>
-
 </div>
 
-
-<!-- =============================================================
-     FORM STYLING
-     ============================================================= -->
+<!-- FORM INPUT STYLING SCRIPT -->
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-
     const inputs = document.querySelectorAll(
         "form input[type='text'], " +
         "form input[type='number'], " +
-        "form select, " +
-        "form textarea"
+        "form select"
     );
 
     inputs.forEach(function (input) {
-
         input.className =
             "w-full rounded-md " +
-            "border border-line " +
-            "px-3 py-2.5 " +
-            "bg-white text-sm " +
+            "border border-slate-200 " +
+            "px-2.5 py-1.5 " +
+            "bg-white text-xs text-slate-800 " +
             "focus:outline-none " +
             "focus:ring-2 focus:ring-rust " +
             "focus:border-rust " +
             "transition duration-150";
-
     });
-
 });
 </script>
-
 {% endblock %}

@@ -51,44 +51,36 @@
 
     <!-- 1. REQUEST DETAILS -->
 
-    <section class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm">
+   <section class="bg-white border border-slate-200 rounded-lg p-3.5 shadow-sm max-w-2xl">
+    <!-- SECTION HEADER -->
+    <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-700 border-b border-slate-100 pb-1.5 mb-2.5">
+        1. Request Details
+    </h2>
 
-        <h2 class="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">
-            1. Request Details
-        </h2>
+    <!-- FORM GRID -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+        {% for field in form %}
+            <div class="{% if field.name == 'notes' %}md:col-span-2{% endif %}">
+                <label for="{{ field.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
+                    {{ field.label }}
+                </label>
 
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-            {% for field in form %}
-
-                <div class="{% if field.name == 'notes' %}md:col-span-2{% endif %}">
-
-                    <label
-                        class="block text-xs font-semibold text-slate-600 mb-1"
-                        for="{{ field.id_for_label }}"
-                    >
-                        {{ field.label }}
-                    </label>
-
+                <!-- FIELD WRAPPER WITH DIRECT TAILWIND FOCUS / INPUT STYLING -->
+                <div class="[&_input]:w-full [&_input]:rounded-md [&_input]:border [&_input]:border-slate-200 [&_input]:px-2.5 [&_input]:py-1.5 [&_input]:text-xs [&_input]:text-slate-800 [&_input]:focus:outline-none [&_input]:focus:ring-2 [&_input]:focus:ring-rust [&_input]:focus:border-rust [&_select]:w-full [&_select]:rounded-md [&_select]:border [&_select]:border-slate-200 [&_select]:px-2.5 [&_select]:py-1.5 [&_select]:text-xs [&_select]:text-slate-800 [&_select]:focus:outline-none [&_select]:focus:ring-2 [&_select]:focus:ring-rust [&_select]:focus:border-rust [&_textarea]:w-full [&_textarea]:rounded-md [&_textarea]:border [&_textarea]:border-slate-200 [&_textarea]:px-2.5 [&_textarea]:py-1.5 [&_textarea]:text-xs [&_textarea]:text-slate-800 [&_textarea]:rows-2 [&_textarea]:focus:outline-none [&_textarea]:focus:ring-2 [&_textarea]:focus:ring-rust [&_textarea]:focus:border-rust">
                     {{ field }}
-
-                    {% for error in field.errors %}
-
-                        <p class="text-xs text-rust mt-1">
-                            {{ error }}
-                        </p>
-
-                    {% endfor %}
-
                 </div>
 
-            {% endfor %}
-
-        </div>
-
-    </section>
-
+                {% if field.errors %}
+                    {% for error in field.errors %}
+                        <p class="mt-1 text-[11px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</section>
 
 
     <!-- 2. ERP WORKSPACE -->
