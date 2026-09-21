@@ -63,12 +63,15 @@ class DirectPackReleaseForm(forms.Form):
 class StockRequestForm(forms.ModelForm):
     class Meta:
         model = StockRequest
-        fields = ("purpose", "company", "account_holder")
+        # 1. Added "destination_type" to fields
+        fields = ("purpose", "destination_type", "company", "account_holder")
         widgets = {
             "purpose": forms.Select(attrs={"class": FIELD_CLASS}),
+            "destination_type": forms.Select(attrs={"class": FIELD_CLASS}),  # 2. Widget added
             "company": forms.Select(attrs={"class": FIELD_CLASS}),
             "account_holder": forms.Select(attrs={"class": FIELD_CLASS}),
         }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["account_holder"].queryset = (
@@ -81,7 +84,6 @@ class StockRequestForm(forms.ModelForm):
         self.fields["company"].required = False
         self.fields["account_holder"].empty_label = "— No dedicated account —"
         self.fields["company"].empty_label = "— No company —"
-
 
     def clean(self):
         cleaned = super().clean()
@@ -270,3 +272,28 @@ class SettlementForm(forms.Form):
 
 
 
+FIELD_CLASS = (
+    "w-full rounded-lg border border-slate-200 px-3 py-2.5 bg-white "
+    "text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-200 "
+    "focus:border-orange-400"
+)
+
+
+class SingleItemReturnForm(forms.Form):
+    release_id = forms.IntegerField(widget=forms.HiddenInput())
+    packs_returned = forms.IntegerField(
+        min_value=0,
+        required=True,
+        widget=forms.NumberInput(attrs={"class": FIELD_CLASS, "min": "0", "step": "1"}),
+    )
+    condition = forms.ChoiceField(
+        choices=(
+            ("good", "Good / Resalable"),
+            ("damaged", "Damaged"),
+            ("opened", "Opened"),
+            ("expired", "Expired"),
+            ("other", "Other"),
+        ),
+        initial="good",
+        widget=forms.Select(attrs={"class": FIELD_CLASS}),
+    )

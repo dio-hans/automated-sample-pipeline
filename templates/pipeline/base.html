@@ -1,37 +1,24 @@
 {% load static %}
-
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>
         {% block title %}
             Nonda Commodities
         {% endblock %}
     </title>
+    <!-- FONTS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FONT AWESOME 6 (PROFESSIONAL ICON LIBRARY) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
-    <!--  FONTS -->
-
-    <link rel="preconnect"
-          href="https://fonts.googleapis.com">
-
-    <link rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossorigin>
-
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap"
-          rel="stylesheet">
-
-
-    <!--  TAILWIND-->
-
+    <!-- TAILWIND -->
     <script src="https://cdn.tailwindcss.com"></script>
-
     <script>
         tailwind.config = {
             theme: {
@@ -45,7 +32,6 @@
                         clay: '#8A6F63',
                         line: '#E4DECB'
                     },
-
                     fontFamily: {
                         display: ['Fraunces', 'serif'],
                         sans: ['Inter', 'sans-serif']
@@ -54,160 +40,159 @@
             }
         }
     </script>
-
-
-    <!-- =========================================================
-         GLOBAL STYLES
-         ========================================================= -->
-
-    <link rel="stylesheet"
-          href="{% static 'css/output.css' %}">
-
-
+    
+    <!-- GLOBAL STYLES -->
+    <link rel="stylesheet" href="{% static 'css/output.css' %}">
     <style>
-
         /* ---------------------------------------------------------
-           SIDEBAR NAVIGATION
-           --------------------------------------------------------- */
+   GLOBAL BRIGHT ORANGE SUBMIT BUTTONS
+   --------------------------------------------------------- */
+button[type="submit"],
+input[type="submit"] {
+    background-color: #f97316 !important; /* Bright Orange (Tailwind Orange-500) */
+    color: #ffffff !important;
+    transition: background-color 150ms ease, transform 100ms ease;
+}
 
+.deny-button{
+    background-color: rgb(188, 30, 30);
+}
+/* ---------------------------------------------------------
+   BRIGHT ORANGE FOR MAIN PAGE ACTIONS & FORMS
+   (Strictly excludes <aside> sidebar)
+   --------------------------------------------------------- */
+/* ---------------------------------------------------------
+   BRIGHT ORANGE FOR PRIMARY SUBMIT / ACTION BUTTONS ONLY
+   --------------------------------------------------------- */
+
+   
+
+    /* Target primary action buttons inside <main> */
+    main button[type="submit"]:not([class*="bg-red"]):not([class*="bg-rose"]):not([class*="border"]):not([name*="deny"]):not([name*="cancel"]),
+    main input[type="submit"]:not([class*="bg-red"]):not([class*="bg-rose"]),
+    .btn-primary {
+        background-color: #f97316 !important; /* Bright Orange */
+        color: #ffffff !important;
+        transition: background-color 150ms ease;
+    }
+
+    aside form button,
+aside button[type="submit"] {
+    background-color: #00674F !important;
+    color: #ffffff !important;
+    transition: background-color 150ms ease;
+}
+
+    aside form button:hover,
+    aside button[type="submit"]:hover {
+        background-color: #004d3b !important; /* Darker emerald shade on hover */
+    }
+
+    main button[type="submit"]:not([class*="bg-red"]):not([class*="bg-rose"]):not([class*="border"]):not([name*="deny"]):not([name*="cancel"]):hover,
+    .btn-primary:hover {
+        background-color: #ea580c !important; /* Darker orange on hover */
+    }
+
+    /* Ensure Sidebar / Aside buttons (Logout) are NEVER overridden */
+    aside button,
+    aside form button,
+    aside a {
+        background-color: initial;
+    }
+
+        
+        /* ---------------------------------------------------------
+           SIDEBAR NAVIGATION & COMPACT LAYOUT
+           --------------------------------------------------------- */
         .nav-link {
             display: flex;
             align-items: center;
             gap: 0.75rem;
-
             width: 100%;
-
-            padding: 0.65rem 0.75rem;
-
-            border-radius: 0.55rem;
-
-            color: rgba(255, 255, 255, 0.72);
-
-            font-size: 0.875rem;
-
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            color: rgba(255, 255, 255, 0.75);
+            font-size: 0.85rem;
             font-weight: 500;
-
-            transition:
-                background-color 150ms ease,
-                color 150ms ease;
+            transition: background-color 150ms ease, color 150ms ease;
         }
-
-
         .nav-link:hover {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.12);
             color: #ffffff;
         }
-
-
         .nav-link.active {
-            background: rgba(255, 255, 255, 0.13);
+            background: rgba(255, 255, 255, 0.20);
             color: #ffffff;
+            font-weight: 600;
         }
-
-
         .nav-icon {
             width: 1.25rem;
-
-            display: inline-flex;
-
-            justify-content: center;
-
+            text-align: center;
             flex-shrink: 0;
-
             opacity: 0.85;
+            font-size: 0.9rem;
         }
-
-
+        .nav-link:hover .nav-icon {
+            opacity: 1;
+        }
         /* ---------------------------------------------------------
            SIDEBAR SECTION LABELS
            --------------------------------------------------------- */
-
         .nav-section-title {
             padding-left: 0.75rem;
             padding-right: 0.75rem;
-
-            margin-bottom: 0.5rem;
-
-            font-size: 0.65rem;
-
+            margin-top: 0.25rem;
+            margin-bottom: 0.35rem;
+            font-size: 0.625rem;
             font-weight: 700;
-
             text-transform: uppercase;
-
-            letter-spacing: 0.16em;
-
-            color: rgba(255, 255, 255, 0.42);
+            letter-spacing: 0.12em;
+            color: rgba(255, 255, 255, 0.45);
         }
-
-
         /* ---------------------------------------------------------
            SCROLLBAR
            --------------------------------------------------------- */
-
         #mainSidebar nav::-webkit-scrollbar {
-            width: 5px;
+            width: 4px;
         }
-
         #mainSidebar nav::-webkit-scrollbar-track {
             background: transparent;
         }
-
         #mainSidebar nav::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.15);
-
+            background: rgba(255, 255, 255, 0.15);
             border-radius: 999px;
         }
-
-
              
         #mainSidebar {
-            transition:
-                transform 200ms ease;
+            transition: transform 200ms ease;
         }
-
-
         /* ---------------------------------------------------------
            PAGE ANIMATION
            --------------------------------------------------------- */
-
         .page-content {
             animation: pageEnter 180ms ease-out;
         }
-
-
         @keyframes pageEnter {
-
             from {
                 opacity: 0;
                 transform: translateY(4px);
             }
-
             to {
                 opacity: 1;
                 transform: translateY(0);
             }
-
         }
-
     </style>
-
-
     {% block extra_head %}
     {% endblock %}
-
 </head>
-
-
+<body class="bg-paper text-ink font-sans antialiased">
 <div class="min-h-screen flex">
-
 
     <!-- =========================================================
          SIDEBAR
          ========================================================= -->
-
-    
-         {% block sidebar_wrapper %}
-         
+    {% block sidebar_wrapper %}
     <aside id="mainSidebar"
            class="fixed inset-y-0 left-0 z-50
                   w-64
@@ -217,786 +202,350 @@
                   transform -translate-x-full
                   lg:translate-x-0
                   flex flex-col">
-
-
-        <!-- =====================================================
-             BRAND
-             ===================================================== -->
-
-        <div class="px-6 py-5
-                    border-b border-white/10
-                    flex-shrink-0">
-
-            <a href="{% url 'dashboard' %}"
-               class="block">
-
-                <div class="flex items-center gap-3">
-
-                    <div class="w-10 h-10
-                                rounded-full
-                                bg-white/10
-                                flex items-center justify-center">
-
-                        <span class="font-display text-lg">
-                            N
-                        </span>
-
-                    </div>
-
-                    <div>
-
-                        <p class="font-display text-xl leading-none">
-                            Nonda
-                        </p>
-
-                        <p class="text-[10px]
-                                  uppercase
-                                  tracking-[0.18em]
-                                  text-white/55
-                                  mt-1">
-
-                            Commodities
-
-                        </p>
-
-                    </div>
-
-                </div>
-
-            </a>
-
-        </div>
-
-
-        <!-- =====================================================
-             USER
-             ===================================================== -->
-
-        <div class="px-5 py-4
-                    border-b border-white/10
-                    flex-shrink-0">
-
-            <div class="flex items-center gap-3">
-
-
-                <!-- Avatar -->
-
-                <div class="w-9 h-9
-                            rounded-full
-                            bg-white/10
-                            flex items-center justify-center
-                            text-sm
-                            font-semibold
-                            flex-shrink-0">
-
-                    {{ request.user.username|first|upper }}
-
-                </div>
-
-
-                <!-- User information -->
-
-                <div class="min-w-0">
-                    <p class="text-sm
-                              font-semibold
-                              truncate">
-
-                        <!-- 🌟 Best Approach: Displays full name capitalized, falls back to capitalized username -->
-                        {{request.user.username|capfirst }}
-
-
-                    </p>
-
-                    <p class="text-xs
-                              text-white/55
-                              truncate">
-
-                        
-
-                    </p>
-
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <!-- =====================================================
-             NAVIGATION
-             ===================================================== -->
-
-<nav class="flex-1
-            overflow-y-auto
-            px-3
-            py-5
-            space-y-6">
-
-    <!-- =====================================================
-         STORE MANAGER
-         ===================================================== -->
-    {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" %}
-
-        <!-- OVERVIEW -->
-        <div>
-            <p class="nav-section-title">
-                Overview
-            </p>
-
-            <div class="space-y-1">
-
-                <a href="{% url 'dashboard' %}"
-                   class="nav-link">
-                    <span class="nav-icon">⌂</span>
-                    <span>Dashboard</span>
-                </a>
-
-            </div>
-        </div>
-
-         <div class="space-y-1">
-
-                <a href="{% url 'reports' %}"
-                   class="nav-link">
-                    <span class="nav-icon">⌂</span>
-                    <span>Reports</span>
-                </a>
-
-            </div>
-
-
-        <!-- INVENTORY -->
-        <div>
-            <p class="nav-section-title">
-                Inventory
-            </p>
-
-            <div class="space-y-1">
-
-                <!-- Coffee stock -->
-                <a href="{% url 'stock_list' %}"
-                   class="nav-link">
-                   
-                    <span>Coffee Stock</span>
-                </a>
-
-                <!-- Packaged products -->
-                <a href="{% url 'packaged_inventory_list' %}"
-                   class="nav-link">
-                   
-                    <span>Packaged Coffee</span>
-                </a>
-
-                <!-- Low stock -->
-                <a href="{% url 'stock_low' %}"
-                   class="nav-link">
-                    <span class="nav-icon"></span>
-                    <span>Low Stock</span>
-                </a>
-
-                <!-- Stock ledger -->
-                <a href="{% url 'stock_ledger' %}"
-                   class="nav-link">
-                
-                    <span>Movement Ledger</span>
-                </a>
-
-            </div>
-        </div>
-
-
-        <!-- PROCESSING -->
-        <div>
-            <p class="nav-section-title">
-                Processing
-            </p>
-
-            <div class="space-y-1">
-
-                <a href="{% url 'processing_workspace' %}"
-                   class="nav-link">
-                   
-                    <span>Processing</span>
-                </a>
-
-                <a href="{% url 'packaging_run_list' %}"
-                   class="nav-link">
                   
-                    <span>Packaging</span>
-                </a>
+        <!-- BRAND HEADER -->
+        <div class="px-5 py-4 border-b border-white/10 flex-shrink-0">
+            <a href="{% url 'dashboard' %}" class="block">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+                        <span class="font-display text-lg font-bold">N</span>
+                    </div>
+                    <div>
+                        <p class="font-display text-lg font-bold leading-tight">Nonda</p>
+                        <p class="text-[9px] uppercase tracking-[0.18em] text-white/60">Commodities</p>
+                    </div>
+                </div>
+            </a>
+        </div>
 
+        <!-- USER IDENTITY BAR -->
+        <div class="px-5 py-3 border-b border-white/10 flex-shrink-0 bg-black/10">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center text-xs font-semibold flex-shrink-0 border border-white/20">
+                    {{ request.user.username|first|upper }}
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-xs font-semibold truncate leading-tight">
+                        {{ request.user.username|capfirst }}
+                    </p>
+                    <p class="text-[10px] text-white/60 truncate capitalize">
+                        {{ request.user.role|default:"User"|lower }}
+                    </p>
+                </div>
             </div>
         </div>
 
+        <!-- MAIN NAVIGATION -->
+        <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-3.5">
 
-        <!-- STOCK MOVEMENT -->
-        <div>
-            <p class="nav-section-title">
-                Stock Movement
-            </p>
-
-            
-        </div>
-
-    {% endif %}
-
-    {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" or request.user.role == "CASHIER" %}
-        <div class="space-y-1">
-
-                <a href="{% url 'pack_release_list' %}"
-                   class="nav-link">
-                    <span class="nav-icon"></span>
-                    <span>Releases</span>
-                </a>
-                
-            </div>
-    {% endif %}
-    {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" or request.user.role == "CASHIER" %}
-                <a href="{% url 'pack_return_list' %}"
-                   class="nav-link">
-                    
-                    <span>Returns</span>
-                </a>
+            <!-- STORE MANAGER / ADMIN NAVIGATION -->
+            {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" %}
+                <div>
+                    <p class="nav-section-title">Overview</p>
+                    <div class="space-y-0.5">
+                        <a href="{% url 'dashboard' %}" class="nav-link">
+                            <i class="fa-solid fa-chart-pie nav-icon"></i>
+                            <span>Dashboard</span>
+                        </a>
+                       {% if request.user.role == "ACCOUNTS" or request.user.role == "CASHIER" %}
+                        <a href="{% url 'reports' %}" class="nav-link">
+                            <i class="fa-solid fa-chart-line nav-icon"></i>
+                            <span>Reports</span>
+                        </a>
+                       {% endif %}
+                    </div>
+                </div>
                 {% endif %}
 
+                {% if request.user.role == "MANAGER" %}
+                <div>
+                    <p class="nav-section-title">Inventory</p>
+                    <div class="space-y-0.5">
 
+                         <a href="{% url 'stock_list' %}" class="nav-link">
+                            <i class="fa-solid fa-seedling nav-icon"></i>
+                            <span>Coffee Stock</span>
+                        </a>
 
-    <!-- =====================================================
-         SALES
-         ===================================================== -->
-    {% if request.user.role == "SALES" %}
+                         <a href="{% url 'pending_return_approvals' %}" class="nav-link">
+                            <i class="fa-solid fa-boxes-stacked nav-icon"></i>
+                            <span>Pending Returns</span>
+                        </a>        
 
-        <div>
-            <p class="nav-section-title">
-                Sales
-            </p>
+                         <a href="{% url 'stock_ledger' %}" class="nav-link">
+                            <i class="fa-solid fa-list-check nav-icon"></i>
+                            <span>Movement Ledger</span>
+                        </a>
+                    </div>
+                </div>
 
-            <div class="space-y-1">
+                <div>
+                    <p class="nav-section-title">Processing</p>
+                    <div class="space-y-0.5">
+                        <a href="{% url 'processing_workspace' %}" class="nav-link">
+                            <i class="fa-solid fa-gears nav-icon"></i>
+                            <span>Processing</span>
+                        </a>
+                        
+                    </div>
+                </div>
+            {% endif %}
 
-                <a href="{% url 'record_sale' %}"
-                   class="nav-link">
-                    <span class="nav-icon">₵</span>
-                    <span>Record Sale</span>
-                </a>
+            <!-- STOCK MOVEMENT / RELEASES & RETURNS -->
+            {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" or request.user.role == "CASHIER" %}
+                <div>
+                    <p class="nav-section-title">Stock Movement</p>
+                    <div class="space-y-0.5">
+                        <a href="{% url 'pack_release_list' %}" class="nav-link">
+                            <i class="fa-solid fa-truck-ramp-box nav-icon"></i>
+                            <span>Releases</span>
+                        </a>
+                        <a href="{% url 'pack_return_list' %}" class="nav-link">
+                            <i class="fa-solid fa-rotate-left nav-icon"></i>
+                            <span>Returns</span>
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
 
-                <a href="{% url 'stock_request_list' %}"
-                   class="nav-link">
-                    <span class="nav-icon">▣</span>
-                    <span>My Stock Requests</span>
-                </a>
+            <!-- SALES NAVIGATION -->
+            {% if request.user.role == "SALES" %}
+                <div>
+                    <p class="nav-section-title">Sales</p>
+                    <div class="space-y-0.5">
+                        <a href="{% url 'record_sale' %}" class="nav-link">
+                            <i class="fa-solid fa-cart-shopping nav-icon"></i>
+                            <span>Record Sale</span>
+                        </a>
+                        <a href="{% url 'stock_request_list' %}" class="nav-link">
+                            <i class="fa-solid fa-paper-plane nav-icon"></i>
+                            <span>My Stock Requests</span>
+                        </a>
+                        <a href="{% url 'my_stock' %}" class="nav-link">
+                            <i class="fa-solid fa-cubes nav-icon"></i>
+                            <span>My Issued Stock</span>
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
 
-                <a href="{% url 'my_stock' %}"
-                   class="nav-link">
-                    <span class="nav-icon">□</span>
-                    <span>My Issued Stock</span>
-                </a>
+            <!-- CASHIER NAVIGATION -->
+            {% if request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" %}
+                <div>
+                    <p class="nav-section-title">Cash Desk</p>
+                    <div class="space-y-0.5">
+                        <a href="{% url 'order_queue' %}" class="nav-link">
+                            <i class="fa-solid fa-clock-rotate-left nav-icon"></i>
+                            <span>Order Queue</span>
+                        </a>
+                        
+                        <a href="{% url 'credit_control_ledger' %}" class="nav-link">
+                            <i class="fa-solid fa-file-invoice-dollar nav-icon"></i>
+                            <span>Credit Book Ledger</span>
+                        </a>
+                        <a href="{% url 'account_holder_list' %}" class="nav-link">
+                            <i class="fa-solid fa-users nav-icon"></i>
+                            <span>Account Holders</span>
+                        </a>
+                        <a href="{% url 'stock_request_create' %}" class="nav-link">
+                            <i class="fa-solid fa-circle-plus nav-icon"></i>
+                            <span>Request Stock</span>
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
 
-            </div>
-        </div>
+            <!-- COMMERCIAL / CRM -->
+            {% if request.user.role == "ADMIN" %}
+                <div>
+                    <p class="nav-section-title">Commercial</p>
+                    <div class="space-y-0.5">
+                        <a href="{% url 'company_list' %}" class="nav-link">
+                            <i class="fa-solid fa-building nav-icon"></i>
+                            <span>Companies</span>      
+                        </a>
+                        <a href="{% url 'sample_list' %}" class="nav-link">
+                            <i class="fa-solid fa-flask nav-icon"></i>
+                            <span>Samples</span>
+                        </a>
+                        <a href="{% url 'followup_list' %}" class="nav-link">
+                            <i class="fa-solid fa-arrows-rotate nav-icon"></i>
+                            <span>Follow-ups</span>
+                        </a>
+                        <a href="{% url 'contract_list' %}" class="nav-link">
+                            <i class="fa-solid fa-file-contract nav-icon"></i>
+                            <span>Contracts</span>
+                        </a>
+                    </div>
+                </div>
 
-    {% endif %}
+                <div>
+                    <p class="nav-section-title">Administration</p>
+                    <div class="space-y-0.5">
+                        <a href="{% url 'register' %}" class="nav-link">
+                            <i class="fa-solid fa-user-gear nav-icon"></i>
+                            <span>User Management</span>
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
 
+        </nav>
 
-    <!-- =====================================================
-         CASHIER
-         ===================================================== -->
-    {% if request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" %}
-
-        <div>
-            <p class="nav-section-title">
-                Cash Control
-            </p>
-
-            <div class="space-y-1">
-
-                <a href="{% url 'order_queue' %}"
-                   class="nav-link">
-                    <span class="nav-icon">▣</span>
-                    <span>Order Queue</span>
-                </a>
-
-                <a href="{% url 'cash_ledger_list' %}"
-                   class="nav-link">
-                    <span class="nav-icon">₵</span>
-                    <span>Cash Book</span>
-                </a>
-
-            </div>
-        </div>
-
-        <!-- CASHIER SELECTION DESK SECTION --> 
-<div> 
-    <p class="nav-section-title">Cashier Desk</p> 
-    <div class="space-y-1"> 
-        <a href="{% url 'order_queue' %}" class="nav-link">Order Queue</a> 
-
-       
-        
-        <!-- 🪙 New Standalone Credit Book Link Element -->
-        <a href="{% url 'credit_control_ledger' %}" class="nav-link">
-            <span class="nav-icon">🪙</span>
-            <span>Credit Book Ledger</span>
-        </a>
-
-        <a href="{% url 'account_holder_list' %}" class="flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 hover:text-emerald-600 transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                </svg>
-                Account Holders
+        <!-- SIDEBAR FOOTER -->
+        <div class="px-3 py-3 border-t border-white/10 flex-shrink-0 space-y-0.5">
+            <a href="#" class="nav-link">
+                <i class="fa-solid fa-gear nav-icon"></i>
+                <span>Account Settings</span>
             </a>
-        
-        <a href="{% url 'stock_request_create' %}" class="nav-link">Request Stock</a> 
-        <a href="{% url 'pack_return_list' %}" class="nav-link">Log Returns</a> 
-    </div> 
-</div> 
-
-    {% endif %}
-
-
-    <!-- =====================================================
-         COMMERCIAL / CRM
-         ===================================================== -->
-    {% if request.user.role == "ADMIN" %}
-
-        <div>
-            <p class="nav-section-title">
-                Commercial
-            </p>
-
-            <div class="space-y-1">
-
-                <a href="{% url 'company_list' %}"
-                   class="nav-link">
-                    <span class="nav-icon">○</span>
-                    <span>Companies</span>
-                </a>
-
-                <a href="{% url 'sample_list' %}"
-                   class="nav-link">
-                    <span class="nav-icon">□</span>
-                    <span>Samples</span>
-                </a>
-
-                <a href="{% url 'followup_list' %}"
-                   class="nav-link">
-                    <span class="nav-icon">↻</span>
-                    <span>Follow-ups</span>
-                </a>
-
-                <a href="{% url 'contract_list' %}"
-                   class="nav-link">
-                    <span class="nav-icon">▤</span>
-                    <span>Contracts</span>
-                </a>
-
-            </div>
-        </div>
-
-
-        <!-- =================================================
-             ADMINISTRATION
-             ================================================= -->
-        <div>
-            <p class="nav-section-title">
-                Administration
-            </p>
-
-                        <!-- Add this to your sidebar navigation menu -->
-            
-            <div class="space-y-1">
-
-                <a href="{% url 'register' %}"
-                   class="nav-link">
-                    <span class="nav-icon">+</span>
-                    <span>User Management</span>
-                </a>
-
-            </div>
-        </div>
-
-    {% endif %}
-
-</nav>
-
-
-        <!--=SIDEBAR FOOTER= -->
-
-        <div class="px-3 py-4
-                    border-t border-white/10
-                    flex-shrink-0">
-
-
-            <!-- Account -->
-
-            <a href="#"
-               class="nav-link">
-
-                <span>
-                    Account
-                </span>
-
-            </a>
-
-
-            <!-- Logout -->
-
-            <form method="post"
-                  action="{% url 'logout' %}"
-                  class="mt-1">
-
+            <form method="post" action="{% url 'logout' %}">
                 {% csrf_token %}
-
-                <button type="submit"
-                        class="nav-link text-left">
-
-                    <span>
-                        Logout
-                    </span>
-
+                <button type="submit" class="nav-link text-left w-full">
+                    <i class="fa-solid fa-right-from-bracket nav-icon"></i>
+                    <span>Logout</span>
                 </button>
-
             </form>
-
         </div>
 
     </aside>
+    {% endblock %}
 
-    <div id="sidebarOverlay"
-         class="fixed inset-0 z-40 bg-black/40 hidden lg:hidden">
-    </div>
+    <div id="sidebarOverlay" class="fixed inset-0 z-40 bg-black/40 hidden lg:hidden"></div>
 
-    <!--  MAIN APPLICATION ARE  -->
-
+    <!-- MAIN APPLICATION AREA -->
     <div class="flex-1 min-w-0 lg:ml-64 flex flex-col min-h-screen">
-
-
-        <!--TOP BAR -->
-{% block topbar %}
-        <header class="h-16
-                       flex-shrink-0
-                       bg-paper
-                       border-b border-line
-                       flex items-center
-                       justify-between
-                       px-4 sm:px-6 lg:px-8
-                       sticky top-0
-                       z-30">
-
-
-            <!-- LEFT -->
-
-            <div class="flex items-center gap-3">
-
-
-           <!-- Mobile menu -->
-
-                <button type="button"
-                        id="sidebarToggle"
-                        aria-label="Open navigation"
-                        class="lg:hidden
-                               w-9 h-9
-                               rounded-lg
-                               border border-line
-                               bg-white
-                               flex items-center
-                               justify-center
-                               text-ink
-                               hover:bg-gray-50">
-
-                    
-
-                </button>
-
-          <!-- Breadcrumb -->
-
-                <div>
-
-                    <p class="text-xs
-                              uppercase
-                              tracking-[0.14em]
-                              text-clay">
-
-                        {% block breadcrumb %}
-                            Nonda Commodities
-                        {% endblock %}
-
-                    </p>
-
-                </div>
-
-            </div>
-            {% endblock %}
-
-
-            <!-- RIGHT -->
-
-            <div class="flex items-center gap-3">
-
-                {% block header_action %}
+        
+        <!-- TOP BAR -->
+            {% block topbar %}
+<header class="min-h-16 bg-paper border-b border-line flex flex-wrap items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-0 z-30 py-2 gap-4">
+    <div class="flex items-center gap-3">
+        <button type="button"
+                id="sidebarToggle"
+                aria-label="Open navigation"
+                class="lg:hidden w-9 h-9 rounded-lg border border-line bg-white flex items-center justify-center text-ink hover:bg-gray-50">
+            <i class="fa-solid fa-bars text-sm"></i>
+        </button>
+        <div>
+            <p class="text-xs uppercase tracking-[0.14em] text-clay font-medium">
+                {% block breadcrumb %}
+                    Nonda Commodities
                 {% endblock %}
-
-            </div>
-
-        </header>
-        {% endblock %}
-
-
-        <!-- =====================================================
-             PAGE CONTENT
-             ===================================================== -->
-        <main class="flex-1 p-4 sm:p-5 page-content">
-            <div class="max-w-6xl mx-auto space-y-4">
-
-
-            <!-- =================================================
-                 PAGE HEADER
-                 ================================================= -->
-
-            {% block page_header %}
-            {% endblock %}
-
-            
-
-            <div class="mb-2
-                        flex flex-col
-                        sm:flex-row
-                        sm:items-center
-                        sm:justify-between
-                        gap-2">
-
-
-                <div>
-
-                    <h1 class="font-display
-                               text-xl
-                               sm:text-xl
-                               text-ink">
-
-                        {% block page_title %}
-                        {% endblock %}
-
-                    </h1>
-
-
-                    {% block page_subtitle %}
-                    {% endblock %}
-
-                </div>
-
-
-                <div>
-
-                    {% block page_action %}
-                    {% endblock %}
-
-                </div>
-
-            </div>
-
-            <!-- SYSTEM MESSAGES -->
-
-           {% if messages %}
-
-    <div id="messages"
-     class="fixed top-20 right-6 z-50 space-y-1 text-right">
-
-        {% for message in messages %}
-
-            <div class="message text-sm font-medium
-                {% if message.tags == 'success' %}
-                    text-green-600
-                {% elif message.tags == 'error' %}
-                    text-orange-600
-                {% elif message.tags == 'warning' %}
-                    text-orange-600
-                {% else %}
-                    text-slate-600
-                {% endif %}
-            ">
-                {{ message }}!
-            </div>
-
-        {% endfor %}
-
-    </div>
-
-    <script>
-        setTimeout(function () {
-            const messages = document.getElementById("messages");
-
-            if (messages) {
-                messages.style.transition = "opacity 0.5s ease";
-                messages.style.opacity = "0";
-
-                setTimeout(function () {
-                    messages.remove();
-                }, 500);
-            }
-        }, 10000);
-    </script>
-
-{% endif %}
-
-
-            <!-- PAGE BODY -->
-
-            {% block content %}
-            {% endblock %}
+            </p>
         </div>
-        </main>
-
-
-        <!-- =====================================================
-             FOOTER
-             ===================================================== -->
-
-        {% block footer %}
-<footer class="border-t
-               border-line
-               px-4 sm:px-6 lg:px-8
-               py-4
-               text-center
-               text-xs
-               text-clay
-               flex-shrink-0">
-
-    Nonda Commodities
-    <span class="mx-1">•</span>
-    {% now "Y" %}
-
-</footer>
-{% endblock footer %}
-
     </div>
-
-</div>
-
-
-<!-- MOBILE SIDEBAR SCRIPT-->
-
-<script>
-
-document.addEventListener("DOMContentLoaded", function () {
-
-    const sidebar =
-        document.getElementById("mainSidebar");
-
-    const toggle =
-        document.getElementById("sidebarToggle");
-
-    const overlay =
-        document.getElementById("sidebarOverlay");
-
-
-    if (!sidebar || !toggle || !overlay) {
-        return;
-    }
-
-
-    function openSidebar() {
-
-        sidebar.classList.remove(
-            "-translate-x-full"
-        );
-
-        overlay.classList.remove(
-            "hidden"
-        );
-
-        document.body.classList.add(
-            "overflow-hidden"
-        );
-    }
-
-
-    function closeSidebar() {
-
-        sidebar.classList.add(
-            "-translate-x-full"
-        );
-
-        overlay.classList.add(
-            "hidden"
-        );
-
-        document.body.classList.remove(
-            "overflow-hidden"
-        );
-    }
-
-
-    toggle.addEventListener(
-        "click",
-        openSidebar
-    );
-
-
-    overlay.addEventListener(
-        "click",
-        closeSidebar
-    );
-
-
-    /*
-     * Close mobile navigation after
-     * clicking a navigation link.
-     */
-
-    sidebar.querySelectorAll("a").forEach(
-        function (link) {
-
-            link.addEventListener(
-                "click",
-                function () {
-
-                    if (
-                        window.innerWidth < 1024
-                    ) {
-
-                        closeSidebar();
-
-                    }
-
-                }
-            );
-
-        }
-    );
-
-
-    /*
-     * Restore desktop state if the
-     * browser is resized.
-     */
-
-    window.addEventListener(
-        "resize",
-        function () {
-
-            if (
-                window.innerWidth >= 1024
-            ) {
-
-                overlay.classList.add(
-                    "hidden"
-                );
-
-                document.body.classList.remove(
-                    "overflow-hidden"
-                );
-
-            }
-
-        }
-    );
-
-});
-
-</script>
-
-
-{% block extra_scripts %}
+    <div class="flex items-center gap-4">
+        {% block header_action %}
+        {% endblock %}
+        <span class="text-xs text-clay font-medium hidden sm:inline">
+            Nonda Commodities &bull; {% now "Y" %}
+        </span>
+    </div>
+</header>
 {% endblock %}
 
+        <!-- PAGE CONTENT -->
+      <main class="flex-1 p-4 sm:p-6 page-content">
+    <div class="w-full max-w-7xl mx-auto space-y-6">
+        
+        <!-- PAGE HEADER -->
+        {% block page_header %}
+        {% endblock %}
+        
+        <!-- SYSTEM MESSAGES -->
+        {% block messages %}
+            {% if messages %}
+                <div id="messages" class="w-full space-y-2">
+                    {% for message in messages %}
+                        <div class="p-3.5 rounded-lg text-sm font-medium border shadow-sm flex items-center justify-between
+                            {% if message.tags == 'success' %}
+                                bg-emerald-50 text-emerald-800 border-emerald-200
+                            {% elif message.tags == 'error' or message.tags == 'warning' %}
+                                bg-amber-50 text-amber-800 border-amber-200
+                            {% else %}
+                                bg-slate-50 text-slate-800 border-slate-200
+                            {% endif %}
+                        ">
+                            <span>{{ message }}</span>
+                            <button onclick="this.parentElement.remove()" class="text-xs opacity-60 hover:opacity-100">&times;</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endblock messages %}
+
+        <!-- MAIN CONTENT -->
+        {% block content %}
+        {% endblock %}
+
+    </div>
+</main>
+
+                <script>
+                    setTimeout(function () {
+                        const messages = document.getElementById("messages");
+                        if (messages) {
+                            messages.style.transition = "opacity 0.5s ease";
+                            messages.style.opacity = "0";
+                            setTimeout(function () {
+                                messages.remove();
+                            }, 500);
+                        }
+                    }, 10000);
+                </script>
+             
+
+                <!-- PAGE BODY -->
+                    <!-- FOOTER -->
+        {% block footer %}
+        <footer class=" sticky bottom-0 bg-paper border-t border-line px-4 sm:px-6 lg:px-8 py-4 text-center text-xs text-clay flex-shrink-0">
+            Nonda Commodities <span class="mx-1">•</span> {% now "Y" %}
+        </footer>
+        {% endblock footer %}
+
+    </div>
+</div>
+
+<!-- MOBILE SIDEBAR SCRIPT -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const sidebar = document.getElementById("mainSidebar");
+    const toggle = document.getElementById("sidebarToggle");
+    const overlay = document.getElementById("sidebarOverlay");
+    
+    if (!sidebar || !toggle || !overlay) return;
+
+    function openSidebar() {
+        sidebar.classList.remove("-translate-x-full");
+        overlay.classList.remove("hidden");
+        document.body.classList.add("overflow-hidden");
+    }
+
+    function closeSidebar() {
+        sidebar.classList.add("-translate-x-full");
+        overlay.classList.add("hidden");
+        document.body.classList.remove("overflow-hidden");
+    }
+
+    toggle.addEventListener("click", openSidebar);
+    overlay.addEventListener("click", closeSidebar);
+
+    sidebar.querySelectorAll("a").forEach(function (link) {
+        link.addEventListener("click", function () {
+            if (window.innerWidth < 1024) {
+                closeSidebar();
+            }
+        });
+    });
+
+    window.addEventListener("resize", function () {
+        if (window.innerWidth >= 1024) {
+            overlay.classList.add("hidden");
+            document.body.classList.remove("overflow-hidden");
+        }
+    });
+});
+</script>
+{% block extra_scripts %}
+{% endblock %}
 </body>
 </html>

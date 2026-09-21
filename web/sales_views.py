@@ -234,25 +234,31 @@ class StockRequestCreateView(RoleRequiredMixin, View):
                 ]
                 stock_request = create_stock_request(
                     user=request.user,
-                    purpose=form.cleaned_data["purpose"],
-                    destination_type=form.cleaned_data["destination_type"],
+                    purpose=form.cleaned_data.get("purpose"),
+                    destination_type=form.cleaned_data.get("destination_type", ""),  # Fixed using .get()
                     company=form.cleaned_data.get("company"),
                     account_holder=form.cleaned_data.get("account_holder"),
                     notes=form.cleaned_data.get("notes", ""),
                     items=items,
                 )
                 messages.success(request, f"Stock request {stock_request.short_number} submitted to the store.")
+
+                if request.user.role == "CASHIER":
+                    return redirect("order_queue")
                 return redirect("record_sale")
+            
             except ValidationError as exc:
-                form.add_error(None, exc.message)
+                msg = exc.messages[0] if hasattr(exc, "messages") else str(exc)
+                form.add_error(None, msg)
         return render(request, self.template_name, {"form": form, "item_formset": formset})
 
-
+    
 class MyStockRequestListView(RoleRequiredMixin, ListView):
     allowed_roles = (User.Role.SALES, User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER)
     model = StockRequest
     template_name = "pipeline/stock_request_list.html"
     context_object_name = "requests"
+
 
     def get_queryset(self):
         qs = (
@@ -270,6 +276,7 @@ class MyStockRequestListView(RoleRequiredMixin, ListView):
 class StockRequestDetailView(RoleRequiredMixin, DetailView):
     allowed_roles = (User.Role.SALES, User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER)
     model = StockRequest
+    # 🎯 FIX: Point to detail template, NOT fulfill template
     template_name = "pipeline/stock_request_detail.html"
     context_object_name = "stock_request"
 
@@ -281,7 +288,7 @@ class StockRequestDetailView(RoleRequiredMixin, DetailView):
             qs = qs.filter(requested_by=self.request.user)
         return qs
 
-
+    
 class StockRequestFulfillView(RoleRequiredMixin, View):
     allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.SALES, User.Role.CASHIER)
     template_name = "pipeline/stock_request_fulfill.html"
@@ -454,7 +461,7 @@ class CashierQueueView(RoleRequiredMixin, ListView):
                         "product__pack_size",
                     ).prefetch_related(
                         "releases__returns",
-                        "releases__settlement",
+                        "releases__settlements",
                     ),
                 )
             )

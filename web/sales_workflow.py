@@ -545,3 +545,73 @@ def process_supermarket_audit(*, company, user, audit_items_data, notes=""):
         company.save(update_fields=["pipeline_stage"])
 
     return audit, total_invoice_amount
+
+@transaction.atomic
+def approve_existing_pack_return(*, return_item, user):
+    """
+    Approve the EXISTING pending PackReturn row.
+    Never creates another PackReturn.
+    """
+    locked_return = (
+        PackReturn.objects
+        .select_for_update()
+        .select_related("release__product")
+        .get(pk=return_item.pk)
+    )
+
+    if locked_return.status != "pending_approval":
+        raise ValidationError("This return has already been processed.")
+
+    release = (
+        PackRelease.objects
+        .select_for_update()
+        .select_related("product")
+        .get(pk=locked_return.release_id)
+    )
+
+    # Re-check eligibility at approval time.
+    approved_returned = sum(
+        ret.packs_returned
+        for ret in release.returns.filter(status="approved")
+    )
+    other_pending = sum(
+        ret.packs_returned
+        for ret in release.returns.filter(status="pending_approval")
+        .exclude(pk=locked_return.pk)
+    )
+
+    sold = 0
+    try:
+        sold = sum(settlement.packs_sold for settlement in release.settlements.all())
+    except PackSettlement.DoesNotExist:
+        sold = 0
+
+    available_to_approve = max(
+        release.packs_out - sold - approved_returned - other_pending,
+        0,
+    )
+
+    if locked_return.packs_returned > available_to_approve:
+        raise ValidationError(
+            f"Only {available_to_approve} packs remain eligible for return. "
+            "Some units may already have been sold or reserved by another pending return."
+        )
+
+    locked_return.status = "approved"
+    locked_return.approved_by = user
+    locked_return.approved_at = timezone.now()
+    locked_return.received_by = user
+    locked_return.disposition = "accepted"
+    locked_return.save(
+        update_fields=[
+            "status",
+            "approved_by",
+            "approved_at",
+            "received_by",
+            "disposition",
+        ]
+    )
+
+    # PackagedInventory is ledger-derived in Nonda. Once the return is approved,
+    # its packs_returned calculation automatically includes this row.
+    return locked_return

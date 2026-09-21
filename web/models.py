@@ -1600,107 +1600,135 @@ class PackRelease(models.Model):
     )
 
     @property
-    def released_to_user(self):
-        if self.released_to and self.released_to.system_user:
-            return self.released_to.system_user
-        return None
+    def net_amount_due(self):
+        """
+        Calculates the net invoice value after accounting for approved return credits.
+        """
+        return max(self.gross_amount - self.return_credit, Decimal("0.00"))
 
-    # 💼 PROPERTY 2: Returns the parent AccountHolder instance directly
     @property
-    def released_to_account(self):
-        return self.released_to
+    def total_amount_paid(self):
+        """
+        🎯 CUMULATIVE PAYMENT LEDGER SUM:
+        Sums up all historical payment installments stored under the 
+        new settlements ForeignKey relationship array securely.
+        """
+        return sum(settlement.amount_paid for settlement in self.settlements.all())
 
-    # 🔗 HELPER FOR BACKEND SCRIPTS
     @property
-    def recipient_name(self):
-        """Returns the human-readable text name of whoever took the coffee."""
-        if self.released_to:
-            return self.released_to.name
-        return "Unknown Salesperson"
-
-    class Meta:
-        ordering = ["-released_at"]
-
-    def __str__(self):
-        return (
-            f"{self.product} × {self.packs_out} → "
-            f"{self.released_to}"
-        )
+    def outstanding_balance(self):
+        """
+        The remaining unpaid debt value left on this delivery batch.
+        """
+        return max(self.net_amount_due - self.total_amount_paid, Decimal("0.00"))
 
     @property
     def packs_returned(self):
+        """
+        Calculates only the physical units brought back that a manager 
+        has officially verified and APPROVED.
+        """ 
         return sum(
             ret.packs_returned
             for ret in self.returns.all()
-            if ret.counts_against_release
+            if ret.status == "approved"
         )
 
     @property
+    def packs_pending_return(self):
+        """
+        Tracks units currently sitting in the verification queue.
+        This temporarily locks the packs so cashiers cannot log them 
+        into a duplicate worksheet while waiting for approval.
+        """
+        return sum(
+            ret.packs_returned
+            for ret in self.returns.all()
+            if ret.status == "pending_approval"
+        )
+
+        # Find these properties inside class PackRelease(models.Model) in web/models.py:
+
+    @property
+    def packs_sold(self):
+        """
+        Actual downstream sales are not currently tracked by PackRelease.
+
+        A payment or settlement against this release does NOT mean
+        the physical packs were sold by the account holder.
+        """
+        return 0
+
+    @property
     def packs_outstanding(self):
+        """Physical inventory packages still unreturned out in the field."""
+        # 🎯 FIX: Changed self.billable_quantity to self.packs_out
+        return max(self.packs_out - self.packs_returned, 0)
+
+
+    @property
+    def packs_returnable(self):
+        """
+        Physical packs from this release that can still be returned.
+
+        Return eligibility is independent of payment.
+
+        Released packs
+            - approved returns
+            - pending return requests
+            = currently returnable packs
+        """
+
+        approved_returned = sum(
+            ret.packs_returned
+            for ret in self.returns.all()
+            if ret.status == "approved"
+        )
+
+        pending_returned = sum(
+            ret.packs_returned
+            for ret in self.returns.all()
+            if ret.status == "pending_approval"
+        )
+
         return max(
-            self.packs_out - self.packs_returned,
+            self.packs_out
+            - approved_returned
+            - pending_returned,
             0,
         )
 
     @property
-    def billable_quantity(self):
-        if self.purpose == "display":
-            return self.billable_packs
-        return self.packs_out
-
-    @property
     def return_credit(self):
-        # Display/consignment stock was never charged merely because it was
-        # delivered, so returning unsold display stock does not create a credit.
+        """
+        Calculates financial relief deductions exclusively from 
+        APPROVED return sheets to update outstanding billing accounts.
+        """
         if self.purpose == "display":
             return Decimal("0.00")
 
         return sum(
             ret.financial_credit
             for ret in self.returns.all()
-        )
-
-
-    @property
-    def net_amount_due(self):
-        return max(
-            self.gross_amount - self.return_credit,
-            Decimal("0.00"),
+            if ret.status == "approved"
         )
 
     @property
-    def total_amount_paid(self):
-        try:
-            return self.settlement.amount_paid
-        except PackSettlement.DoesNotExist:
-            return Decimal("0.00")
+    def billable_quantity(self):
+        """
+        🎯 COMPATIBILITY ALIAS:
+        Maps legacy property name directly to packs_out to fix view/template errors.
+        """
+        return self.packs_out
 
-
-    @property
-    def outstanding_balance(self):
-        return max(
-            self.net_amount_due - self.total_amount_paid,
-            Decimal("0.00"),
-        )
     @property
     def gross_amount(self):
-        """Calculates total gross monetary value of the released packs before returns."""
-        return Decimal(self.billable_quantity) * self.selling_price
-    
-    @property
-    def payment_status(self):
-        if self.outstanding_balance <= Decimal("0.00"):
-            return "cleared"
-
-        if self.total_amount_paid > Decimal("0.00"):
-            return "partial"
-
-        return "credit"
-
-    @property
-    def is_fully_cleared(self):
-        return self.outstanding_balance <= Decimal("0.00")
-
+        """
+        Calculates the total monetary value of this batch delivery 
+        by multiplying physical units issued by the unit selling price.
+        """
+        # 🎯 FIX: Direct arithmetic calculation to restore the missing attribute
+        return Decimal(self.packs_out) * self.selling_price
 
 class PaymentReceipt(models.Model):
 
@@ -1764,7 +1792,17 @@ from django.conf import settings
 from django.db import models
 
 
+from decimal import Decimal
+from django.db import models
+from django.conf import settings
+from django.utils import timezone
+
 class PackReturn(models.Model):
+    RETURN_STATUS_CHOICES = (
+        ("pending_approval", "Pending Approval"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    )
 
     CONDITION_CHOICES = (
         ("good", "Good / Resalable"),
@@ -1775,89 +1813,49 @@ class PackReturn(models.Model):
     )
 
     DISPOSITION_CHOICES = (
-        ("accepted", "Accept"),
-        ("accepted_charged", "Accept & Charge Agent"),
-        ("refused", "Refuse"),
-        ("written_off", "Write Off"),
+        ("accepted", "Accepted Return"),
     )
 
     release = models.ForeignKey(
-        PackRelease,
+        "PackRelease",
         on_delete=models.PROTECT,
         related_name="returns",
     )
-
     packs_returned = models.PositiveIntegerField()
-
-    condition = models.CharField(
-        max_length=20,
-        choices=CONDITION_CHOICES,
-        default="good",
-    )
-
-    disposition = models.CharField(
-        max_length=30,
-        choices=DISPOSITION_CHOICES,
-        default="accepted",
-    )
-
-    reason = models.CharField(
-        max_length=200,
-        blank=True,
-    )
-
-    returned_at = models.DateTimeField(
-        default=timezone.now,
-    )
-
-    notes = models.TextField(
-        blank=True,
-        default="",
-    )
-
-    received_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="pack_returns_received",
-    )
+    condition = models.CharField(max_length=20, choices=CONDITION_CHOICES, default="good")
+    disposition = models.CharField(max_length=30, choices=DISPOSITION_CHOICES, default="accepted")
+    status = models.CharField(max_length=30, choices=RETURN_STATUS_CHOICES, default="pending_approval", db_index=True)
+    
+    submitted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="pack_returns_submitted")
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="pack_returns_approved")
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True, default="")
+    reason = models.CharField(max_length=200, blank=True)
+    returned_at = models.DateTimeField(default=timezone.now)
+    notes = models.TextField(blank=True, default="")
+    received_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="pack_returns_received")
 
     class Meta:
         ordering = ["-returned_at"]
 
     def __str__(self):
-        return (
-            f"{self.packs_returned} packs returned "
-            f"from {self.release}"
-        )
+        return f"{self.packs_returned} packs returned from {self.release}"
 
     @property
     def counts_against_release(self):
-        return self.disposition in (
-            "accepted",
-            "accepted_charged",
-        )
+        return self.status == "approved"
 
     @property
     def returns_to_stock(self):
-        return self.disposition == "accepted"
+        return self.status == "approved"
 
     @property
     def financial_credit(self):
-        """
-        Only an accepted return creates financial credit.
-
-        'Accept & Charge Agent' returns the physical stock
-        but does not reduce what the account holder owes.
-        """
-        if self.disposition == "accepted":
-            return (
-                Decimal(self.packs_returned)
-                * self.release.selling_price
-            )
-
+        """Calculates value of this specific return slip once approved."""
+        if self.status == "approved":
+            return Decimal(self.packs_returned) * self.release.selling_price
         return Decimal("0.00")
+
 
 # 9. INTERNAL SALES STOCK REQUEST
 
@@ -1909,10 +1907,10 @@ class PackSettlement(models.Model):
         ("cleared", "Cleared"),
     )
 
-    release = models.OneToOneField(
+    release = models.ForeignKey(
         PackRelease,
         on_delete=models.PROTECT,
-        related_name="settlement",
+        related_name="settlements", 
     )
     packs_sold = models.PositiveIntegerField(default=0)
     amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))

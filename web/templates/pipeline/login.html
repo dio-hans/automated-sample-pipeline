@@ -2,9 +2,6 @@
 
 {% load crispy_forms_tags static %}
 
-{% block navigation %}
-{% endblock navigation %}
-
 {% block sidebar_wrapper %}
 {% endblock sidebar_wrapper %}
 
@@ -13,54 +10,159 @@
 
 {% block extra_head %}
 <style>
+    /* 1. Force remove browser scrollbars on the login page */
+    html, body {
+        overflow: hidden !important;
+        height: 100vh !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        padding: 0!important
+    }
+
+    /* 2. Compact styling for Crispy Form non-field errors */
+    .login-card .alert-danger,
+    .login-card .alert-block,
+    .login-card .asteriskField + .alert,
+    .login-card div.alert {
+        background-color: #FEF2F2 !important;
+        border: 1px solid #FECDD3 !important;
+        color: #9F1239 !important;
+        font-size: 0.75rem !important;
+        line-height: 1.35 !important;
+        padding: 0.625rem 0.875rem !important;
+        border-radius: 0.5rem !important;
+        margin-bottom: 0.75rem !important;
+    }
+
+    .login-card .alert ul { margin: 0 !important; padding: 0 !important; list-style: none !important; }
+    .login-card .alert li { margin: 0 !important; padding: 0 !important; }
+
+    /* Input & FontAwesome icon styling */
     .login-card input {
         border-color: #E4DECB !important;
-        background-color: #FFFFFF !important;
+        background-color: #F9FAFB !important;
         color: #211815 !important;
-        border-radius: 0.375rem !important;
+        border-radius: 0.5rem !important;
+        padding-left: 2.5rem !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+        font-size: 0.875rem !important;
+        transition: all 0.2s ease;
     }
 
     .login-card input:focus {
-        outline: 2px solid #A8432F !important;
-        border-color: #A8432F !important;
-        box-shadow: 0 0 0 3px rgba(168, 67, 47, 0.1) !important;
+        outline: none !important;
+        background-color: #FFFFFF !important;
+        border-color: #3A5333 !important;
+        box-shadow: 0 0 0 3px rgba(58, 83, 51, 0.15) !important;
     }
 
     .login-card label {
         font-family: 'Inter', sans-serif;
         font-size: 0.75rem;
-        font-weight: 600;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         color: #8A6F63;
         margin-bottom: 0.25rem;
+        display: block;
     }
 
+    .login-card #div_id_username,
+    .login-card #div_id_password {
+        position: relative;
+    }
+
+    .login-card #div_id_username::after {
+        content: "\f007";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+        position: absolute;
+        left: 0.875rem;
+        bottom: 0.55rem;
+        color: #94A3B8;
+        font-size: 0.875rem;
+        pointer-events: none;
+    }
+
+    .login-card #div_id_password::after {
+        content: "\f023";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+        position: absolute;
+        left: 0.875rem;
+        bottom: 0.55rem;
+        color: #94A3B8;
+        font-size: 0.875rem;
+        pointer-events: none;
+    }
 </style>
 {% endblock %}
 
 {% block title %}Sign In · Nonda Commodities{% endblock %}
 
 {% block content %}
-<div class="login-page flex items-center justify-center px-4 py-1">
+<!-- Margin offset (-ml-12 sm:-ml-24 md:-ml-32) pushes the login card smoothly to the left -->
+<div class="h-screen w-full overflow-hidden flex flex-col items-center justify-center -ml-12 sm:-ml-24 md:-ml-32 p-2">
 
     <div class="w-full max-w-md">
 
         <!-- Login card -->
-        <div class="login-card bg-white border border-[#E4DECB] rounded-lg shadow-sm overflow-hidden">
+        <div class="login-card bg-white border border-[#E4DECB] rounded-2xl shadow-xl overflow-hidden">
 
             <!-- Card header -->
-            <div class="px-6 py-4 border-b border-[#E4DECB]"
-                 style="background-color: #3A5333;">
-
-                <h3 class="font-display text-lg text-paper">
+            <div class="px-8 py-5 border-b border-[#E4DECB]" style="background-color: #3A5333;">
+                <h3 class="font-serif text-xl font-bold text-white tracking-wide">
                     Nonda Sign in
                 </h3>
-
+                <p class="text-xs text-emerald-100/80 mt-0.5">
+                    Enter your credentials to access stock management
+                </p>
             </div>
 
-            <div class="p-6 sm:p-8">
+            <div class="p-6 sm:p-8 space-y-5">
 
+                <!-- EMBEDDED SYSTEM MESSAGES -->
+                {% if messages %}
+                <div class="space-y-2.5">
+                    {% for message in messages %}
+                        <div class="flex items-center justify-between p-3.5 px-4 rounded-xl text-xs font-medium border shadow-2xs transition-all duration-200
+                            {% if message.tags == 'success' %}
+                                bg-emerald-50 text-emerald-800 border-emerald-200
+                            {% elif message.tags == 'error' or message.tags == 'danger' %}
+                                bg-rose-50 text-rose-800 border-rose-200
+                            {% elif message.tags == 'warning' %}
+                                bg-amber-50 text-amber-800 border-amber-200
+                            {% else %}
+                                bg-sky-50 text-sky-800 border-sky-200
+                            {% endif %}">
+                            
+                            <div class="flex items-center gap-2.5">
+                                <span class="text-sm shrink-0">
+                                    {% if message.tags == 'success' %}
+                                        <i class="fa-solid fa-circle-check text-emerald-600"></i>
+                                    {% elif message.tags == 'error' or message.tags == 'danger' %}
+                                        <i class="fa-solid fa-circle-xmark text-rose-600"></i>
+                                    {% elif message.tags == 'warning' %}
+                                        <i class="fa-solid fa-triangle-exclamation text-amber-600"></i>
+                                    {% else %}
+                                        <i class="fa-solid fa-circle-info text-sky-600"></i>
+                                    {% endif %}
+                                </span>
+                                <span>{{ message }}</span>
+                            </div>
+
+                            <button type="button" 
+                                    onclick="this.closest('.flex').remove()" 
+                                    class="ml-3 text-slate-400 hover:text-slate-600 transition cursor-pointer">
+                                <i class="fa-solid fa-xmark text-xs"></i>
+                            </button>
+                        </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- LOGIN FORM -->
                 <form method="POST"
                       action=""
                       autocomplete="off"
@@ -75,21 +177,20 @@
 
                     <div class="flex items-center justify-end pt-1">
                         <a href="{% url 'register' %}"
-                           class="text-xs font-medium text-clay hover:text-rust transition">
+                           class="text-xs font-medium text-slate-500 hover:text-orange-600 transition">
                             Forgot password?
                         </a>
                     </div>
 
-                    <div class="pt-4 border-t border-[#E4DECB]">
-
+                    <div class="pt-2">
                         <button type="submit"
-                                class="w-full bg-rust hover:bg-rust-dark text-white font-semibold
-                                       py-3 rounded-md text-sm uppercase tracking-wider
+                                class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold
+                                       py-3 rounded-xl text-xs uppercase tracking-wider
                                        transition-all shadow-sm flex items-center justify-center gap-2
-                                       cursor-pointer">
-                            Sign In
+                                       cursor-pointer active:scale-[0.99]">
+                            <i class="fa-solid fa-right-to-bracket text-sm"></i>
+                            <span>Sign In</span>
                         </button>
-
                     </div>
 
                 </form>
@@ -97,6 +198,10 @@
             </div>
 
         </div>
+
+        <p class="mt-4 text-center text-xs text-slate-400 font-medium">
+            Nonda Commodities &bull; 2026
+        </p>
 
     </div>
 

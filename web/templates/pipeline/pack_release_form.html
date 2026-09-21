@@ -1,91 +1,46 @@
-{% extends 'pipeline/base.html' %}
+{% extends "pipeline/base.html" %} {% load humanize %} {% block title %}Prepare Return | Nonda{% endblock %} {% block breadcrumb %}Sales / Orders / {{ order.short_number }} / Return{% endblock %} {% block page_title %}Prepare Returned Stock{% endblock %} {% block page_subtitle %}
+Select only the products that physically came back to the store, then set the exact quantity returned.
 
-{% block title %}Issue Stock Release | Nonda{% endblock %}
-{% block breadcrumb %}Fulfillment / Issue Stock Release{% endblock %}
-{% block page_title %}Issue Stock Release{% endblock %}
+{% endblock %} {% block content %}
+{% if messages %}
+{% for message in messages %}
+{{ message }}
+{% endfor %}
+{% endif %}
+Stage 1 of 2
+Return Intake Worksheet · #{{ order.short_number }}
+{{ order.account_holder|default:order.requested_by }}
+{% if order.company %}
+{{ order.company.name }}
+{% endif %}
+{% csrf_token %} {{ formset.management_form }}
+Return
+Product
+Returnable
+Quantity
+Condition
+{% for form, release in form_release_pairs %}
+{{ form.release_id }}
+ Include
+{{ release.product.blend.name }}
 
-{% block content %}
-<div class="max-w-2xl mx-auto">
-    <form method="POST" id="unifiedIntakeForm" class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-5">
-        {% csrf_token %}
+{{ release.product.pack_size.label }} · {{ release.product.get_form_display }}
 
-        {% if form.non_field_errors %}
-            <div class="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg">
-                {{ form.non_field_errors }}
-            </div>
-        {% endif %}
+{{ release.packs_returnable }} packs
+Sold: {{ release.packs_sold }} · Returned: {{ release.packs_returned }}
+− 
+0
+ +
 
-        <!-- Target Account Holder -->
-        <div>
-            <div class="flex items-center justify-between mb-2">
-                <label for="{{ form.released_to.id_for_label }}" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">
-                    Assign To (Account Holder) *
-                </label>
-                <!-- Shortcut to create an account without losing their place -->
-                <a href="{% url 'account_holder_create' %}" target="_blank" class="text-[10px] font-bold text-emerald-600 hover:underline">
-                    + Create New
-                </a>
-            </div>
-            {{ form.released_to }}
-            {% if form.released_to.errors %}
-                <p class="text-[11px] text-rose-600 mt-1 font-medium">{{ form.released_to.errors.0 }}</p>
-            {% endif %}
-        </div>
+Good condition
+{% empty %}
+There are no unsold packs eligible for return for this order.
+{% endfor %}
+Selected return
 
-        <!-- Product Selection -->
-        <div>
-            <label for="{{ form.product.id_for_label }}" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
-                Packaged Product *
-            </label>
-            {{ form.product }}
-            {% if form.product.errors %}
-                <p class="text-[11px] text-rose-600 mt-1 font-medium">{{ form.product.errors.0 }}</p>
-            {% endif %}
-        </div>
+0 packs
 
-        <!-- Quantity & Price -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-                <label for="{{ form.packs_out.id_for_label }}" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
-                    Packs Quantity *
-                </label>
-                {{ form.packs_out }}
-                {% if form.packs_out.errors %}
-                    <p class="text-[11px] text-rose-600 mt-1 font-medium">{{ form.packs_out.errors.0 }}</p>
-                {% endif %}
-            </div>
+Nothing reaches store stock or the debt ledger yet.
 
-            <div>
-                <label for="{{ form.selling_price.id_for_label }}" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
-                    Selling Price (Per Pack UGX) *
-                </label>
-                {{ form.selling_price }}
-                {% if form.selling_price.errors %}
-                    <p class="text-[11px] text-rose-600 mt-1 font-medium">{{ form.selling_price.errors.0 }}</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Notes -->
-        <div>
-            <label for="{{ form.notes.id_for_label }}" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
-                Dispatch Particulars / Notes
-            </label>
-            {{ form.notes }}
-            {% if form.notes.errors %}
-                <p class="text-[11px] text-rose-600 mt-1 font-medium">{{ form.notes.errors.0 }}</p>
-            {% endif %}
-        </div>
-
-        <!-- Actions -->
-        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-            <a href="{% url 'credit_control_ledger' %}" class="px-4 py-2 border border-slate-200 text-slate-600 font-bold text-xs rounded-lg hover:bg-slate-50 transition">
-                Cancel
-            </a>
-            <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition">
-                Confirm & Issue Packs
-            </button>
-        </div>
-    </form>
-</div>
+Review & Confirm →
 {% endblock %}

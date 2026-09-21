@@ -125,4 +125,10 @@ path("sales/consignments/", sales_views.ConsignmentListView.as_view(), name="con
 path("sales/consignments/<int:pk>/", sales_views.ConsignmentDetailView.as_view(), name="consignment_detail"),
 path("sales/consignments/<int:pk>/audit/", sales_views.ConsignmentAuditView.as_view(), name="consignment_audit"),
 
+
+# urls.py additions
+path("returns/order/<int:pk>/", views.PackReturnCreateView.as_view(), name="pack_return_form"),
+path("returns/confirm/<str:token>/", views.PackReturnConfirmationView.as_view(), name="pack_return_confirm"),
+path("returns/pending/", views.PendingReturnApprovalListView.as_view(), name="pending_return_approvals"),
+path("returns/<int:pk>/approve/", views.PackReturnApproveView.as_view(), name="pack_return_approve"),
 ]

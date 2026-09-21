@@ -19,22 +19,54 @@
     </div>
 
     <!-- NAVIGATION TABS -->
-    <div class="bg-white border border-[#E4DECB] rounded-lg p-1 shadow-2xs">
-        <div class="flex flex-wrap gap-1">
-            <a href="{% url 'stock_list' %}"
-               class="px-3 py-1.5 rounded text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
-                Coffee Stock
+        <!-- =========================================================
+         2. LIVE DATE CONTROL FILTER DASHBOARD BAR
+         ========================================================= -->
+    <div class="bg-white border border-[#E4DECB] rounded-xl p-3 shadow-xs space-y-3 lg:space-y-0 lg:flex lg:items-center lg:justify-between gap-4 select-none">
+        
+        <!-- Filter Time Presets Anchor Toggles Group -->
+        <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1.5">Intervals:</span>
+            
+            <a href="?preset=this_month" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all {% if preset == 'this_month' %}bg-slate-900 text-white shadow-2xs{% else %}bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100{% endif %}">
+                This Month
             </a>
-            <a href="{% url 'stock_ledger' %}"
-               class="px-3 py-1.5 rounded bg-slate-800 text-white text-xs font-semibold shadow-2xs">
-                Movement Ledger
+            
+            <a href="?preset=last_7_days" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all {% if preset == 'last_7_days' %}bg-slate-900 text-white shadow-2xs{% else %}bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100{% endif %}">
+                This Week
             </a>
-            <a href="{% url 'stock_low' %}"
-               class="px-3 py-1.5 rounded text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
-                Low Stock
+            
+            <a href="?preset=yesterday" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all {% if preset == 'yesterday' %}bg-slate-900 text-white shadow-2xs{% else %}bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100{% endif %}">
+                Yesterday
+            </a>
+
+            <a href="?preset=today" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all {% if preset == 'today' %}bg-slate-900 text-white shadow-2xs{% else %}bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100{% endif %}">
+                Today
             </a>
         </div>
+
+        <!-- Custom Calendar Multi-Date Inputs Pickers Form (Matching Your Packaged Inventory Image) -->
+        <form method="get" class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-600">
+            <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+                <span class="text-[9px] uppercase font-bold text-slate-400">From</span>
+                <input type="date" name="start_date" value="{{ start_date }}" class="bg-transparent text-slate-800 font-mono focus:outline-none cursor-pointer text-xs">
+            </div>
+            
+            <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+                <span class="text-[9px] uppercase font-bold text-slate-400">To</span>
+                <input type="date" name="end_date" value="{{ end_date }}" class="bg-transparent text-slate-800 font-mono focus:outline-none cursor-pointer text-xs">
+            </div>
+
+            <button type="submit" class="px-3 py-1.5 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-700 transition shadow-3xs text-xs cursor-pointer">
+                Apply Range
+            </button>
+            
+            {% if preset == 'custom' or start_date or end_date %}
+                <a href="?preset=this_month" class="text-[11px] text-rose-600 hover:underline ml-1 font-semibold">Clear</a>
+            {% endif %}
+        </form>
     </div>
+
 
     <!-- MOVEMENT LEDGER TABLE -->
     <div class="bg-white border border-[#E4DECB] rounded-lg shadow-2xs overflow-hidden">

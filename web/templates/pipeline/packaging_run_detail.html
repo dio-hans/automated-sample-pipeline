@@ -1,232 +1,134 @@
-
 {% extends "pipeline/base.html" %}
 
-{% block title %}Packaging Run {{ run.product }}{% endblock %}
+{% block title %}Packaging Run #{{ run.pk }} | Nonda{% endblock %}
 
 {% block breadcrumb %}
-Inventory / Packaging Runs / Run {{ run.pk }}
-{% endblock %}
-
-{% block page_title %}
-Packaging Run
+Inventory / Packaging Runs / Run #{{ run.pk }}
 {% endblock %}
 
 {% block header_action %}
 <a href="{% url 'packaging_run_list' %}"
-   class="px-4 py-2 text-sm font-medium border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50">
-    Packaging Runs
+   class="px-3.5 py-1.5 text-xs font-semibold border border-line bg-white text-ink rounded-lg hover:bg-paper transition">
+    Back to Runs
 </a>
 {% endblock %}
 
 {% block content %}
+<div class="max-w-5xl mx-auto space-y-4">
 
-<div class="space-y-6 max-w-5xl">
-
-    <!-- HEADER -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-
-            <div>
-
-                <p class="text-xs uppercase tracking-wide font-semibold text-gray-500">
-                    Packaging Run
-                </p>
-
-                <h2 class="text-2xl font-bold text-gray-900 mt-1">
-                    {{ run.product.blend.name }}
-                </h2>
-
-                <p class="text-sm text-gray-500 mt-1">
-                    {{ run.product.pack_size.label }}
-                    
-                    {{ run.product.get_form_display }}
-                </p>
-
+    <!-- HEADER BANNER -->
+    <div class="bg-white border border-line rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-paper text-ink border border-line">Run #{{ run.pk }}</span>
+                <h1 class="font-display text-lg font-bold text-ink">{{ run.product.blend.name }}</h1>
             </div>
-
-            <div class="text-left md:text-right">
-
-                <p class="text-xs text-gray-500">
-                    Recorded
-                </p>
-
-                <p class="font-semibold text-gray-900">
-                    {{ run.run_date|date:"d M Y, H:i" }}
-                </p>
-
-            </div>
-
+            <p class="text-xs text-clay mt-0.5">
+                {{ run.product.pack_size.label }} · {{ run.product.get_form_display }}
+            </p>
         </div>
-
+        <div class="text-left sm:text-right text-xs">
+            <p class="text-[10px] uppercase font-bold text-clay">Recorded Date</p>
+            <p class="font-semibold text-ink mt-0.5">{{ run.run_date|date:"d M Y, H:i" }}</p>
+        </div>
     </div>
 
-
-    <!-- ACCOUNTING -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-
-        <div class="px-6 py-5 border-b border-gray-200">
-
-            <h3 class="font-semibold text-gray-900">
-                Packaging Accountability
-            </h3>
-
-            <p class="text-xs text-gray-500 mt-1">
-                Every kilogram entering the packaging process must be accounted for.
+    <!-- KPI ACCOUNTABILITY METRICS -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <!-- Input -->
+        <div class="bg-white border border-line rounded-xl p-3.5 shadow-sm">
+            <p class="text-[9px] uppercase tracking-wider font-bold text-clay">Input Weight</p>
+            <p class="text-xl font-bold text-ink mt-1">
+                {{ run.input_kg }} <span class="text-xs font-normal text-clay">kg</span>
             </p>
-
         </div>
 
-        <div class="p-6">
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-                <div class="p-5 rounded-xl bg-gray-50 border">
-                    <p class="text-xs uppercase font-semibold tracking-wide text-gray-500">
-                        Input
-                    </p>
-                    <p class="text-3xl font-bold text-gray-900 mt-2">
-                        {{ run.input_kg }}
-                        <span class="text-sm font-normal text-gray-500">kg</span>
-                    </p>
-                </div>
-
-                <div class="p-5 rounded-xl bg-gray-50 border">
-                    <p class="text-xs uppercase font-semibold tracking-wide text-gray-500">
-                        Represented in Packs
-                    </p>
-                    <p class="text-3xl font-bold text-gray-900 mt-2">
-                        {{ represented_kg|default:"0" }}
-                        <span class="text-sm font-normal text-gray-500">kg</span>
-                    </p>
-                </div>
-
-                <div class="p-5 rounded-xl bg-amber-50 border border-amber-100">
-                    <p class="text-xs uppercase font-semibold tracking-wide text-amber-700">
-                        Packaging Loss
-                    </p>
-                    <p class="text-3xl font-bold text-amber-800 mt-2">
-                        {{ run.loss_kg }}
-                        <span class="text-sm font-normal text-amber-600">kg</span>
-                    </p>
-                </div>
-
-            </div>
-
-
-            <div class="mt-6 rounded-xl bg-emerald-50 border border-emerald-100 p-5">
-
-                <div class="flex items-center justify-between">
-
-                    <div>
-                        <p class="text-sm font-semibold text-emerald-900">
-                            Input Weight
-                        </p>
-
-                        <p class="text-xs text-emerald-700 mt-1">
-                            
-                        </p>
-                    </div>
-
-                    <div class="text-2xl font-bold text-emerald-900">
-                        {{ run.input_kg }} kg
-                    </div>
-
-                </div>
-
-            </div>
-
+        <!-- In Packs -->
+        <div class="bg-white border border-line rounded-xl p-3.5 shadow-sm">
+            <p class="text-[9px] uppercase tracking-wider font-bold text-clay">Represented In Packs</p>
+            <p class="text-xl font-bold text-ink mt-1">
+                {{ represented_kg|default:"0" }} <span class="text-xs font-normal text-clay">kg</span>
+            </p>
         </div>
 
+        <!-- Loss -->
+        <div class="bg-amber-50/50 border border-amber-200/70 rounded-xl p-3.5 shadow-sm">
+            <p class="text-[9px] uppercase tracking-wider font-bold text-amber-800">Packaging Loss</p>
+            <p class="text-xl font-bold text-amber-900 mt-1">
+                {{ run.loss_kg }} <span class="text-xs font-normal text-amber-700">kg</span>
+            </p>
+        </div>
+
+        <!-- Packs Produced -->
+        <div class="bg-white border border-line rounded-xl p-3.5 shadow-sm">
+            <p class="text-[9px] uppercase tracking-wider font-bold text-clay">Packs Produced</p>
+            <p class="text-xl font-bold text-rust mt-1">
+                {{ run.packs_produced }} <span class="text-xs font-normal text-clay">units</span>
+            </p>
+        </div>
     </div>
 
+    <!-- DETAILS GRID -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-    <!-- PACK RESULT -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        <!-- SPECIFICATION RESULT -->
+        <div class="bg-white border border-line rounded-xl p-4 shadow-sm space-y-3">
+            <h2 class="text-[10px] uppercase font-bold tracking-wider text-clay border-b border-line pb-2">
+                Production Specification
+            </h2>
 
-        <h3 class="font-semibold text-gray-900">
-            Production Result
-        </h3>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                    <p class="text-[9px] uppercase font-bold text-clay">Blend</p>
+                    <p class="font-semibold text-ink mt-0.5">{{ run.product.blend.name }}</p>
+                </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mt-5">
+                <div>
+                    <p class="text-[9px] uppercase font-bold text-clay">Pack Size</p>
+                    <p class="font-semibold text-ink mt-0.5">{{ run.product.pack_size.label }}</p>
+                </div>
 
-            <div>
-                <p class="text-xs text-gray-500">Product</p>
-                <p class="font-semibold text-gray-900 mt-1">
-                    {{ run.product.blend.name }}
-                </p>
+                <div>
+                    <p class="text-[9px] uppercase font-bold text-clay">Form</p>
+                    <p class="font-semibold text-ink mt-0.5">{{ run.product.get_form_display }}</p>
+                </div>
+
+                <div>
+                    <p class="text-[9px] uppercase font-bold text-clay">Total Output</p>
+                    <p class="font-bold text-ink mt-0.5">{{ run.packs_produced }} units</p>
+                </div>
             </div>
-
-            <div>
-                <p class="text-xs text-gray-500">Pack Size</p>
-                <p class="font-semibold text-gray-900 mt-1">
-                    {{ run.product.pack_size.label }}
-                </p>
-            </div>
-
-            <div>
-                <p class="text-xs text-gray-500">Form</p>
-                <p class="font-semibold text-gray-900 mt-1">
-                    {{ run.product.get_form_display }}
-                </p>
-            </div>
-
-            <div>
-                <p class="text-xs text-gray-500">Packs Produced</p>
-                <p class="font-bold text-gray-900 mt-1">
-                    {{ run.packs_produced }}
-                </p>
-            </div>
-
         </div>
 
-    </div>
+        <!-- SOURCE BATCH & NOTES -->
+        <div class="bg-white border border-line rounded-xl p-4 shadow-sm space-y-3">
+            <h2 class="text-[10px] uppercase font-bold tracking-wider text-clay border-b border-line pb-2">
+                Source Coffee Batch
+            </h2>
 
+            <div class="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                    <p class="text-[9px] uppercase font-bold text-clay">Batch Number</p>
+                    <p class="font-semibold text-ink mt-0.5">{{ run.stock.batch_number }}</p>
+                </div>
 
-    <!-- SOURCE -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+                <div>
+                    <p class="text-[9px] uppercase font-bold text-clay">Variety</p>
+                    <p class="font-semibold text-ink mt-0.5">{{ run.stock.variety.name }}</p>
+                </div>
+            </div>
 
-        <h3 class="font-semibold text-gray-900">
-            Source Batch
-        </h3>
-
-        <div class="mt-4">
-
-            <p class="text-xs text-gray-500">
-                Coffee Stock Batch
-            </p>
-
-            <p class="font-semibold text-gray-900 mt-1">
-                {{ run.stock.batch_number }}
-            </p>
-
-            <p class="text-sm text-gray-500 mt-1">
-                {{ run.stock.variety.name }}
-            </p>
-
+            {% if run.notes %}
+            <div class="mt-3 pt-3 border-t border-line text-xs">
+                <p class="text-[9px] uppercase font-bold text-clay mb-1">Notes</p>
+                <p class="text-ink/80 leading-relaxed bg-paper/60 p-2.5 rounded-lg border border-line/60">
+                    {{ run.notes }}
+                </p>
+            </div>
+            {% endif %}
         </div>
-
-        {% if run.notes %}
-
-        <div class="mt-5 pt-5 border-t">
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Notes
-            </p>
-
-            <p class="text-sm text-gray-700 mt-2">
-                {{ run.notes }}
-            </p>
-
-        </div>
-
-        {% endif %}
 
     </div>
 
 </div>
-
 {% endblock %}
-
-
-

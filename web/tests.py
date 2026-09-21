@@ -545,3 +545,15 @@ class AuthenticationAndAuthorizationTests(TestCase):
 
         self.admin.refresh_from_db()
         self.assertTrue(self.admin.is_active)
+
+# Recommended tests
+
+# 1. 3 issued, 0 sold -> packs_returnable == 3
+# 2. 3 issued, 2 sold -> packs_returnable == 1
+# 3. 3 issued, 3 sold -> packs_returnable == 0
+# 4. 3 issued, 2 sold, 1 pending return -> packs_returnable == 0
+# 5. pending return does not increase inventory or reduce balance
+# 6. approved return increases returned quantity exactly once
+# 7. approving the same return twice is rejected
+# 8. rejected return makes no stock or ledger change
+# 9. two pending returns cannot reserve more units than remain unsold

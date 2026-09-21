@@ -3,48 +3,95 @@
 
 {% block title %}{{ account.name }} | Portfolio{% endblock %}
 {% block breadcrumb %}Account Holders / {{ account.name }}{% endblock %}
-{% block page_title %}{{ account.name }}{% endblock %}
+
 {% block page_subtitle %}
-<p class="mt-1 text-sm text-slate-500">
+<p class="mt-1 text-xs text-slate-500">
     Type: <span class="font-bold text-slate-700">{{ account.get_account_type_display|default:account.account_type|title }}</span>
     {% if account.phone_number %} · Contact: {{ account.phone_number }}{% endif %}
 </p>
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
-        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Assigned Pack Releases</h3>
-        <table class="w-full text-sm text-left border-collapse">
-            <thead class="bg-slate-50 text-slate-600 uppercase text-[10px] font-bold tracking-wider border-b">
-                <tr>
-                    <th class="px-4 py-3">Date</th>
-                    <th class="px-4 py-3">Product</th>
-                    <th class="px-4 py-3 text-center">Packs Out</th>
-                    <th class="px-4 py-3 text-center">Outstanding</th>
-                    <th class="px-4 py-3 text-right">Value (UGX)</th>
-                    <th class="px-4 py-3 text-right">Paid (UGX)</th>
-                    <th class="px-4 py-3 text-right">Balance Owed</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y text-xs">
-                {% for release in releases %}
-                <tr>
-                    <td class="px-4 py-3 text-slate-400">{{ release.released_at|date:"d M Y, H:i" }}</td>
-                    <td class="px-4 py-3 font-bold text-slate-800">{{ release.product }}</td>
-                    <td class="px-4 py-3 text-center">{{ release.packs_out }}</td>
-                    <td class="px-4 py-3 text-center font-bold">{{ release.packs_outstanding }}</td>
-                    <td class="px-4 py-3 text-right font-medium">{{ release.gross_amount|floatformat:0|intcomma }}</td>
-                    <td class="px-4 py-3 text-right text-emerald-600 font-bold">{{ release.total_amount_paid|floatformat:0|intcomma }}</td>
-                    <td class="px-4 py-3 text-right text-rose-600 font-black bg-rose-50/20">{{ release.outstanding_balance|floatformat:0|intcomma }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="7" class="px-4 py-6 text-center text-slate-400 italic">No pack releases recorded for this account holder.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="space-y-4">
+
+    <!-- 1. SUMMARY CARDS -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <!-- Card 1: Total Stock Value Released -->
+        <div class="bg-white border border-[#E4DECB] rounded-xl p-3.5 shadow-sm">
+            <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Total Value Released</p>
+            <p class="font-bold text-xl mt-1 text-slate-800">{{ total_value|floatformat:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">UGX</span></p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Lifetime inventory assigned to account</p>
+        </div>
+
+        <!-- Card 2: Total Amount Paid -->
+        <div class="bg-white border border-[#E4DECB] rounded-xl p-3.5 shadow-sm">
+            <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Amount Paid So Far</p>
+            <p class="font-bold text-xl mt-1 text-emerald-600">{{ total_paid|floatformat:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">UGX</span></p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Total cleared collections logged</p>
+        </div>
+
+        <!-- Card 3: Total Outstanding Debt -->
+        <div class="bg-white border border-[#E4DECB] rounded-xl p-3.5 shadow-sm">
+            <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Current Outstanding Balance</p>
+            <p class="font-bold text-xl mt-1 text-rose-600">{{ total_outstanding|floatformat:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">UGX</span></p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Pending debt balance owed</p>
+        </div>
     </div>
+
+    <!-- 2. RELEASES LEDGER TABLE -->
+    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b border-[#E4DECB] bg-slate-50/50">
+            <h3 class="text-xs font-bold text-slate-600 uppercase tracking-wider">Assigned Pack Releases</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse bg-white">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-[#E4DECB] text-slate-600 font-semibold text-[11px] uppercase tracking-wider">
+                        <th class="px-4 py-3">Date</th>
+                        <th class="px-4 py-3">Product Variant</th>
+                        <th class="px-4 py-3 text-center">Packs Out</th>
+                        <th class="px-4 py-3 text-center">Outstanding</th>
+                        <th class="px-4 py-3 text-right">Value (UGX)</th>
+                        <th class="px-4 py-3 text-right">Paid (UGX)</th>
+                        <th class="px-4 py-3 text-right">Balance Owed</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#E4DECB] text-slate-700 text-xs">
+                    {% for release in releases %}
+                    <tr class="hover:bg-slate-50/50 transition duration-150">
+                        <td class="px-4 py-3 whitespace-nowrap text-slate-500 font-medium">
+                            {{ release.released_at|date:"d M Y, H:i" }}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap font-bold text-slate-900">
+                            {{ release.product }}
+                        </td>
+                        <td class="px-4 py-3 text-center font-medium text-slate-500">
+                            {{ release.packs_out }}
+                        </td>
+                        <td class="px-4 py-3 text-center font-bold text-slate-800 bg-slate-50/50">
+                            {{ release.packs_outstanding }}
+                        </td>
+                        <td class="px-4 py-3 text-right font-medium text-slate-600">
+                            {{ release.gross_amount|floatformat:0|intcomma }}
+                        </td>
+                        <td class="px-4 py-3 text-right text-emerald-600 font-bold">
+                            {{ release.total_amount_paid|floatformat:0|intcomma }}
+                        </td>
+                        <td class="px-4 py-3 text-right text-rose-600 font-black bg-rose-50/10">
+                            {{ release.outstanding_balance|floatformat:0|intcomma }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-4 py-12 text-center text-slate-400 italic">
+                            No pack releases recorded for this account holder.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
 {% endblock %}

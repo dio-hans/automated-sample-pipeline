@@ -117,6 +117,22 @@ FIELD_CLASS = (
     "text-sm focus:outline-none focus:ring-2 focus:ring-rust focus:border-rust"
 )
 
+from django import forms
+from django.contrib.auth.forms import AuthenticationForm
+
+class UserLoginForm(AuthenticationForm):
+    # Set your custom error message here
+    error_messages = {
+        'invalid_login': "Invalid credentials. Please check your username and password.",
+        'inactive': "This account has been deactivated.",
+    }
+
+    # If you have custom styling on fields, keep it below
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['username'].widget.attrs.update({'placeholder': 'Username'})
+        self.fields['password'].widget.attrs.update({'placeholder': 'Enter your password'})
+
 class CoffeeStockForm(forms.ModelForm):
     """
     Edit an existing batch. The variety is typed by name: an existing name

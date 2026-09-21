@@ -13,17 +13,16 @@ Order Queue
 
 {% block page_subtitle %}
 <p class="mt-0.5 text-xs text-slate-500">
-    One card per stock request. Each card keeps the customer's products, releases, returns, and payments together.
+    Select an active stock order card to view items, record payments, process returns, or cancel.
 </p>
 {% endblock %}
 
 {% block content %}
 <div class="space-y-4">
-
     <!-- =========================================================
-         DATE FILTER & TOP BAR
+         DATE FILTER PRESET HEADER CONTROLS
          ========================================================= -->
-    <div class="bg-white border border-slate-200/80 rounded-xl shadow-xs p-3.5">
+    <div class="bg-white border border-slate-200/80 rounded-xl shadow-xs p-3">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
                 <p class="text-[9px] uppercase tracking-widest font-bold text-slate-400">
@@ -41,34 +40,14 @@ Order Queue
                     {% endif %}
                 </h1>
             </div>
-
-            <!-- Filter Preset Controls -->
             <div class="flex items-center gap-1 bg-slate-100/70 p-1 rounded-lg border border-slate-200/60">
-                <a href="?preset=today"
-                   class="px-3 py-1 rounded text-[10px] font-semibold transition-all
-                   {% if preset == 'today' %}
-                       bg-white text-slate-900 shadow-xs border border-slate-200/80
-                   {% else %}
-                       text-slate-600 hover:text-slate-900
-                   {% endif %}">
+                <a href="?preset=today" class="px-3 py-1 rounded text-[10px] font-semibold transition-all {% if preset == 'today' %}bg-white text-slate-900 shadow-xs border border-slate-200/80{% else %}text-slate-600 hover:text-slate-900{% endif %}">
                     Today
                 </a>
-                <a href="?preset=yesterday"
-                   class="px-3 py-1 rounded text-[10px] font-semibold transition-all
-                   {% if preset == 'yesterday' %}
-                       bg-white text-slate-900 shadow-xs border border-slate-200/80
-                   {% else %}
-                       text-slate-600 hover:text-slate-900
-                   {% endif %}">
+                <a href="?preset=yesterday" class="px-3 py-1 rounded text-[10px] font-semibold transition-all {% if preset == 'yesterday' %}bg-white text-slate-900 shadow-xs border border-slate-200/80{% else %}text-slate-600 hover:text-slate-900{% endif %}">
                     Yesterday
                 </a>
-                <a href="?preset=this_month"
-                   class="px-3 py-1 rounded text-[10px] font-semibold transition-all
-                   {% if preset == 'this_month' %}
-                       bg-white text-slate-900 shadow-xs border border-slate-200/80
-                   {% else %}
-                       text-slate-600 hover:text-slate-900
-                   {% endif %}">
+                <a href="?preset=this_month" class="px-3 py-1 rounded text-[10px] font-semibold transition-all {% if preset == 'this_month' %}bg-white text-slate-900 shadow-xs border border-slate-200/80{% else %}text-slate-600 hover:text-slate-900{% endif %}">
                     This Month
                 </a>
             </div>
@@ -76,252 +55,219 @@ Order Queue
     </div>
 
     <!-- =========================================================
-         ORDER QUEUE CARDS
+         ORDER QUEUE CARDS GRID
          ========================================================= -->
     {% if orders %}
-        <div class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {% for order in orders %}
-            <div class="bg-white border border-slate-200/90 rounded-xl shadow-xs overflow-hidden transition-all hover:border-slate-300">
+            <!-- Minimalist Dark Card Target -->
+            <div onclick="openOrderModal('order_modal_{{ order.pk }}')" 
+                 class="bg-slate-900 text-white rounded-xl p-3.5 shadow-xs border border-slate-800 transition-all hover:scale-[1.01] hover:border-slate-700 cursor-pointer flex flex-col justify-between text-left">
                 
-                <!-- Order Card Header -->
-                <div class="bg-slate-900 text-white p-3.5 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800">
-                    <div class="space-y-0.5">
-                        <div class="flex items-center gap-2">
-                            <span class="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.5 rounded">
-                                Order #{{ order.short_number }}
-                            </span>
-                            <span class="text-xs font-semibold text-slate-300">
-                                {% if order.account_holder %}{{ order.account_holder.name }}{% else %}Unassigned Account{% endif %}
-                            </span>
-                        </div>
-                        <p class="text-[10px] text-slate-400 flex items-center gap-1.5 pt-0.5">
-                            <span>{{ order.requested_at|date:"d M Y, H:i" }}</span>
-                            {% if order.company %}
-                                <span>•</span>
-                                <span class="text-slate-300 font-medium">→ {{ order.company.name }}</span>
-                            {% endif %}
-                            <span>•</span>
-                            <span class="text-amber-400 font-medium">{{ order.get_purpose_display }}</span>
-                        </p>
-                    </div>
-
-                    <div class="text-right">
-                        <span class="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">Total Due</span>
-                        <p class="text-base font-extrabold font-mono text-rose-400 leading-none">
-                            UGX {{ order.total_outstanding|floatformat:0|intcomma }}
-                        </p>
-                    </div>
-                </div>
-
-                <!-- Financial Summary Bar -->
-                <div class="bg-slate-50 border-b border-slate-200/80 px-4 py-2.5 grid grid-cols-3 gap-2 text-center text-xs">
-                    <div class="border-r border-slate-200/80 pr-2">
-                        <span class="text-[9px] uppercase font-bold text-slate-400 block">Issued Stock</span>
-                        <span class="font-extrabold text-slate-800 font-mono">{{ order.total_issued }} packs</span>
-                    </div>
-                    <div class="border-r border-slate-200/80 pr-2">
-                        <span class="text-[9px] uppercase font-bold text-slate-400 block">Order Value</span>
-                        <span class="font-extrabold text-slate-800 font-mono">UGX {{ order.total_value|floatformat:0|intcomma }}</span>
-                    </div>
-                    <div>
-                        <span class="text-[9px] uppercase font-bold text-slate-400 block">Total Paid</span>
-                        <span class="font-extrabold text-emerald-600 font-mono">UGX {{ order.total_paid|floatformat:0|intcomma }}</span>
-                    </div>
-                </div>
-
-                <!-- Releases & Items Section -->
-                <div class="p-4 space-y-3">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-                        <h3 class="text-[10px] uppercase tracking-wider font-bold text-slate-500">
-                            Items on this Order
-                        </h3>
-                        <span class="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-full">
-                            {{ order.queue_releases|length }} Release{{ order.queue_releases|length|pluralize }}
+                <div>
+                    <!-- Order Top Row Metadata -->
+                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                        <span class="text-[10px] font-mono tracking-wider text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-900/40 px-2 py-0.5 rounded">
+                            N- {{ order.short_number }}
+                        </span>
+                        <span class="text-[9px] font-mono text-slate-400">
+                            {{ order.requested_at|date:"d M, H:i" }}
                         </span>
                     </div>
 
-                    <!-- Individual Releases Table/List -->
-                    <div class="space-y-2">
-                        {% for release in order.queue_releases %}
-                        <div class="bg-slate-50/70 border border-slate-200/80 rounded-lg p-3 flex flex-col md:flex-row md:items-center justify-between gap-2 transition-all hover:bg-slate-100/50">
-                            
-                            <!-- Product Details -->
-                            <div class="space-y-0.5">
-                                <p class="text-xs font-bold text-slate-800">
-                                    {{ release.product.blend.name }} <span class="text-slate-500 font-normal">({{ release.product.pack_size.label }})</span>
-                                </p>
-                                <p class="text-[10px] text-slate-500">
-                                    {{ release.product.get_form_display }} • Released: {{ release.released_at|date:"d M, H:i" }}
-                                </p>
-                            </div>
+                    <!-- Order Owner Name -->
+                    <!-- Find this block in your template card body and update it: -->
+                    <h3 class="text-sm font-semibold tracking-tight text-slate-100 truncate">
+                        {% if order.requested_by %}
+                            {{ order.requested_by.get_full_name|default:order.requested_by.username }}
+                        {% elif order.account_holder %}
+                            {{ order.account_holder.name }}
+                        {% else %}
+                            Unassigned Account
+                        {% endif %}
+                    </h3>
 
-                            <!-- Movement Stats -->
-                            <div class="flex items-center gap-4 text-xs">
-                                <div>
-                                    <span class="text-[9px] uppercase font-semibold text-slate-400 block">Out</span>
-                                    <span class="font-bold text-slate-700 font-mono">{{ release.packs_out }} packs</span>
-                                </div>
-                                <div>
-                                    <span class="text-[9px] uppercase font-semibold text-slate-400 block">Balance</span>
-                                    <span class="font-extrabold text-rose-600 font-mono">UGX {{ release.outstanding_balance|floatformat:0|intcomma }}</span>
-                                </div>
-                            </div>
-
-                            <!-- Release Actions -->
-                            <div class="flex items-center gap-2 pt-1 md:pt-0">
-                                <a href="{% url 'pack_release_detail' release.pk %}"
-                                   class="text-[10px] font-bold text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:border-slate-300 px-2.5 py-1 rounded-md shadow-2xs transition-all">
-                                    Open Release
-                                </a>
-                                {% if release.packs_outstanding > 0 %}
-                                    <a href="{% url 'pack_return_form' release.pk %}"
-                                       class="text-[10px] font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100/80 border border-amber-200/80 px-2.5 py-1 rounded-md transition-all">
-                                        Return Stock
-                                    </a>
-                                {% endif %}
-                            </div>
-
-                        </div>
-                        {% endfor %}
-                    </div>
                 </div>
 
-                <!-- Footer Card Actions -->
-                <div class="bg-slate-50 border-t border-slate-200/80 p-3 flex items-center justify-between gap-2">
-                    <a href="{% url 'stock_request_detail' order.pk %}" 
-                       class="text-xs font-bold text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg transition-all">
-                        Open Order Record →
-                    </a>
-
-                    <button type="button"
-                            onclick="openOrderModal('order_modal_{{ order.pk }}')"
-                            class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                        </svg>
-                        Record Payment
-                    </button>
+                <!-- Financial Total -->
+                <div class="mt-3 pt-2 border-t border-slate-800/80 flex items-end justify-between">
+                    <span class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Total Due</span>
+                    <p class="text-sm font-extrabold font-mono text-orange-400 leading-none">
+                        {{ order.total_outstanding|floatformat:0|intcomma }}
+                    </p>
                 </div>
-
             </div>
 
             <!-- =========================================================
-                 ORDER PAYMENT MODAL (Per Order)
+                 COMPACT NON-SCROLLABLE MODAL (Fit-to-Screen)
                  ========================================================= -->
-            <div id="order_modal_{{ order.pk }}" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
-                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 text-left animate-in fade-in zoom-in-95 duration-150">
+            <div id="order_modal_{{ order.pk }}" class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 hidden items-center justify-center p-3">
+                <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 text-left flex flex-col animate-in fade-in zoom-in-95 duration-150">
                     
-                    <!-- Modal Header -->
-                    <div class="bg-slate-900 text-white p-4 flex items-center justify-between">
+                    <!-- Dark Modal Top Bar -->
+                    <div class="bg-slate-950 text-white px-4 py-2.5 flex items-center justify-between border-b border-slate-800 shrink-0">
                         <div>
-                            <span class="text-[9px] uppercase font-mono tracking-wider text-emerald-400 font-bold">
+                            <span class="text-[9px] font-mono tracking-wider text-emerald-400 font-bold uppercase block">
                                 Order #{{ order.short_number }}
                             </span>
-                            <h3 class="text-sm font-bold text-white">Record Order Settlement</h3>
+                            <h3 class="text-xs font-bold text-white">Record Order Settlement</h3>
                         </div>
-                        <button type="button" onclick="closeOrderModal('order_modal_{{ order.pk }}')" class="text-slate-400 hover:text-white text-base font-bold p-1">
-                            ✕
+                        <button type="button" onclick="closeOrderModal('order_modal_{{ order.pk }}')" class="text-slate-400 hover:text-white text-base font-bold p-1 cursor-pointer">
+                            
                         </button>
                     </div>
 
-                    <!-- Modal Form -->
-                    <form method="post" action="{% url 'record_card_payment' order.pk %}" class="p-4 space-y-4">
-                        {% csrf_token %}
-
-                        <!-- Info Banner -->
-                        <div class="bg-slate-50 border border-slate-200/80 rounded-lg p-3 space-y-1 text-xs">
-                            <div class="flex justify-between">
-                                <span class="text-slate-500 font-medium">Customer:</span>
-                                <span class="font-bold text-slate-800">{{ order.account_holder|default:"Unassigned Account" }}</span>
+                    <!-- Fixed Non-Scrollable Modal Body Container -->
+                    <div class="p-4 space-y-3">
+                        
+                        <!-- Customer & Financial Summary -->
+                        <div class="bg-slate-50 border border-slate-200/80 rounded-lg p-2.5 grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Customer</span>
+                                <p class="text-xs font-bold text-slate-800 truncate">
+                                    {% if order.account_holder %}{{ order.account_holder.name }}{% else %}Unassigned Account{% endif %}
+                                </p>
                             </div>
-                            <div class="flex justify-between">
-                                <span class="text-slate-500 font-medium">Outstanding Balance:</span>
-                                <span class="font-extrabold text-rose-600 font-mono">UGX {{ order.total_outstanding|floatformat:0|intcomma }}</span>
+                            <div class="text-right">
+                                <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Outstanding Balance</span>
+                                <p class="text-sm font-black text-rose-600 font-mono">UGX {{ order.total_outstanding|floatformat:0|intcomma }}</p>
                             </div>
                         </div>
 
-                        <!-- Form Inputs -->
-                        <div class="space-y-3">
-                            <div>
-                                <label class="block text-[10px] uppercase font-bold text-slate-600 mb-1">
-                                    Amount Received (UGX)
-                                </label>
-                                <input type="number" 
-                                       name="amount" 
-                                       step="1" 
-                                       max="{{ order.total_outstanding }}"
-                                       value="{{ order.total_outstanding }}" 
-                                       required
-                                       class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-lg p-2.5 text-sm font-mono font-bold text-slate-900">
+                        <!-- Compact Allocated Products List -->
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-1">
+                                <h4 class="text-[9px] uppercase tracking-wider font-bold text-slate-500">
+                                    Allocated Products Payload
+                                </h4>
+                                <span class="text-[9px] text-slate-400 font-mono">
+                                    {{ order.queue_releases|length }} item{{ order.queue_releases|length|pluralize }}
+                                </span>
                             </div>
-
-                            <div>
-                                <label class="block text-[10px] uppercase font-bold text-slate-600 mb-1">
-                                    Payment Method
-                                </label>
-                                <select name="method" required class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-lg p-2.5 text-xs font-semibold text-slate-800">
-                                    <option value="cash" selected>Cash</option>
-                                    <option value="mobile_money">Mobile Money</option>
-                                    <option value="bank_transfer">Bank Transfer</option>
-                                    <option value="other">Other</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-[10px] uppercase font-bold text-slate-600 mb-1">
-                                    Payment Reference
-                                </label>
-                                <input type="text" 
-                                       name="payment_reference" 
-                                       placeholder="e.g. MM Txn ID, Cheque No."
-                                       class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-lg p-2 text-xs text-slate-800">
-                            </div>
-
-                            <div>
-                                <label class="block text-[10px] uppercase font-bold text-slate-600 mb-1">
-                                    Notes
-                                </label>
-                                <textarea name="notes" 
-                                          rows="2" 
-                                          placeholder="Optional comments..."
-                                          class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-lg p-2 text-xs text-slate-800"></textarea>
+                            
+                            <div class="space-y-1">
+                                {% for release in order.queue_releases %}
+                                <div class="bg-slate-50 border border-slate-200/60 rounded-md px-2.5 py-1.5 flex justify-between items-center text-xs">
+                                    <div class="flex items-center gap-2 truncate">
+                                        <div class="truncate">
+                                            <p class="font-bold text-slate-800 leading-tight truncate">{{ release.product.blend.name }}</p>
+                                            <p class="text-[9px] text-slate-500 leading-tight">{{ release.product.pack_size.label }} · {{ release.product.get_form_display }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right shrink-0">
+                                        <p class="font-mono font-bold text-slate-700 text-xs">{{ release.packs_out }} pk</p>
+                                        <p class="text-[9px] font-mono text-slate-400">Bal: {{ release.outstanding_balance|floatformat:0|intcomma }}</p>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <p class="text-xs text-slate-400 text-center italic py-1">No active batch assignments.</p>
+                                {% endfor %}
                             </div>
                         </div>
 
-                        <!-- Modal Action Buttons -->
-                        <div class="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
-                            <button type="button" 
-                                    onclick="closeOrderModal('order_modal_{{ order.pk }}')"
-                                    class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all">
-                                Cancel
-                            </button>
-                            <button type="submit" 
-                                    class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs">
-                                Post Payment
-                            </button>
-                        </div>
-                    </form>
+                        <!-- Compact Payment Form -->
+                        <form id="form_settlement_{{ order.pk }}" method="post" action="{% url 'record_card_payment' order.pk %}" class="space-y-2 border-t border-slate-100 pt-2.5">
+                            {% csrf_token %}
+                            
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
+                                        Amount Received (UGX)
+                                    </label>
+                                    <input type="number" 
+                                           name="amount" 
+                                           step="1" 
+                                           max="{{ order.total_outstanding }}"
+                                           value="{{ order.total_outstanding }}" 
+                                           required
+                                           class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1.5 text-xs font-mono font-bold text-slate-900">
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
+                                        Payment Method
+                                    </label>
+                                    <select name="method" required class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1.5 text-xs font-semibold text-slate-800">
+                                        <option value="cash" selected>Cash Payment</option>
+                                        <option value="mobile_money">Mobile Money (MoMo)</option>
+                                        <option value="bank_transfer">Bank Wire Transfer</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
+                                        Reference Hash / ID
+                                    </label>
+                                    <input type="text" 
+                                           name="payment_reference" 
+                                           placeholder="e.g. MM Txn ID"
+                                           class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1 text-xs text-slate-800">
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
+                                        Audit Comments
+                                    </label>
+                                    <input type="text"
+                                           name="notes" 
+                                           placeholder="Optional comments..."
+                                           class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1 text-xs text-slate-800">
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Modal Actions Footer Bar -->
+                   <div class="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
+    <!-- Left Hand Actions Group (Cancel and Returns Handling) -->
+    <div class="flex flex-wrap items-center gap-2">
+        <button type="button" 
+                onclick="closeOrderModal('order_modal_{{ order.pk }}')"
+                class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md text-[11px] font-bold transition-all cursor-pointer">
+            Cancel
+        </button>
+
+        <!-- 🎯 THE SAFE INVENTORY RETURN HOOK: Grabs the first valid release pointer index natively -->
+        {% with first_release=order.queue_releases.0 %}
+            {% if first_release %}
+                <a href="{% url 'pack_return_form' first_release.pk %}" 
+                   class="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-md text-[11px] font-bold transition-all text-center grid place-items-center">
+                    Record Returns
+                </a>
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Right Hand Actions Group (Primary Payment Form Execution Trigger) -->
+    <div>
+        <button type="submit" 
+                form="form_settlement_{{ order.pk }}"
+                class="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-md text-[11px] font-bold transition-all shadow-xs cursor-pointer">
+            Post & Clear Payment
+        </button>
+    </div>
+</div>
+
 
                 </div>
             </div>
             {% endfor %}
         </div>
-
     {% else %}
         <!-- =========================================================
              EMPTY STATE
              ========================================================= -->
-        <div class="bg-white border border-slate-200/80 rounded-xl p-10 text-center shadow-2xs space-y-2">
+        <div class="bg-white border border-slate-200/80 rounded-xl p-8 text-center shadow-2xs space-y-2">
             <div class="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600 font-bold text-lg">
-                ✓
+                
             </div>
             <h3 class="text-xs font-bold text-slate-800">Order Queue is Clear</h3>
             <p class="text-[10px] text-slate-400 max-w-sm mx-auto">
-                There are no outstanding direct-sale orders requiring payment in this period.
+                No outstanding event allocations or showroom invoices require settlement processing logs within this cycle.
             </p>
         </div>
     {% endif %}
-
 </div>
 {% endblock %}
 
@@ -340,5 +286,13 @@ function closeOrderModal(modalId) {
     modal.classList.add("hidden");
     modal.classList.remove("flex");
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[id^="order_modal_"] > div').forEach(modalBox => {
+        modalBox.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+    });
+});
 </script>
 {% endblock %}

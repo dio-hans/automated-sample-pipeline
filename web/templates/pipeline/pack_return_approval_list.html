@@ -1,0 +1,113 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}Return Approvals | Nonda{% endblock %}
+{% block breadcrumb %}Inventory / Return Approvals{% endblock %}
+{% block page_title %}Store Return Approvals{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-0.5 text-xs text-slate-500">
+    Verify the physical crate items before the approved return affects warehouse stock levels or the account ledger.
+</p>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-5">
+    
+    <!-- Top Context Ribbon Header Control Layout (Sticky Alignment) -->
+    <div class="flex items-center justify-between border-b border-slate-200 pb-4 select-none">
+        <span class="bg-slate-900 text-white font-mono text-[10px] font-bold px-2.5 py-1 rounded-md tracking-wider">
+            {{ pending_returns|length }} PENDING RETURN{{ pending_returns|length|pluralize|upper }}
+        </span>
+        <a href="{% url 'order_queue' %}" class="text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors flex items-center gap-1">
+            ← Back to Order Queue
+        </a>
+    </div>
+
+    <!-- Active List Items Main Operational Responsive Grid Queue -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {% for item in pending_returns %}
+        <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col justify-between min-h-[220px] transition-all hover:scale-[1.005] hover:shadow-md">
+            <div>
+                <!-- Top Card Meta Details Row Label Section -->
+                <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5 mb-3.5 select-none">
+                    <span class="text-[10px] font-mono tracking-wider font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100">
+                        RETURN AUDIT #{{ item.pk }}
+                    </span>
+                    <span class="text-[10px] font-mono text-slate-400">
+                        {{ item.returned_at|date:"d M, H:i" }}
+                    </span>
+                </div>
+
+                <!-- Product Descriptions Information Core Blocks -->
+                <h3 class="text-sm font-bold text-slate-800 leading-tight tracking-tight">
+                    {{ item.release.product.blend.name }}
+                </h3>
+                <p class="text-[10px] text-slate-400 font-mono mt-0.5">
+                    {{ item.release.product.pack_size.label }} · {{ item.release.product.get_form_display }}
+                </p>
+                
+                <p class="text-[11px] text-slate-500 mt-2">
+                    Origin Order: <strong class="text-slate-700">#{{ item.release.request_item.request.short_number }}</strong> 
+                    · {{ item.release.released_to|default:"Unassigned" }} 
+                    {% if item.release.company %} · {{ item.release.company.name }}{% endif %}
+                </p>
+
+                <!-- Information Grid Cards Specs Metrics Array -->
+                <div class="grid grid-cols-2 gap-3 my-4 bg-slate-50/80 p-3 border border-slate-200/60 rounded-xl text-xs select-none">
+                    <div>
+                        <span class="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">Quantity Returning</span>
+                        <span class="font-mono font-bold text-slate-800 text-sm mt-0.5 inline-block">+{{ item.packs_returned }} packs</span>
+                    </div>
+                    <div>
+                        <span class="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">Reported Condition</span>
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded uppercase inline-block mt-1 border {% if item.condition == 'good' %}bg-emerald-50 text-emerald-700 border-emerald-100{% else %}bg-rose-50 text-rose-700 border-rose-100{% endif %}">
+                            {{ item.condition|cut:"_" }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Operational Control Action Toolbar Forms (🎯 FIXED WITH PROPER POST ACTIONS) -->
+            <div class="border-t border-slate-100 pt-3 flex items-center justify-between gap-4 mt-2">
+                <div class="flex flex-col text-[10px] text-slate-400 leading-tight">
+                    <span class="font-medium select-none">Logged by:</span>
+                    <span class="font-semibold text-slate-600 mt-0.5">{{ item.submitted_by|default:item.received_by }}</span>
+                </div>
+                
+                <div class="flex items-center gap-2 shrink-0">
+                    <!-- Reject action request controller button execution trigger form -->
+                    <form method="post" action="{% url 'pack_return_approve' item.pk %}" onsubmit="return confirm('Are you sure you want to reject this return request?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="reject">
+                        <button type="submit" class="px-3 py-1.5 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition-all cursor-pointer">
+                            Reject
+                        </button>
+                    </form>
+                    
+                    <!-- Approve action execution trigger form to credit accounts & restock warehouse metrics -->
+                    <form method="post" action="{% url 'pack_return_approve' item.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="approve">
+                        <button type="submit" class="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer active:scale-[0.98]">
+                            Confirm Return
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <!-- Empty pipeline fallback warning display area element layout component -->
+        <div class="col-span-full bg-white border border-slate-200 rounded-xl p-12 text-center shadow-3xs space-y-2 select-none">
+            <div class="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600 font-bold text-lg">
+                ✓
+            </div>
+            <h3 class="text-xs font-bold text-slate-800">Approvals Pipeline Cleared</h3>
+            <p class="text-[10px] text-slate-400 max-w-sm mx-auto leading-normal">
+                No outbound event return sheets are currently awaiting manager sign-off logs inside this active warehouse operations cycle.
+            </p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

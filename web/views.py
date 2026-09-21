@@ -1,6 +1,8 @@
 from datetime import datetime, time, timezone
+from django import forms
 from django.db.models import F, Q, DecimalField, ExpressionWrapper
 from django.db.models.aggregates import Sum
+from django.forms.formsets import formset_factory
 from django.utils import timezone
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -8,7 +10,7 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
-from .sales_workflow import fulfill_request_item
+from .sales_workflow import approve_existing_pack_return, fulfill_request_item
 from .models import AccountHolder, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage
 from decimal import Decimal
 from .services.processing import complete_roasting, complete_sorting
@@ -106,6 +108,10 @@ def user_login(request):
             login(request, user)
             messages.success(request, f"Welcome back, {user.username}!")
             return redirect_user_by_role(user)
+        else:
+            # Clear default errors and attach your exact custom message
+            form.errors.clear()
+            form.add_error(None, "Invalid login credentials.")
     else:
         form = UserLoginForm()
 
@@ -330,18 +336,74 @@ class PackReleaseCreateView(InventoryRoleRequiredMixin, CreateView):
             return self.form_invalid(form)
 
 
+from datetime import datetime, time
+from django.utils import timezone
+
+from datetime import datetime, time
+from django.db.models import Q
+from django.utils import timezone
+
 class PackReturnListView(InventoryRoleRequiredMixin, ListView):
     model = PackReturn
     template_name = "pipeline/pack_return_list.html"
     context_object_name = "returns"
 
     def get_queryset(self):
-        # Use double underscores (__) to fetch deep relationships like the product metadata
-        return PackReturn.objects.select_related(
-            "release__product__blend", 
-            "release__product__pack_size", 
+        qs = PackReturn.objects.select_related(
+            "release__product__blend",
+            "release__product__pack_size",
             "received_by"
-        ).order_by("-id")
+        )
+
+        today = timezone.localdate()
+        # Default to 'today' if range is not provided in GET parameters
+        selected_range = self.request.GET.get("range", "today")
+
+        # Handle Date Range Presets
+        if selected_range == "today":
+            start_date, end_date = today, today
+        elif selected_range == "yesterday":
+            yesterday = today - timezone.timedelta(days=1)
+            start_date, end_date = yesterday, yesterday
+        elif selected_range == "this_month":
+            start_date, end_date = today.replace(day=1), today
+        elif selected_range == "custom":
+            try:
+                start_date = datetime.strptime(
+                    self.request.GET.get("start_date"), "%Y-%m-%d"
+                ).date()
+                end_date = datetime.strptime(
+                    self.request.GET.get("end_date"), "%Y-%m-%d"
+                ).date()
+                if start_date > end_date:
+                    start_date, end_date = end_date, start_date
+            except (TypeError, ValueError):
+                start_date, end_date = today, today
+                selected_range = "today"
+        else:
+            # 'all' range
+            start_date, end_date = None, None
+
+        # Apply date filters
+        if start_date and end_date:
+            start_dt = timezone.make_aware(datetime.combine(start_date, time.min))
+            end_dt = timezone.make_aware(datetime.combine(end_date + timezone.timedelta(days=1), time.min))
+            qs = qs.filter(returned_at__gte=start_dt, returned_at__lt=end_dt)
+
+        # Apply search filter (product name/blend)
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            qs = qs.filter(
+                Q(release__product__blend__name__icontains=query) |
+                Q(release__product__pack_size__name__icontains=query)
+            )
+
+        return qs.order_by("-returned_at", "-id")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["selected_range"] = self.request.GET.get("range", "today")
+        return ctx
 
 
 def current_user(request):
@@ -700,6 +762,7 @@ def stock_stage_inventory_api(request, pk):
         "available": float(stock.quantity_available),
     })
 
+
 class StockMovementListView(ListView):
     model = StockMovement
     template_name = "pipeline/stock_movement_list.html"
@@ -707,35 +770,71 @@ class StockMovementListView(ListView):
     paginate_by = 50
 
     def get_queryset(self):
-        return (
-            CoffeeStock.objects
-            .select_related("variety")
-            .prefetch_related("movements")
-            .order_by("-received_date", "-created_at")
+        """
+        🎯 CORE TIME-FILTER MATRIX:
+        Extracts date criteria inputs from the web request URL strings 
+        and crops historical ledger entries strictly to that time window.
+        """
+        queryset = (
+            StockMovement.objects
+            .select_related("stock__variety", "created_by")
+            .order_by("-created_at")
         )
+        
+        # 1. Fetch browser filter parameters
+        preset = self.request.GET.get("preset", "this_month")
+        start_raw = self.request.GET.get("start_date")
+        end_raw = self.request.GET.get("end_date")
+        
+        # Capture instances inside view context variables for template state retention
+        self._preset = preset
+        self._start = start_raw
+        self._end = end_raw
+
+        today = timezone.localtime(timezone.now()).date()
+
+        # 2. Handle Custom Calendar Dates Range Inputs Override
+        if start_raw or end_raw:
+            self._preset = "custom"
+            if start_raw:
+                try:
+                    start_date = datetime.strptime(start_raw, "%Y-%m-%d").date()
+                    queryset = queryset.filter(created_at__date__gte=start_date)
+                except ValueError:
+                    pass
+            if end_raw:
+                try:
+                    end_date = datetime.strptime(end_raw, "%Y-%m-%d").date()
+                    queryset = queryset.filter(created_at__date__lte=end_date)
+                except ValueError:
+                    pass
+            return queryset
+
+        # 3. Handle Clean Pre-set Time Shortcut Intervals
+        if preset == "today":
+            queryset = queryset.filter(created_at__date=today)
+        elif preset == "yesterday":
+            yesterday = today - timezone.timedelta(days=1)
+            queryset = queryset.filter(created_at__date=yesterday)
+        elif preset == "last_7_days":
+            week_ago = today - timezone.timedelta(days=7)
+            queryset = queryset.filter(created_at__date__gte=week_ago)
+        elif preset == "this_month":
+            # Filters items recorded from day 1 of the active running calendar month
+            queryset = queryset.filter(
+                created_at__date__year=today.year,
+                created_at__date__month=today.month
+            )
+
+        return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
-        context["preset"] = getattr(
-            self,
-            "_preset",
-            "this_month",
-        )
-
-        context["start_date"] = getattr(
-            self,
-            "_start",
-            None,
-        )
-
-        context["end_date"] = getattr(
-            self,
-            "_end",
-            None,
-        )
-
+        context["preset"] = getattr(self, "_preset", "this_month")
+        context["start_date"] = getattr(self, "_start", "")
+        context["end_date"] = getattr(self, "_end", "")
         return context
+
 
 class DashboardView(TemplateView):
     template_name = "pipeline/dashboard.html"
@@ -1009,58 +1108,318 @@ class PackagedProductCreateView(InventoryRoleRequiredMixin, FormView):
   
 
 
-class PackReturnCreateView(InventoryRoleRequiredMixin, CreateView):
-    model = PackReturn
-    form_class = PackReturnForm
-    template_name = "pipeline/pack_return_form.html"
-    success_url = reverse_lazy("pack_return_list")
-    allowed_roles = (
-        User.Role.CASHIER,
-        User.Role.ACCOUNTS,
-        User.Role.MANAGER,
-        User.Role.ADMIN,
+from decimal import Decimal
+from django.shortcuts import get_object_or_404, redirect, render
+from django.contrib import messages
+from django.views.generic import TemplateView, View
+from django.db import transaction
+from django.core.exceptions import ValidationError
+from web.models import StockRequest, PackRelease, PackReturn
+
+class SingleItemReturnForm(forms.Form):
+    release_id = forms.IntegerField(widget=forms.HiddenInput())
+    packs_returned = forms.IntegerField(
+        min_value=0, 
+        required=True,
+        widget=forms.NumberInput(attrs={'value': 0})
+    )
+    condition = forms.ChoiceField(
+        choices=(("good", "Good Condition"), ("damaged", "Damaged Pack")),
+        initial="good"
     )
 
-    def get_release(self):
+# Open web/views.py and update these specific methods inside PackReturnCreateView:
+
+ReturnItemFormSet = formset_factory(SingleItemReturnForm, extra=0)
+
+
+class PackReturnCreateView(InventoryRoleRequiredMixin, TemplateView):
+    template_name = "pipeline/pack_return_form.html"
+
+    def get_release_from_url(self):
         return get_object_or_404(
             PackRelease.objects.select_related(
                 "product__blend",
                 "product__pack_size",
                 "released_to",
+                "request_item__request",
             ),
             pk=self.kwargs["pk"],
         )
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["release"] = self.get_release()
-        return kwargs
+    def get_order(self):
+        release = self.get_release_from_url()
+        if release.request_item_id and release.request_item.request_id:
+            return release.request_item.request
+        raise ValidationError(
+            "This release batch is not tied to a valid master Stock Request order."
+        )
+
+    def _get_releases(self, order):
+        return list(
+            PackRelease.objects.filter(request_item__request=order)
+            .select_related("product__blend", "product__pack_size", "released_to")
+            .order_by("product__blend__name", "product__pack_size__grams", "pk")
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["release"] = self.get_release()
+        order = self.get_order()
+        releases = self._get_releases(order)
+        active_releases = [release for release in releases if release.packs_returnable > 0]
+
+        initial_data = [
+            {
+                "release_id": release.pk,
+                "packs_returned": 0,
+                "condition": "good",
+            }
+            for release in active_releases
+        ]
+
+        if self.request.method == "POST":
+            formset = ReturnItemFormSet(self.request.POST)
+        else:
+            formset = ReturnItemFormSet(initial=initial_data)
+
+        context.update(
+            {
+                "order": order,
+                "formset": formset,
+                "form_release_pairs": zip(formset, active_releases),
+                "active_releases": active_releases,
+            }
+        )
         return context
 
-    def form_valid(self, form):
-        release = self.get_release()
+    def post(self, request, *args, **kwargs):
+        """
+        🎯 PROCESS CUSTOM TEMPLATE FIELDS DIRECTLY (No Formset Required)
+        """
+        order = self.get_order()
+        releases = self._get_releases(order)
+        release_map = {str(release.pk): release for release in releases}
+        
+        # 1. Fetch the list of checked row IDs from the checklist checkboxes
+        selected_ids = request.POST.getlist("selected_items")
+        selections = []
+        
+        # 2. Extract values directly using your exact HTML field names
+        for r_id in selected_ids:
+            release = release_map.get(str(r_id))
+            if not release:
+                continue
+                
+            # Read your custom HTML input names: qty_XX and condition_XX
+            qty_raw = request.POST.get(f"qty_{r_id}", "0")
+            condition_raw = request.POST.get(f"condition_{r_id}", "good")
+            
+            try:
+                qty = int(qty_raw)
+            except (ValueError, TypeError):
+                qty = 0
+                
+            if qty <= 0:
+                messages.error(request, f"Please enter a valid return quantity for {release.product.blend.name}.")
+                return self.render_to_response(self.get_context_data())
+                
+            max_returnable = release.packs_returnable
+            if qty > max_returnable:
+                messages.error(request, f"Only {max_returnable} packs of {release.product.blend.name} are currently eligible for return.")
+                return self.render_to_response(self.get_context_data())
+                
+            # Pack payload exactly how your confirmation and review views expect them
+            selections.append({
+                "release_id": release.pk,
+                "product": f"{release.product.blend.name} ({release.product.pack_size.label})",
+                "quantity": qty,
+                "condition": condition_raw,
+                "max": max_returnable,
+                "unit_price": str(release.selling_price),
+                "value": str(qty * release.selling_price),
+            })
+            
+        if not selections:
+            messages.error(request, "Select at least one unsold product that has physically returned to the warehouse.")
+            return self.render_to_response(self.get_context_data())
+            
+        # 3. Cache the verified payload into the session and redirect cleanly to Stage 2
+        import uuid
+        token = uuid.uuid4().hex
+        request.session[f"return_review:{token}"] = {
+            "order_id": order.pk,
+            "selections": selections,
+            "submitted_by": request.user.pk,
+        }
+        request.session.modified = True
+        
+        return redirect("pack_return_confirm", token=token)
+
+
+
+class PackReturnConfirmationView(InventoryRoleRequiredMixin, TemplateView):
+    template_name = "pipeline/pack_return_confirmation.html"
+
+    def get_payload(self, token):
+        payload = self.request.session.get(f"return_review:{token}")
+        if not payload:
+            raise ValidationError(
+                "This return review has expired. Please build the return worksheet again."
+            )
+        return payload
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        payload = self.get_payload(self.kwargs["token"])
+        order = get_object_or_404(StockRequest, pk=payload["order_id"])
+        context.update(
+            {
+                "order": order,
+                "token": self.kwargs["token"],
+                "selections": payload["selections"],
+                "total_packs": sum(item["quantity"] for item in payload["selections"]),
+                "total_value": sum(
+                    (Decimal(item["value"]) for item in payload["selections"]),
+                    Decimal("0.00"),
+                ),
+            }
+        )
+        return context
+
+    def post(self, request, *args, **kwargs):
+        token = self.kwargs["token"]
+        payload = self.get_payload(token)
+
+        if request.POST.get("action") == "cancel":
+            request.session.pop(f"return_review:{token}", None)
+            return redirect(
+                "pack_return_form",
+                pk=self._first_release_for_order(payload["order_id"]),
+            )
+
+        if request.POST.get("action") != "confirm":
+            return redirect("pack_return_confirm", token=token)
+
+        order_id = payload["order_id"]
+        selections = payload["selections"]
+
+        with transaction.atomic():
+            for item in selections:
+                release = get_object_or_404(
+                    PackRelease.objects.select_for_update(),
+                    pk=item["release_id"],
+                    request_item__request_id=order_id,
+                )
+
+                # Revalidate against sold + approved + pending quantities immediately
+                # before creating the pending row.
+                if item["quantity"] > release.packs_returnable:
+                    raise ValidationError(
+                        f"The returnable quantity for {release.product} changed. Re-open the worksheet."
+                    )
+
+                PackReturn.objects.create(
+                    release=release,
+                    packs_returned=int(item["quantity"]),
+                    condition=item["condition"],
+                    disposition="accepted",
+                    status="pending_approval",
+                    submitted_by=request.user,
+                    returned_at=timezone.now(),
+                    reason="Un-sold stock returned to warehouse",
+                    notes="Submitted from return confirmation worksheet.",
+                )
+
+        request.session.pop(f"return_review:{token}", None)
+        messages.success(
+            request,
+            "Return submitted for approval. No stock or account balance has changed yet.",
+        )
+        return redirect("pending_return_approvals")
+
+    @staticmethod
+    def _first_release_for_order(order_id):
+        release = (
+            PackRelease.objects.filter(request_item__request_id=order_id)
+            .order_by("pk")
+            .first()
+        )
+        return release.pk if release else None
+
+
+class PackReturnApproveView(InventoryRoleRequiredMixin, View):
+    allowed_roles = (
+        User.Role.MANAGER,
+        User.Role.CASHIER,
+        User.Role.ADMIN,
+    )
+
+    @transaction.atomic
+    def post(self, request, pk, *args, **kwargs):
+        return_item = get_object_or_404(PackReturn, pk=pk)
+        action = request.POST.get("action")
+
         try:
-            execute_pack_return(
-                release=release,
-                packs_returned=form.cleaned_data["packs_returned"],
-                user=self.request.user,
-                condition=form.cleaned_data.get("condition", "good"),
-                disposition=form.cleaned_data.get("disposition", "accepted"),
-                reason=form.cleaned_data.get("reason", ""),
-                notes=form.cleaned_data.get("notes", ""),
-            )
-            messages.success(
-                self.request,
-                "Pack return recorded successfully.",
-            )
-            return redirect(self.success_url)
+            if action == "approve":
+                # Ensure the helper gets called cleanly
+                approve_existing_pack_return(return_item=return_item, user=request.user)
+                messages.success(
+                    request,
+                    f"Return #{return_item.pk} approved. Stock restored to warehouse.",
+                )
+            elif action == "reject":
+                locked = PackReturn.objects.select_for_update().get(pk=return_item.pk)
+                if locked.status != "pending_approval":
+                    raise ValidationError("This return has already been processed.")
+                
+                locked.status = "rejected"
+                locked.approved_by = request.user
+                locked.approved_at = timezone.now()
+                locked.rejection_reason = request.POST.get("rejection_reason", "Rejected by manager.")
+                locked.save(
+                    update_fields=[
+                        "status",
+                        "approved_by",
+                        "approved_at",
+                        "rejection_reason",
+                    ]
+                )
+                messages.warning(request, f"Return #{return_item.pk} rejected.")
+            else:
+                messages.error(request, "Invalid action submitted.")
+
         except ValidationError as exc:
-            form.add_error(None, str(exc))
-            return self.form_invalid(form)
+            # Clean extraction of ValidationError messages
+            error_msg = exc.messages[0] if hasattr(exc, 'messages') else str(exc)
+            messages.error(request, error_msg)
+        except Exception as e:
+            messages.error(request, f"An unexpected error occurred: {str(e)}")
+
+        return redirect("pending_return_approvals")  
+
+
+class PendingReturnApprovalListView(InventoryRoleRequiredMixin, ListView):
+    template_name = "pipeline/pack_return_approval_list.html"
+    context_object_name = "pending_returns"
+    allowed_roles = (
+        User.Role.MANAGER,
+        User.Role.CASHIER,
+        User.Role.ADMIN,
+    )
+
+    def get_queryset(self):
+        return (
+            PackReturn.objects.filter(status="pending_approval")
+            .select_related(
+                "release__product__blend",
+                "release__product__pack_size",
+                "release__released_to",
+                "release__request_item__request__company",
+                "submitted_by",
+            )
+            .order_by("returned_at")
+        )
+
 
 class RecordInstallmentPaymentView(RoleRequiredMixin, CreateView):
     """
@@ -1563,17 +1922,39 @@ existing create_stock_request / fulfill_request_item / return_packs /
 settle_release / record_payment functions.
 """
 
-@transaction.atomic
-def record_card_payment(*, stock_request, amount, method, payment_reference="", collected_by=None, notes=""):
-    """
-    Apply ONE payment across every release that belongs to this order
-    (StockRequest), oldest outstanding line first.
+from decimal import Decimal
+from django.core.exceptions import ValidationError
+from django.db import transaction
+# Ensure you import PackSettlement at the top of your file if it isn't there!
+from web.models import PackRelease, PackSettlement 
 
-    Creates one PaymentReceipt per release the amount reaches, so each
-    release's own history (and the existing per-release properties) stay
-    accurate without any schema changes.
+from decimal import Decimal
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+from django.core.exceptions import ValidationError
+from django.db import transaction
+# Ensure you import your models accurately
+from web.models import StockRequest, PackRelease, PackSettlement 
+
+# =========================================================================
+# ⚙️ FUNCTION 1: THE CORE DATABASE CALCULATION (Keyword-only arguments)
+# =========================================================================
+@transaction.atomic
+def record_card_payment(
+    *,
+    stock_request,
+    amount,
+    method,
+    payment_reference="",
+    collected_by=None,
+    notes="",
+):
     """
-    amount = Decimal(amount)
+    Core database logic: Splits one payment across an order's releases.
+    """
+    amount = Decimal(str(amount))
 
     if amount <= Decimal("0.00"):
         raise ValidationError("Payment amount must be greater than zero.")
@@ -1599,7 +1980,7 @@ def record_card_payment(*, stock_request, amount, method, payment_reference="", 
         )
 
     remaining = amount
-    receipts = []
+    settlements = []
 
     for release in releases:
         if remaining <= Decimal("0.00"):
@@ -1611,18 +1992,64 @@ def record_card_payment(*, stock_request, amount, method, payment_reference="", 
 
         pay_now = min(owed, remaining)
 
-        receipt = PaymentReceipt.objects.create(
+        # Creates a PackSettlement row so the dashboard cards immediately decrease
+        settlement = PackSettlement.objects.create(
             release=release,
-            amount=pay_now,
-            method=method,
+            packs_sold=release.billable_quantity,
+            amount_paid=pay_now,
+            payment_method=method,
             payment_reference=payment_reference,
-            collected_by=collected_by,
+            status="cleared" if pay_now == owed else "partial",
+            cleared_by=collected_by,
             notes=notes,
         )
-        receipts.append(receipt)
+        settlements.append(settlement)
         remaining -= pay_now
 
-    return receipts
+    return settlements
+
+
+# =========================================================================
+# 🌐 FUNCTION 2: THE WEB WRAPPER (Accepts HTTP Request and URL parameters)
+# =========================================================================
+@login_required
+@require_POST
+def record_card_payment_view(request, pk):
+    """
+    Web View: Catches the browser form request, extracts data, and calls database logic.
+    """
+    stock_request = get_object_or_404(StockRequest, pk=pk)
+
+    try:
+        amount = Decimal(request.POST.get("amount", "0"))
+        method = request.POST.get("method", "").strip()
+        payment_reference = request.POST.get("payment_reference", "").strip()
+        notes = request.POST.get("notes", "").strip()
+
+        if not method:
+            raise ValidationError("Payment method is required.")
+
+        # Calls the database logic function cleanly
+        record_card_payment(
+            stock_request=stock_request,
+            amount=amount,
+            method=method,
+            payment_reference=payment_reference,
+            collected_by=request.user,
+            notes=notes,
+        )
+
+        messages.success(
+            request,
+            f"Payment of UGX {amount:,.0f} recorded successfully.",
+        )
+
+    except (ValidationError, ValueError, TypeError) as exc:
+        messages.error(request, str(exc))
+    except Exception as exc:
+        messages.error(request, f"Failed to record payment: {str(exc)}")
+
+    return redirect("order_queue")
 
 
 @transaction.atomic
@@ -1677,39 +2104,6 @@ existing create_stock_request / fulfill_request_item / return_packs /
 settle_release / record_payment functions.
 """
 
-
-@login_required
-@require_POST
-def record_card_payment_view(request, pk):
-    stock_request = get_object_or_404(StockRequest, pk=pk)
-
-    try:
-        amount = Decimal(request.POST.get("amount", "0"))
-        method = request.POST.get("method", "").strip()
-        payment_reference = request.POST.get("payment_reference", "").strip()
-        notes = request.POST.get("notes", "").strip()
-
-        if not method:
-            raise ValidationError("Payment method is required.")
-
-        record_card_payment(
-            stock_request=stock_request,
-            amount=amount,
-            method=method,
-            payment_reference=payment_reference,
-            collected_by=request.user,
-            notes=notes,
-        )
-
-        messages.success(
-            request,
-            f"Payment of UGX {amount:,.0f} recorded successfully.",
-        )
-
-    except (ValidationError, ValueError, TypeError) as exc:
-        messages.error(request, str(exc))
-
-    return redirect("order_queue")
 
 @login_required
 @require_POST
@@ -2289,7 +2683,7 @@ class ManagementReportsView(RoleRequiredMixin, TemplateView):
         3. Total Payments Received
         """
     model = Company
-    template_name = "pipeline/company_ledger.html"
+    template_name = "pipeline/company_list.html"
     context_object_name = "company"
 
     allowed_roles = (
@@ -2301,8 +2695,8 @@ class ManagementReportsView(RoleRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        company = self.object
-
+        company = Company.objects.first() 
+        context["company"] = company
         # 1. Total releases delivered to this company
         company_releases = PackRelease.objects.filter(
             request_item__request__company=company
@@ -2361,14 +2755,43 @@ def account_holder_create(request):
         form = AccountHolderForm()
     return render(request, 'pipeline/account_holder_form.html', {'form': form, 'title': 'Create Account Holder'})
 
+from django.db.models import Sum, F, ExpressionWrapper, DecimalField
+from django.shortcuts import get_object_or_404, render
+from django.contrib.auth.decorators import login_required
+
 @login_required
 def account_holder_detail(request, pk):
     account = get_object_or_404(AccountHolder, pk=pk)
-    releases = PackRelease.objects.filter(released_to=account).order_by('-released_at')
-    return render(request, 'pipeline/account_holder_detail.html', {
+    
+    # Pre-fetch related objects for efficiency
+    releases = PackRelease.objects.filter(released_to=account).select_related(
+        'product__blend', 
+        'product__pack_size'
+    ).order_by('-released_at')
+
+    # Calculate total gross value directly in SQL (packs_out * selling_price)
+    value_aggregate = releases.aggregate(
+        total_value=Sum(
+            ExpressionWrapper(
+                F('packs_out') * F('selling_price'),
+                output_field=DecimalField()
+            )
+        )
+    )
+    total_value = value_aggregate['total_value'] or 0
+
+    # Calculate properties in Python since they rely on related payments/returns logic
+    total_paid = sum(r.total_amount_paid for r in releases)
+    total_outstanding = sum(r.outstanding_balance for r in releases)
+
+    context = {
         'account': account,
-        'releases': releases
-    })
+        'releases': releases,
+        'total_value': total_value,
+        'total_paid': total_paid,
+        'total_outstanding': total_outstanding,
+    }
+    return render(request, 'pipeline/account_holder_detail.html', context)
 
 # ---------------------------------------------------------
 # ITEM FULFILLMENT & PACK RELEASE

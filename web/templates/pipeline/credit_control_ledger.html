@@ -168,31 +168,42 @@
                                 </span>
                             {% endif %}
                         </td>
-                        <!-- Recipient -->
-                        <td class="py-2 px-3 whitespace-nowrap font-medium text-slate-800">
-                            {% if release.released_to_account %}
-                                <a href="{% url 'account_holder_detail' release.released_to_account.pk %}" class="text-emerald-600 hover:text-emerald-800 hover:underline font-bold">
-                                    {{ release.released_to_account.name }}
-                                </a>
-                                <span class="text-[10px] text-slate-400 font-normal block">
-                                    ({{ release.released_to_account.get_account_type_display|default:release.released_to_account.account_type|title }})
-                                </span>
-                            {% elif release.released_to_user %}
-                                {% if release.released_to_user.get_full_name %}
-                                    {{ release.released_to_user.get_full_name }}
+
+                         <!-- Account Holder / Recipient -->
+                            <td class="py-2 px-3 whitespace-nowrap font-medium text-slate-800">
+
+                                {% if release.released_to %}
+
+                                    <a href="{% url 'account_holder_detail' release.released_to.pk %}"
+                                    class="text-emerald-600 hover:text-emerald-800 hover:underline font-bold">
+                                        {{ release.released_to.name }}
+                                    </a>
+
+                                    <span class="text-[10px] text-slate-400 font-normal block">
+                                        {% if release.released_to.get_account_type_display %}
+                                            {{ release.released_to.get_account_type_display }}
+                                        {% elif release.released_to.account_type %}
+                                            {{ release.released_to.account_type|title }}
+                                        {% endif %}
+                                    </span>
+
                                 {% else %}
-                                    {{ release.released_to_user.username }}
+
+                                    <span class="text-rose-500 font-semibold">
+                                        UNASSIGNED
+                                    </span>
+
                                 {% endif %}
-                            {% else %}
-                                <span class="text-slate-400 font-normal italic">
-                                    Unassigned
-                                </span>
-                            {% endif %}
-                        </td>
+
+                            </td>   
+                        <!-- Recipient -->
+                       
                         <!-- Packs issued -->
                         <td class="py-2 px-3 text-center font-medium text-slate-600">
                             {{ release.packs_out }}
                         </td>
+
+                       
                         <!-- Packs outstanding -->
                         <td class="py-2 px-3 text-center font-bold text-slate-800">
                             {{ release.packs_outstanding }}

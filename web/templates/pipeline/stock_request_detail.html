@@ -1,82 +1,119 @@
-
 {% extends "pipeline/base.html" %}
-{% block title %}Request {{ stock_request.short_number }} | Nonda{% endblock %}
-{% block breadcrumb %}Stock Control / Requests / {{ stock_request.short_number }}{% endblock %}
-{% block page_title %}Stock Request {{ stock_request.short_number }}{% endblock %}
-{% block header_action %}{% if request.user.is_manager or request.user.is_admin %}
-<a href="{% url 'stock_request_fulfill' stock_request.pk %}" 
-class="px-4 py-2.5 rounded-lg bg-rust text-white text-sm font-semibold">
-Fulfil Request
-</a>
-{% endif %}
-{% endblock %}
+{% load humanize %}
+
+{% block title %}Stock Request #{{ stock_request.short_number }} | Nonda{% endblock %}
+{% block breadcrumb %}Inventory / Stock Requests / #{{ stock_request.short_number }}{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl space-y-6">
-    <section class="bg-white border border-line rounded-xl p-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
-            <div>
-                <p class="text-xs uppercase text-clay">
-                    Requested by
-                </p>
-                <p class="font-semibold mt-1">{{ stock_request.requested_by }}
+<div class="max-w-4xl space-y-4">
 
-                </p>
+    <!-- Top Navigation & Direct Action Bar -->
+    <div class="flex items-center justify-between">
+        <a href="{% url 'record_sale' %}" class="inline-flex items-center text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors">
+            Back to Order Queue
+        </a>
+
+        <!-- Fulfil Action Button (Shown for Store / Admin / Managers when pending) -->
+      
+    </div>
+
+    <!-- Main Header Card -->
+    <div class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-xs">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+            <div>
+                <span class="text-xs font-mono font-bold text-slate-400">STOCK REQUEST</span>
+                <h1 class="text-xl font-bold text-slate-800">#{{ stock_request.short_number }}</h1>
+            </div>
+            <span class="px-2.5 py-1 text-xs font-bold rounded-full uppercase border 
+                {% if stock_request.status == 'approved' or stock_request.status == 'fulfilled' %}bg-emerald-50 text-emerald-700 border-emerald-200
+                {% elif stock_request.status == 'rejected' %}bg-rose-50 text-rose-700 border-rose-200
+                {% else %}bg-amber-50 text-amber-700 border-amber-200{% endif %}">
+                {{ stock_request.get_status_display|default:stock_request.status }}
+            </span>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+            <div>
+                <span class="text-slate-400 block font-medium">Requested By</span>
+                <span class="font-bold text-slate-700">{{ stock_request.requested_by.get_full_name|default:stock_request.requested_by.username }}</span>
             </div>
             <div>
-                <p class="text-xs uppercase text-clay">
-                    Purpose
-                </p>
-                <p class="font-semibold mt-1">
-                    {{ stock_request.get_purpose_display }}
-                </p>
+                <span class="text-slate-400 block font-medium">Purpose</span>
+                <span class="font-bold text-slate-700">{{ stock_request.get_purpose_display|default:stock_request.purpose }}</span>
             </div>
             <div>
-                <p class="text-xs uppercase text-clay">Status</p>
-                <p class="font-semibold mt-1">{{ stock_request.get_status_display }}</p>
+                <span class="text-slate-400 block font-medium">Destination</span>
+                <span class="font-bold text-slate-700">{{ stock_request.company.name|default:"Direct / Floating" }}</span>
             </div>
             <div>
-                <p class="text-xs uppercase text-clay">Date</p>
-                <p class="font-semibold mt-1">{{ stock_request.requested_at|date:"d M Y, H:i" }}</p>
+                <span class="text-slate-400 block font-medium">Date Created</span>
+                <span class="font-mono text-slate-600">{{ stock_request.created_at|date:"d M Y, H:i" }}</span>
             </div>
         </div>
-        {% if stock_request.company %}
-        <p class="mt-5 text-sm text-clay">Customer: <span class="font-semibold text-ink">{{ stock_request.company.name }}</span></p>
-        {% endif %}
+
         {% if stock_request.notes %}
-        <p class="mt-3 text-sm">{{ stock_request.notes }}</p>
+        <div class="mt-4 pt-3 border-t border-slate-100 text-xs">
+            <span class="text-slate-400 font-medium block">Notes:</span>
+            <p class="text-slate-600 mt-0.5">{{ stock_request.notes }}</p>
+        </div>
         {% endif %}
-    </section>
-    <section class="bg-white border border-line rounded-xl overflow-hidden">
-        <div class="px-6 py-5 border-b border-line">
-            <h2 class="font-display text-xl">Requested products</h2>
+    </div>
+
+    <!-- Items Table -->
+    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-xs overflow-hidden">
+        <div class="px-4 py-3 bg-slate-50 border-b border-[#E4DECB] flex justify-between items-center">
+            <h2 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Requested Line Items</h2>
+            <span class="text-xs font-mono font-bold text-slate-500">{{ stock_request.items.all|length }} Items</span>
         </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-paper">
-                    <tr>
-                        <th class="px-6 py-3 text-left">Product</th>
-                        <th class="px-6 py-3 text-right">Requested</th>
-                        <th class="px-6 py-3 text-right">Issued</th>
-                        <th class="px-6 py-3 text-right">Remaining</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-line">
-                    {% for item in stock_request.items.all %}
-                    <tr>
-                        <td class="px-6 py-4 font-semibold">{{ item.product.blend.name }} · {{ item.product.pack_size.label }} · {{ item.product.get_form_display }}</td>
-                        <td class="px-6 py-4 text-right">{{ item.quantity_requested }}</td>
-                        <td class="px-6 py-4 text-right">{{ item.quantity_issued }}</td>
-                        <td class="px-6 py-4 text-right font-semibold">{{ item.outstanding_quantity }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+
+        <table class="w-full text-left border-collapse text-xs">
+            <thead>
+                <tr class="border-b border-[#E4DECB] text-slate-400 uppercase tracking-wider text-[10px] bg-slate-50/50">
+                    <th class="px-4 py-2.5">Product</th>
+                    <th class="px-4 py-2.5 text-center">Pack Size</th>
+                    <th class="px-4 py-2.5 text-center">Form</th>
+                    <th class="px-4 py-2.5 text-right">Requested Qty</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-[#E4DECB] text-slate-700">
+                {% for item in stock_request.items.all %}
+                <tr class="hover:bg-slate-50/50">
+                    <td class="px-4 py-2.5 font-bold text-slate-800">
+                        {{ item.product.blend.name }}
+                    </td>
+                    <td class="px-4 py-2.5 text-center font-mono text-slate-600">
+                        {{ item.product.pack_size.label }}
+                    </td>
+                    <td class="px-4 py-2.5 text-center text-slate-500">
+                        {{ item.product.get_form_display }}
+                    </td>
+                    <td class="px-4 py-2.5 text-right font-mono font-bold text-slate-900">
+                        {{ item.quantity_requested }} packs
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="px-4 py-6 text-center text-slate-400 italic">
+                        No items found on this request.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Bottom Action Footer (If still pending) -->
+    {% if stock_request.status == 'pending' %}
+    <div class="bg-slate-50 border border-[#E4DECB] rounded-xl p-4 flex items-center justify-between">
+        <div class="text-xs text-slate-500">
+            <strong>Ready to dispatch stock?</strong> Proceed to batch allocation & receipt issuance.
         </div>
-    </section>
+        <a href="{% url 'stock_request_fulfill' stock_request.pk %}" 
+           class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold transition-all">
+            Fulfill Request 
+        </a>
+    </div>
+    {% endif %}
+
 </div>
 {% endblock %}
-
-
-
-
