@@ -23,7 +23,10 @@ load_dotenv(BASE_DIR / '.env')
 # Pull secrets from .env file
 SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+# Fetches ALLOWED_HOSTS from .env as a comma-separated string, or falls back to defaults
+# Read from .env, or default to localhost and local loopbacks
+allowed_hosts_env = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,.onrender.com,.railway.app')
+ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.strip()]
 
 
 # Application definition
@@ -50,6 +53,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'sample_pipeline.urls'
@@ -118,11 +122,14 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATICFILES_DIRS = BASE_DIR/'static'
 # Set your active template pack
 CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"  # or "bootstrap5"
 CRISPY_TEMPLATE_PACK = "tailwind"
 
 import os
-STATICFILES_DIR = [ os.path.join(BASE_DIR, 'static') ]
+STATICFILES_DIRS = [ os.path.join(BASE_DIR, 'static') ]
 # Replace 'web' with the actual app name where your custom User model lives
 AUTH_USER_MODEL = 'web.User'
+STATIC_ROOT = BASE_DIR/'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'

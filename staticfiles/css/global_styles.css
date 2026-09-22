@@ -1,0 +1,87 @@
+/* 1. Reset & Global Table Layout */
+table {
+    width: 100%;
+    border-collapse: separate; /* Required for custom border radii */
+    border-spacing: 0;
+    font-family: 'Inter', system-ui, sans-serif; /* Clean modern font */
+    background-color: #ffffff;
+    margin-bottom: 1.5rem;
+}
+
+/* 2. Dark Header Styling */
+table thead th {
+    background-color: #0b111e; /* Rich dark navy background */
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 1.25rem 1rem;
+    text-align: left;
+}
+
+/* Rounded corners for the dark header row */
+table thead tr:first-child th:first-child {
+    border-top-left-radius: 8px;
+}
+table thead tr:first-child th:last-child {
+    border-top-right-radius: 8px;
+}
+
+/* 3. Table Body & Row Striping */
+table tbody tr {
+    background-color: #ffffff;
+    transition: background-color 0.2s ease;
+}
+
+/* Light alternating background tint */
+table tbody tr:nth-child(even) {
+    background-color: #f8fafc; 
+}
+
+/* Subtle divider lines between rows */
+table tbody td {
+    padding: 1.25rem 1rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    font-size: 0.875rem;
+}
+
+/* 4. The Pill Components (Badges & Statuses) */
+/* Universal Pill Base Styles */
+.table-pill {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px; /* Perfect oval pill shape */
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+/* Variant A: The Gray "Current Count" Pill */
+.pill-count {
+    background-color: #f1f5f9;
+    color: #475569;
+}
+
+/* Variant B: The Red "Stock Out / Critical" Warning Pill */
+.pill-critical {
+    background-color: #fff1f2;
+    color: #e11d48;
+    border: 1px solid #ffe4e6;
+}
+
+/* 5. Typography Helpers for Content Hierarchy */
+.text-sku {
+    color: #94a3b8;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+    display: block;
+}
+
+.text-price-bold {
+    font-weight: 700;
+    color: #0f172a;
+}
