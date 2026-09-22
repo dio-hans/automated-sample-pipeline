@@ -123,13 +123,14 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = BASE_DIR/'static'
+STATIC_ROOT = BASE_DIR/'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # Set your active template pack
 CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"  # or "bootstrap5"
 CRISPY_TEMPLATE_PACK = "tailwind"
 
 import os
-STATICFILES_DIRS = [ os.path.join(BASE_DIR, 'static') ]
+
 # Replace 'web' with the actual app name where your custom User model lives
 AUTH_USER_MODEL = 'web.User'
-STATIC_ROOT = BASE_DIR/'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
