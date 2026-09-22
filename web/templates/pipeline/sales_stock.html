@@ -1,5 +1,246 @@
 {% extends "pipeline/base.html" %}
-{% block title %}Issued Stock | Nonda{% endblock %}
+{% load humanize %}
+
+{% block title %}My Issued Stock | Nonda{% endblock %}
 {% block breadcrumb %}Sales / My Issued Stock{% endblock %}
 {% block page_title %}My Issued Stock{% endblock %}
-{% block content %}<div class="bg-white border border-line rounded-xl overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-olive text-white"><tr><th class="px-5 py-3 text-left">Product</th><th class="px-5 py-3 text-left">Issued</th><th class="px-5 py-3 text-right">Outstanding</th><th class="px-5 py-3 text-right">Release value</th><th class="px-5 py-3"></th></tr></thead><tbody class="divide-y divide-line">{% for release in releases %}<tr><td class="px-5 py-4"><p class="font-semibold">{{ release.product.blend.name }}</p><p class="text-xs text-clay">{{ release.product.pack_size.label }} · {{ release.product.get_form_display }}</p></td><td class="px-5 py-4">{{ release.packs_out }}</td><td class="px-5 py-4 text-right font-semibold">{{ release.packs_outstanding }}</td><td class="px-5 py-4 text-right">UGX {{ release.stock_value|floatformat:0 }}</td><td class="px-5 py-4 text-right"><a href="{% url 'pack_release_detail' release.pk %}" class="text-rust font-semibold">Open</a></td></tr>{% empty %}<tr><td colspan="5" class="px-5 py-12 text-center text-clay">No issued stock.</td></tr>{% endfor %}</tbody></table></div></div>{% endblock %}
+{% block page_subtitle %}
+<p class="mt-0.5 text-xs text-slate-500">
+    View active orders and stock issued to you awaiting full payment settlement.
+</p>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+    
+    <!-- Header Summary Bar -->
+    <div class="bg-white border border-slate-200/80 rounded-xl shadow-xs p-3 flex items-center justify-between">
+        <div>
+            <p class="text-[9px] uppercase tracking-widest font-bold text-slate-400">Sales Inventory</p>
+            <h1 class="text-xs font-bold text-slate-800">Active Issued Orders</h1>
+        </div>
+        <div class="text-right">
+            <span class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Total Cards</span>
+            <p class="text-xs font-bold font-mono text-slate-800">{{ orders|length|default:releases|length }} Active</p>
+        </div>
+    </div>
+
+    <!-- Cards Grid Section -->
+    {% if orders or releases %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            
+            {% comment %} Primary Loop: Display Grouped Orders or Releases {% endcomment %}
+            {% for order in orders %}
+            <div onclick="openOrderModal('order_modal_{{ order.pk }}')" 
+                 class="bg-slate-900 text-white rounded-xl p-3.5 shadow-xs border border-slate-800 transition-all hover:scale-[1.01] hover:border-slate-700 cursor-pointer flex flex-col justify-between text-left">
+                
+                <div>
+                    <!-- Card Header -->
+                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                        <span class="text-[10px] font-mono tracking-wider text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-900/40 px-2 py-0.5 rounded">
+                            {% if order.product %}PK-{{ order.pk }}{% else %}N-{{ order.short_number|default:order.pk }}{% endif %}
+                        </span>
+                        <span class="text-[9px] font-mono text-slate-400">
+                            {{ order.requested_at|default:order.created_at|date:"d M, H:i" }}
+                        </span>
+                    </div>
+                    
+                    <!-- Card Title & Details -->
+                    {% if order.product %}
+                        <h3 class="text-sm font-semibold tracking-tight text-slate-100 truncate">
+                            {{ order.product.blend.name }}
+                        </h3>
+                        <p class="text-[10px] text-slate-400">
+                            {{ order.product.pack_size.label }} · {{ order.product.get_form_display }}
+                        </p>
+                    {% else %}
+                        <h3 class="text-sm font-semibold tracking-tight text-slate-100 truncate">
+                            {% if order.account_holder %}
+                                {{ order.account_holder.name }}
+                            {% elif order.requested_by %}
+                                {{ order.requested_by.get_full_name|default:order.requested_by.username }}
+                            {% else %}
+                                My Direct Issue
+                            {% endif %}
+                        </h3>
+                    {% endif %}
+                </div>
+
+                <!-- Financial Total -->
+                <div class="mt-3 pt-2 border-t border-slate-800/80 flex items-end justify-between">
+                    <span class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Release Value</span>
+                    <p class="text-sm font-extrabold font-mono text-orange-400 leading-none">
+                        UGX {{ order.gross_amount|default:order.stock_value|default:0|floatformat:0|intcomma }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Detail Modal -->
+            <div id="order_modal_{{ order.pk }}" class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 hidden items-center justify-center p-3">
+                <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 text-left flex flex-col animate-in fade-in zoom-in-95 duration-150">
+                    
+                    <div class="bg-slate-950 text-white px-4 py-2.5 flex items-center justify-between border-b border-slate-800 shrink-0">
+                        <div>
+                            <span class="text-[9px] font-mono tracking-wider text-emerald-400 font-bold uppercase block">
+                                Item #{{ order.pk }}
+                            </span>
+                            <h3 class="text-xs font-bold text-white">Issued Stock Overview</h3>
+                        </div>
+                        <button type="button" onclick="closeOrderModal('order_modal_{{ order.pk }}')" class="text-slate-400 hover:text-white text-sm font-bold p-1 cursor-pointer">
+                            ✕
+                        </button>
+                    </div>
+
+                    <div class="p-4 space-y-3">
+                        <div class="bg-slate-50 border border-slate-200/80 rounded-lg p-2.5 grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Customer / Holder</span>
+                                <p class="text-xs font-bold text-slate-800 truncate">
+                                    {{ order.account_holder.name|default:"Direct Issue" }}
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Outstanding Balance</span>
+                                <p class="text-sm font-black text-rose-600 font-mono">
+                                    UGX {{ order.outstanding_balance|default:order.net_amount_due|default:order.gross_amount|default:0|floatformat:0|intcomma }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Items Payload -->
+                        <div class="space-y-1.5">
+                            <h4 class="text-[9px] uppercase tracking-wider font-bold text-slate-500 border-b border-slate-100 pb-1">
+                                Issued Items
+                            </h4>
+                            <div class="space-y-1 max-h-48 overflow-y-auto">
+                                {% for release in order.queue_releases|default:order.releases.all %}
+                                <div class="bg-slate-50 border border-slate-200/60 rounded-md px-2.5 py-1.5 flex justify-between items-center text-xs">
+                                    <div class="truncate">
+                                        <p class="font-bold text-slate-800 leading-tight truncate">{{ release.product.blend.name }}</p>
+                                        <p class="text-[9px] text-slate-500 leading-tight">{{ release.product.pack_size.label }} · {{ release.product.get_form_display }}</p>
+                                    </div>
+                                    <div class="text-right shrink-0">
+                                        <p class="font-mono font-bold text-slate-700 text-xs">{{ release.packs_out }} pk</p>
+                                        <p class="text-[9px] font-mono text-slate-400">Bal: {{ release.packs_outstanding }} pk</p>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="bg-slate-50 border border-slate-200/60 rounded-md px-2.5 py-1.5 flex justify-between items-center text-xs">
+                                    <div>
+                                        <p class="font-bold text-slate-800">{{ order.product.blend.name|default:"Direct Stock Item" }}</p>
+                                        <p class="text-[9px] text-slate-500">{{ order.product.pack_size.label }}</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="font-mono font-bold text-slate-700">{{ order.packs_out }} pk</p>
+                                        <p class="text-[9px] font-mono text-slate-400">Bal: {{ order.packs_outstanding }} pk</p>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex justify-end gap-2 shrink-0">
+                        <button type="button" onclick="closeOrderModal('order_modal_{{ order.pk }}')" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md text-[11px] font-bold cursor-pointer">
+                            Close
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+            {% endfor %}
+
+            {% comment %} Fallback Loop: Handles view passing context named 'releases' {% endcomment %}
+            {% if not orders %}
+                {% for release in releases %}
+                <div onclick="openOrderModal('release_modal_{{ release.pk }}')" 
+                     class="bg-slate-900 text-white rounded-xl p-3.5 shadow-xs border border-slate-800 transition-all hover:scale-[1.01] hover:border-slate-700 cursor-pointer flex flex-col justify-between text-left">
+                    
+                    <div>
+                        <div class="flex items-center justify-between gap-2 mb-1.5">
+                            <span class="text-[10px] font-mono tracking-wider text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-900/40 px-2 py-0.5 rounded">
+                                PK-{{ release.pk }}
+                            </span>
+                            <span class="text-[9px] font-mono text-slate-400">
+                                {{ release.created_at|date:"d M, H:i" }}
+                            </span>
+                        </div>
+                        
+                        <h3 class="text-sm font-semibold tracking-tight text-slate-100 truncate">
+                            {{ release.product.blend.name }}
+                        </h3>
+                        <p class="text-[10px] text-slate-400">
+                            {{ release.product.pack_size.label }} · {{ release.product.get_form_display }}
+                        </p>
+                    </div>
+
+                    <div class="mt-3 pt-2 border-t border-slate-800/80 flex items-end justify-between">
+                        <span class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Release Value</span>
+                        <p class="text-sm font-extrabold font-mono text-orange-400 leading-none">
+                            UGX {{ release.gross_amount|default:0|floatformat:0|intcomma }}
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Single Release Modal -->
+                <div id="release_modal_{{ release.pk }}" class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 hidden items-center justify-center p-3">
+                    <div class="bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200 text-left p-4 space-y-3">
+                        <div class="flex justify-between items-center border-b pb-2">
+                            <h3 class="font-bold text-xs text-slate-800">{{ release.product.blend.name }}</h3>
+                            <button type="button" onclick="closeOrderModal('release_modal_{{ release.pk }}')" class="text-xs font-bold text-slate-400 hover:text-slate-800">✕</button>
+                        </div>
+                        <div class="text-xs space-y-1 text-slate-700">
+                            <p><strong>Packs Issued:</strong> {{ release.packs_out }}</p>
+                            <p><strong>Packs Outstanding:</strong> {{ release.packs_outstanding }}</p>
+                            <p><strong>Gross Amount:</strong> UGX {{ release.gross_amount|default:0|floatformat:0|intcomma }}</p>
+                            <p><strong>Outstanding Balance:</strong> UGX {{ release.outstanding_balance|default:0|floatformat:0|intcomma }}</p>
+                        </div>
+                        <div class="pt-2 flex justify-end">
+                            <button type="button" onclick="closeOrderModal('release_modal_{{ release.pk }}')" class="px-3 py-1 bg-slate-200 text-slate-700 rounded text-xs font-bold">Close</button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+        </div>
+    {% else %}
+        <!-- Empty State -->
+        <div class="bg-white border border-slate-200/80 rounded-xl p-8 text-center shadow-2xs space-y-2">
+            <div class="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600 font-bold text-lg">
+                ✓
+            </div>
+            <h3 class="text-xs font-bold text-slate-800">No Issued Stock Pending</h3>
+            <p class="text-[10px] text-slate-400 max-w-sm mx-auto">
+                You do not have any active stock orders awaiting clearance.
+            </p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function openOrderModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+}
+
+function closeOrderModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[id$="_modal_"] > div').forEach(modalBox => {
+        modalBox.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -424,7 +424,8 @@ class SalesStockView(RoleRequiredMixin, ListView):
     def get_queryset(self):
         qs = PackRelease.objects.select_related(
             "product__blend", "product__pack_size", "released_to", "request_item__request"
-        ).prefetch_related("returns")
+        ).prefetch_related("returns", "settlements")  
+        
         if self.request.user.role == User.Role.SALES:
             qs = qs.filter(released_to__system_user=self.request.user)
         return qs

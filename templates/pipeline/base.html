@@ -334,11 +334,7 @@ aside button[type="submit"] {
                 <div>
                     <p class="nav-section-title">Cash Desk</p>
                     <div class="space-y-0.5">
-                        <a href="{% url 'order_queue' %}" class="nav-link">
-                            <i class="fa-solid fa-clock-rotate-left nav-icon"></i>
-                            <span>Order Queue</span>
-                        </a>
-                        
+                                               
                         <a href="{% url 'credit_control_ledger' %}" class="nav-link">
                             <i class="fa-solid fa-file-invoice-dollar nav-icon"></i>
                             <span>Credit Book Ledger</span>
@@ -347,10 +343,12 @@ aside button[type="submit"] {
                             <i class="fa-solid fa-users nav-icon"></i>
                             <span>Account Holders</span>
                         </a>
-                        <a href="{% url 'stock_request_create' %}" class="nav-link">
-                            <i class="fa-solid fa-circle-plus nav-icon"></i>
-                            <span>Request Stock</span>
+
+                        <a href="{% url 'reports' %}" class="nav-link">
+                           <i class="fa-solid fa-chart-pie nav-icon"></i>
+                            <span>Reports</span>
                         </a>
+                        
                     </div>
                 </div>
             {% endif %}

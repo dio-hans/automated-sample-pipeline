@@ -2675,63 +2675,63 @@ class ManagementReportsView(RoleRequiredMixin, TemplateView):
 
         return ctx
 
-    class CompanyAccountDetailView(RoleRequiredMixin, DetailView):
-        """
-        Displays complete financial ledger for Supermarkets or Restaurants:
-        1. Direct Sales & Balances
-        2. Stock currently out on Display / Consignment
-        3. Total Payments Received
-        """
-    model = Company
-    template_name = "pipeline/company_list.html"
-    context_object_name = "company"
+class CompanyAccountDetailView(RoleRequiredMixin, DetailView):
+    """
+    Displays complete financial ledger for Supermarkets or Restaurants:
+    1. Direct Sales & Balances
+    2. Stock currently out on Display / Consignment
+    3. Total Payments Received
+    """
+model = Company
+template_name = "pipeline/company_list.html"
+context_object_name = "company"
 
-    allowed_roles = (
-        User.Role.ADMIN,
-        User.Role.MANAGER,
-        User.Role.ACCOUNTS,
-        User.Role.CASHIER,
+allowed_roles = (
+    User.Role.ADMIN,
+    User.Role.MANAGER,
+    User.Role.ACCOUNTS,
+    User.Role.CASHIER,
+)
+
+def get_context_data(self, **kwargs):
+    context = super().get_context_data(**kwargs)
+    company = Company.objects.first() 
+    context["company"] = company
+    # 1. Total releases delivered to this company
+    company_releases = PackRelease.objects.filter(
+        request_item__request__company=company
+    ).select_related(
+        "product",
+        "product__blend",
+        "product__pack_size",
+        "request_item__request",
+    ).prefetch_related("payments", "returns")
+
+    # 2. Stock on Display vs Sold
+    display_releases = company_releases.filter(
+        request_item__request__purpose="display"
+    )
+    direct_sales_releases = company_releases.filter(
+        request_item__request__purpose="sale"  # FIXED: Changed 'sales' to 'sale'
     )
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        company = Company.objects.first() 
-        context["company"] = company
-        # 1. Total releases delivered to this company
-        company_releases = PackRelease.objects.filter(
-            request_item__request__company=company
-        ).select_related(
-            "product",
-            "product__blend",
-            "product__pack_size",
-            "request_item__request",
-        ).prefetch_related("payments", "returns")
+    total_display_value = sum(r.gross_amount for r in display_releases)
+    total_sales_value = sum(r.gross_amount for r in direct_sales_releases)
 
-        # 2. Stock on Display vs Sold
-        display_releases = company_releases.filter(
-            request_item__request__purpose="display"
-        )
-        direct_sales_releases = company_releases.filter(
-            request_item__request__purpose="sale"  # FIXED: Changed 'sales' to 'sale'
-        )
+    # 3. Total Payments Received from this Company Account
+    total_paid = sum(r.total_amount_paid for r in company_releases)
 
-        total_display_value = sum(r.gross_amount for r in display_releases)
-        total_sales_value = sum(r.gross_amount for r in direct_sales_releases)
-
-        # 3. Total Payments Received from this Company Account
-        total_paid = sum(r.total_amount_paid for r in company_releases)
-
-        context.update({
-            "company_releases": company_releases,  # FIXED: Removed bracket typo 'company_rele]ases'
-            "display_releases": display_releases,
-            "direct_sales_releases": direct_sales_releases,
-            "total_display_value": total_display_value,
-            "total_sales_value": total_sales_value,
-            "total_paid": total_paid,
-            "net_owed": (total_sales_value + total_display_value) - total_paid,
-        })
-        
-        return context
+    context.update({
+        "company_releases": company_releases,  # FIXED: Removed bracket typo 'company_rele]ases'
+        "display_releases": display_releases,
+        "direct_sales_releases": direct_sales_releases,
+        "total_display_value": total_display_value,
+        "total_sales_value": total_sales_value,
+        "total_paid": total_paid,
+        "net_owed": (total_sales_value + total_display_value) - total_paid,
+    })
+    
+    return context
 
     # views.py
 
