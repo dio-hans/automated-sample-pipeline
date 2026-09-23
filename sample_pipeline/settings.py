@@ -82,6 +82,7 @@ WSGI_APPLICATION = 'sample_pipeline.wsgi.application'
 # Database configuration
 # Uses DATABASE_URL from environment when hosted on Render (PostgreSQL),
 # and falls back to local SQLite for local development on Windows.
+
 DATABASES = {
     'default': dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
@@ -135,6 +136,7 @@ CRISPY_TEMPLATE_PACK = "tailwind"
 
 import dj_database_url
 import os
+import dj_database_url
 
 # Replace 'web' with the actual app name where your custom User model lives
 AUTH_USER_MODEL = 'web.User'
