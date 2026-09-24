@@ -1,3 +1,4 @@
+from django.utils.decorators import method_decorator
 from datetime import datetime, time, timezone
 from django import forms
 from django.db.models import F, Q, DecimalField, ExpressionWrapper
@@ -174,7 +175,7 @@ def toggle_user_status(request, user_id):
     return redirect('register_user')
 
 # AUTH & USER CONTROL 
-@login_required   
+@method_decorator(login_required, name='dispatch') 
 class InventoryRoleRequiredMixin:
     allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER, User.Role.ACCOUNTS)
     def dispatch(self, request, *args, **kwargs):
@@ -183,8 +184,9 @@ class InventoryRoleRequiredMixin:
         if request.user.is_superuser or request.user.role in self.allowed_roles:
             return super().dispatch(request, *args, **kwargs)
         messages.error(request, "You do not have permission to access inventory operations.")
-        return redirect("dashboard")    
-@login_required   
+        return redirect("dashboard")  
+          
+@method_decorator(login_required, name='dispatch')  
 class PackagingRunListView(InventoryRoleRequiredMixin, ListView):
     model = PackagingRun
     template_name = "pipeline/packaging_run_list.html"
@@ -194,8 +196,8 @@ class PackagingRunListView(InventoryRoleRequiredMixin, ListView):
         return PackagingRun.objects.select_related(
             "product__blend", "product__pack_size", "stock"
         ).order_by("-issued_at")
-
-@login_required
+    
+@method_decorator(login_required, name='dispatch')
 class PackagingRunDetailView(InventoryRoleRequiredMixin, DetailView):
     model = PackagingRun
     template_name = "pipeline/packaging_run_detail.html"
@@ -208,7 +210,7 @@ class PackagingRunDetailView(InventoryRoleRequiredMixin, DetailView):
         ctx["represented_kg"] = Decimal(run.packs_produced or 0) * kg_per_pack
         return ctx
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class PackagingRunCreateView(InventoryRoleRequiredMixin, CreateView):
     model = PackagingRun
     form_class = PackagingRunForm
@@ -234,7 +236,7 @@ class PackagingRunCreateView(InventoryRoleRequiredMixin, CreateView):
 
 
 # ===================== PACK RELEASE & RETURN VIEWS =====================
-@login_required
+@method_decorator(login_required, name='dispatch')
 class PackReleaseListView(InventoryRoleRequiredMixin, ListView):
     model = PackRelease
     template_name = "pipeline/pack_release_list.html"
@@ -288,7 +290,7 @@ class PackReleaseListView(InventoryRoleRequiredMixin, ListView):
 
 
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class PackReleaseDetailView(InventoryRoleRequiredMixin, DetailView):
     model = PackRelease
     template_name = "pipeline/pack_release_detail.html"
@@ -313,7 +315,7 @@ class PackReleaseDetailView(InventoryRoleRequiredMixin, DetailView):
 
         return ctx
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class PackReleaseCreateView(InventoryRoleRequiredMixin, CreateView):
     model = PackRelease
     form_class = PackReleaseForm
@@ -344,7 +346,7 @@ from datetime import datetime, time
 from django.db.models import Q
 from django.utils import timezone
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class PackReturnListView(InventoryRoleRequiredMixin, ListView):
     model = PackReturn
     template_name = "pipeline/pack_return_list.html"
@@ -419,7 +421,7 @@ def dashboard_router(request):
 
 
 # COMPANIES
-@login_required
+@method_decorator(login_required, name='dispatch')
 class CompanyListView(ListView):
     model = Company
     template_name = "pipeline/company_list.html"
@@ -436,27 +438,27 @@ class CompanyListView(ListView):
         ctx["preset"] = getattr(self, "_preset", "this_month")
         return ctx
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class CompanyDetailView(DetailView):
     model = Company
     template_name = "pipeline/company_detail.html"
     context_object_name = "company"
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class CompanyCreateView(CreateView):
     model = Company
     form_class = CompanyForm
     template_name = "pipeline/company_form.html"
     success_url = reverse_lazy("company_list")
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class CompanyUpdateView(UpdateView):
     model = Company
     form_class = CompanyForm
     template_name = "pipeline/company_form.html"
     success_url = reverse_lazy("company_list")
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class CompanyDeleteView(DeleteView):
     model = Company
     template_name = "pipeline/company_confirm_delete.html"
@@ -468,7 +470,7 @@ class CompanyDeleteView(DeleteView):
 from django.views.generic import ListView
 from .models import CoffeeStock
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class CoffeeStockListViews(RoleRequiredMixin, ListView):
     model = CoffeeStock
     template_name = "pipeline/coffee_stock_list.html"
@@ -519,7 +521,7 @@ class CoffeeStockListViews(RoleRequiredMixin, ListView):
 
 
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class CoffeeStockDetailView(DetailView):
     model = CoffeeStock
     template_name = "pipeline/stock_detail.html"
@@ -533,14 +535,14 @@ class CoffeeStockDetailView(DetailView):
         ctx["available_ground"] = get_stage_inventory(self.object, "ground")
         return ctx
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class VarietyDatalistMixin:
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["existing_varieties"] = CoffeeVariety.objects.filter(is_active=True).order_by("name")
         return context
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class CoffeeStockCreateView(VarietyDatalistMixin, CreateView):
     model = CoffeeStock
     form_class = CoffeeStockIntakeForm
@@ -558,7 +560,7 @@ class CoffeeStockCreateView(VarietyDatalistMixin, CreateView):
         messages.success(self.request, result.message)
         return redirect(self.get_success_url())
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class CoffeeStockUpdateView(VarietyDatalistMixin, UpdateView):
     model = CoffeeStock
     form_class = CoffeeStockForm
@@ -566,7 +568,7 @@ class CoffeeStockUpdateView(VarietyDatalistMixin, UpdateView):
     success_url = reverse_lazy("stock_list")
 
 # ===================== SAMPLES =====================
-@login_required
+@method_decorator(login_required, name='dispatch')
 class SampleListView(ListView):
     model = Sample
     template_name = "pipeline/sample_list.html"
@@ -583,7 +585,7 @@ class SampleListView(ListView):
         ctx["preset"] = getattr(self, "_preset", "this_month")
         return ctx
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class SampleDetailView(DetailView):
     model = Sample
     template_name = "pipeline/sample_detail.html"
@@ -594,7 +596,7 @@ class SampleDetailView(DetailView):
         ctx["followup"], _ = Followup.objects.get_or_create(sample=self.object)
         return ctx
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class SampleCreateView(CreateView):
     model = Sample
     form_class = SampleForm
@@ -629,14 +631,14 @@ class SampleCreateView(CreateView):
 
         return response
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class SampleUpdateView(UpdateView):
     model = Sample
     form_class = SampleForm
     template_name = "pipeline/sample_form.html"
     success_url = reverse_lazy("sample_list")
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class SampleDeleteView(DeleteView):
     model = Sample
     template_name = "pipeline/sample_confirm_delete.html"
@@ -644,7 +646,7 @@ class SampleDeleteView(DeleteView):
 
 
 # ===================== FOLLOW-UPS =====================
-@login_required
+@method_decorator(login_required, name='dispatch')
 class FollowupListView(ListView):
     model = Followup
     template_name = "pipeline/followup_list.html"
@@ -655,7 +657,7 @@ class FollowupListView(ListView):
                 .select_related("sample__company", "sample__coffee_stock__variety")
                 .order_by("-created_at"))
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class FollowupDetailView(DetailView):
     model = Followup
     template_name = "pipeline/followup_detail.html"
@@ -667,7 +669,7 @@ class FollowupDetailView(DetailView):
             ctx["contract_form"] = ContractForm()
         return ctx
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class MarkGuideSentView(View):
     def post(self, request, pk):
         followup = get_object_or_404(Followup, pk=pk)
@@ -675,7 +677,7 @@ class MarkGuideSentView(View):
         messages.success(request, "Day-3 guide marked as sent.")
         return redirect("followup_detail", pk=followup.pk)
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class MarkContractSentView(View):
     def post(self, request, pk):
         followup = get_object_or_404(Followup, pk=pk)
@@ -683,7 +685,7 @@ class MarkContractSentView(View):
         messages.success(request, "Day-7 contract prompt marked as sent.")
         return redirect("followup_detail", pk=followup.pk)
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class ConvertToContractView(View):
     def post(self, request, pk):
         followup = get_object_or_404(Followup, pk=pk)
@@ -706,7 +708,7 @@ class ConvertToContractView(View):
 
 
 # ===================== CONTRACTS =====================
-@login_required
+@method_decorator(login_required, name='dispatch')
 class ContractListView(ListView):
     model = Contract
     template_name = "pipeline/contract_list.html"
@@ -723,7 +725,7 @@ class ContractListView(ListView):
         ctx["preset"] = getattr(self, "_preset", "this_month")
         return ctx
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class ContractDetailView(DetailView):
     model = Contract
     template_name = "pipeline/contract_detail.html"
@@ -765,7 +767,7 @@ def stock_stage_inventory_api(request, pk):
         "available": float(stock.quantity_available),
     })
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class StockMovementListView(ListView):
     model = StockMovement
     template_name = "pipeline/stock_movement_list.html"
@@ -838,7 +840,7 @@ class StockMovementListView(ListView):
         context["end_date"] = getattr(self, "_end", "")
         return context
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class DashboardView(TemplateView):
     template_name = "pipeline/dashboard.html"
 
@@ -919,7 +921,7 @@ def low_stock_list(request):
 
 
 # PROCESS STOCK VIEW
-@login_required
+@method_decorator(login_required, name='dispatch')
 class ProcessingWorkspaceView(RoleRequiredMixin, View):
     allowed_roles = (
         User.Role.MANAGER,
@@ -952,7 +954,7 @@ class ProcessingWorkspaceView(RoleRequiredMixin, View):
             },
         )
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class IssueProcessingRunView(RoleRequiredMixin, View):
     """Step 1: Called when coffee is taken and loaded into the machinery."""
     allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER, User.Role.ACCOUNTS)
@@ -981,7 +983,7 @@ class IssueProcessingRunView(RoleRequiredMixin, View):
 
         return redirect("processing_workspace")
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class CompleteProcessingRunView(RoleRequiredMixin, View):
     allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS, User.Role.CASHIER)
 
@@ -1037,7 +1039,7 @@ class CompleteProcessingRunView(RoleRequiredMixin, View):
         return redirect("processing_workspace")
 
 # PACKAGED INVENTORY VIEWS
-@login_required
+@method_decorator(login_required, name='dispatch')
 class PackagedInventoryListView(InventoryRoleRequiredMixin, ListView):
     model = PackagedInventory
     template_name = "pipeline/packaged_inventory_list.html"
@@ -1065,7 +1067,7 @@ class PackagedInventoryListView(InventoryRoleRequiredMixin, ListView):
         ctx["total_returned"] = sum(i.packs_returned for i in inv_sorted)
         return ctx
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class PackagedProductDetailView(InventoryRoleRequiredMixin, DetailView):
     model = PackagedProduct
     template_name = "pipeline/packaged_product_detail.html"
@@ -1090,7 +1092,7 @@ class PackagedProductDetailView(InventoryRoleRequiredMixin, DetailView):
 
 
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class PackagedProductCreateView(InventoryRoleRequiredMixin, FormView):
     # 1. Cleanly assign the class type here
     form_class = PackagedProductBulkForm
@@ -1119,7 +1121,7 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 from web.models import StockRequest, PackRelease, PackReturn
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class SingleItemReturnForm(forms.Form):
     release_id = forms.IntegerField(widget=forms.HiddenInput())
     packs_returned = forms.IntegerField(
@@ -1136,7 +1138,7 @@ class SingleItemReturnForm(forms.Form):
 
 ReturnItemFormSet = formset_factory(SingleItemReturnForm, extra=0)
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class PackReturnCreateView(InventoryRoleRequiredMixin, TemplateView):
     template_name = "pipeline/pack_return_form.html"
 
@@ -1260,7 +1262,7 @@ class PackReturnCreateView(InventoryRoleRequiredMixin, TemplateView):
         return redirect("pack_return_confirm", token=token)
 
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class PackReturnConfirmationView(InventoryRoleRequiredMixin, TemplateView):
     template_name = "pipeline/pack_return_confirmation.html"
 
@@ -1350,7 +1352,7 @@ class PackReturnConfirmationView(InventoryRoleRequiredMixin, TemplateView):
         )
         return release.pk if release else None
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class PackReturnApproveView(InventoryRoleRequiredMixin, View):
     allowed_roles = (
         User.Role.MANAGER,
@@ -1401,7 +1403,7 @@ class PackReturnApproveView(InventoryRoleRequiredMixin, View):
 
         return redirect("pending_return_approvals")  
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class PendingReturnApprovalListView(InventoryRoleRequiredMixin, ListView):
     template_name = "pipeline/pack_return_approval_list.html"
     context_object_name = "pending_returns"
@@ -1424,7 +1426,7 @@ class PendingReturnApprovalListView(InventoryRoleRequiredMixin, ListView):
             .order_by("returned_at")
         )
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class RecordInstallmentPaymentView(RoleRequiredMixin, CreateView):
     """
     Dedicated view class to record incoming payment collections (Cash/MoMo)
@@ -1494,7 +1496,7 @@ class RecordInstallmentPaymentView(RoleRequiredMixin, CreateView):
         return redirect(self.success_url)
 
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class CashLedgerListView(RoleRequiredMixin, ListView):
     """
     Central financial control screen.
@@ -1646,7 +1648,7 @@ class CashLedgerListView(RoleRequiredMixin, ListView):
 
         return ctx
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class CancelStockRequestView(RoleRequiredMixin, View):
     """
     Completely isolated view to handle order cancellations safely 
@@ -1674,7 +1676,7 @@ from django.views.generic import ListView
 # Import PaymentReceipt alongside PackRelease
 from .models import PackRelease, PaymentReceipt
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class CreditControlLedgerView(RoleRequiredMixin, ListView):
     model = PackRelease
     template_name = "pipeline/credit_control_ledger.html"
@@ -1862,7 +1864,7 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
 
         return ctx
 
-@login_required
+@method_decorator(login_required, name='dispatch')
 class LowStockListView(RoleRequiredMixin, TemplateView):
     """
     Unified low stock control desk displaying both raw coffee processing lots 
@@ -2145,7 +2147,7 @@ def add_item_to_request_view(request, pk):
 
     return redirect("order_queue")
 
-
+@method_decorator(login_required, name='dispatch')
 class ManagementReportsView(RoleRequiredMixin, TemplateView):
     """
     Management / Accounts reporting centre.
@@ -2680,6 +2682,7 @@ class ManagementReportsView(RoleRequiredMixin, TemplateView):
 
         return ctx
 
+@method_decorator(login_required, name='dispatch')
 class CompanyAccountDetailView(RoleRequiredMixin, DetailView):
     """
     Displays complete financial ledger for Supermarkets or Restaurants:
