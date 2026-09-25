@@ -2012,3 +2012,260 @@ class Expense(models.Model):
 
     def __str__(self):
         return f"{self.get_category_display()} - UGX {self.amount:,.0f} ({self.expense_date})"
+
+
+# internal accounts 
+# ============================================================
+# INTERNAL STOCK ACCOUNTS
+# ============================================================
+
+class InternalAccount(models.Model):
+
+    ACCOUNT_TYPE_CHOICES = (
+        ("marketing", "Marketing"),
+        ("staff", "Staff Consumption"),
+        ("hospitality", "Visitor / Hospitality"),
+        ("damage", "Damages / Spoilage"),
+        ("testing", "Product Testing"),
+        ("other", "Other"),
+    )
+
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+    )
+
+    account_type = models.CharField(
+        max_length=30,
+        choices=ACCOUNT_TYPE_CHOICES,
+        default="other",
+    )
+
+    description = models.TextField(
+        blank=True,
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+# this represents one event
+class InternalStockIssue(models.Model):
+
+    account = models.ForeignKey(
+        InternalAccount,
+        on_delete=models.PROTECT,
+        related_name="stock_issues",
+    )
+
+    issue_date = models.DateField(
+        default=timezone.localdate,
+    )
+
+    issued_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="internal_stock_issues",
+    )
+
+    reason = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
+    notes = models.TextField(
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    class Meta:
+        ordering = ["-issue_date", "-created_at"]
+
+    def __str__(self):
+        return (
+            f"{self.account.name} - "
+            f"{self.issue_date} - "
+            f"#{self.pk}"
+        )
+
+# this is where either packaged or non packaged coffee becomes possible to choose from
+class InternalStockIssueItem(models.Model):
+
+    issue = models.ForeignKey(
+        InternalStockIssue,
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+
+    # --------------------------------------------------------
+    # NON-PACKAGED COFFEE
+    # --------------------------------------------------------
+
+    coffee_stock = models.ForeignKey(
+        CoffeeStock,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="internal_stock_issues",
+    )
+
+    NON_PACKAGED_STAGE_CHOICES = (
+        (StockStage.GREEN, "Green Coffee"),
+        (StockStage.ROASTED, "Roasted Coffee"),
+        (StockStage.GROUND, "Ground Coffee"),
+    )
+
+    stock_stage = models.CharField(
+        max_length=30,
+        choices=NON_PACKAGED_STAGE_CHOICES,
+        null=True,
+        blank=True,
+    )
+
+    quantity_kg = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+
+    # --------------------------------------------------------
+    # PACKAGED COFFEE
+    # --------------------------------------------------------
+
+    packaged_product = models.ForeignKey(
+        PackagedProduct,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="internal_stock_issues",
+    )
+
+    packs = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+    )
+
+    # --------------------------------------------------------
+    # OPTIONAL VALUATION
+    # --------------------------------------------------------
+
+    unit_cost = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=(
+            "Cost per kg for non-packaged coffee "
+            "or cost per pack for packaged coffee."
+        ),
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def clean(self):
+
+        from django.core.exceptions import ValidationError
+
+        has_raw = self.coffee_stock_id is not None
+        has_packaged = self.packaged_product_id is not None
+
+        if has_raw == has_packaged:
+            raise ValidationError(
+                "Each item must be either packaged or non-packaged coffee."
+            )
+
+        if has_raw:
+
+            if not self.stock_stage:
+                raise ValidationError(
+                    "Select the stock stage for non-packaged coffee."
+                )
+
+            if self.quantity_kg is None or self.quantity_kg <= 0:
+                raise ValidationError(
+                    "Non-packaged coffee quantity must be greater than zero."
+                )
+
+            if self.packs is not None:
+                raise ValidationError(
+                    "Pack quantity cannot be used for non-packaged coffee."
+                )
+
+        if has_packaged:
+
+            if self.packs is None or self.packs <= 0:
+                raise ValidationError(
+                    "Packaged coffee quantity must be greater than zero."
+                )
+
+            if self.stock_stage:
+                raise ValidationError(
+                    "Stock stage cannot be used for packaged coffee."
+                )
+
+            if self.quantity_kg is not None:
+                raise ValidationError(
+                    "Kg quantity cannot be used for packaged coffee."
+                )
+
+    @property
+    def is_packaged(self):
+        return self.packaged_product_id is not None
+
+    @property
+    def quantity_label(self):
+
+        if self.is_packaged:
+            return f"{self.packs} packs"
+
+        return f"{self.quantity_kg} kg"
+
+    @property
+    def total_value(self):
+
+        if not self.unit_cost:
+            return Decimal("0.00")
+
+        if self.is_packaged:
+            return self.packs * self.unit_cost
+
+        return self.quantity_kg * self.unit_cost
+
+    def __str__(self):
+
+        item_name = (
+            str(self.packaged_product)
+            if self.is_packaged
+            else str(self.coffee_stock)
+        )
+
+        return (
+            f"{self.issue.account.name} - "
+            f"{item_name} - "
+            f"{self.quantity_label}"
+        )
