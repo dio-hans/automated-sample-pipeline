@@ -1,6 +1,7 @@
 from .views import ManagementReportsView
 from django.urls import path
 from . import sales_views, views
+from django.urls import path
 
 urlpatterns = [
     # companies
@@ -128,4 +129,13 @@ path("returns/order/<int:pk>/", views.PackReturnCreateView.as_view(), name="pack
 path("returns/confirm/<str:token>/", views.PackReturnConfirmationView.as_view(), name="pack_return_confirm"),
 path("returns/pending/", views.PendingReturnApprovalListView.as_view(), name="pending_return_approvals"),
 path("returns/<int:pk>/approve/", views.PackReturnApproveView.as_view(), name="pack_return_approve"),
+    #  expense tracker
+path('expenses/', views.ExpenseTrackerView.as_view(), name='expense_tracker'),
+path(
+    "expenses/",
+    views.ExpenseTrackerView.as_view(),
+    name="expense_tracker",
+),
+
+path("expenses/history/",views.ExpenseListView.as_view(),name="expense_list",),
 ]

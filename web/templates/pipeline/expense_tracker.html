@@ -1,0 +1,83 @@
+{% extends "pipeline/base.html" %}
+{% load static %}
+
+{% block title %}Record Expense | Nonda{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/expense_tracker.css' %}">
+{% endblock %}
+
+{% block breadcrumb %}
+Accounts / Expenses / Record Expense
+{% endblock %}
+
+{% block content %}
+<div class="expense-entry-page">
+    <!-- PAGE HEADER -->
+    <div class="expense-entry-header">
+        <h1>Record Business Expense</h1>
+        <p>Capture an operational expense for Nonda Commodities.</p>
+    </div>
+
+    <!-- FORM CARD -->
+    <div class="expense-form-card">
+        <div class="expense-form-card-header">
+            <h2>New Expense</h2>
+            <p>Enter the amount, category and purpose of the expense.</p>
+        </div>
+        <form method="POST" action="{% url 'expense_tracker' %}" class="expense-form">
+            {% csrf_token %}
+            <!-- CATEGORY -->
+            <div class="expense-field">
+                <label for="{{ form.category.id_for_label }}">Category</label>
+                {{ form.category }}
+                {% if form.category.errors %}
+                    <p class="expense-error">{{ form.category.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- AMOUNT + DATE -->
+            <div class="expense-two-column">
+                <div class="expense-field">
+                    <label for="{{ form.amount.id_for_label }}">Amount (UGX)</label>
+                    {{ form.amount }}
+                    {% if form.amount.errors %}
+                        <p class="expense-error">{{ form.amount.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                <div class="expense-field">
+                    <label for="{{ form.expense_date.id_for_label }}">Date Incurred</label>
+                    {{ form.expense_date }}
+                    {% if form.expense_date.errors %}
+                        <p class="expense-error">{{ form.expense_date.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- NOTES -->
+            <div class="expense-field">
+                <label for="{{ form.notes.id_for_label }}">Notes / Description</label>
+                {{ form.notes }}
+                <span class="expense-field-help">
+                    Required when category is "Others".
+                </span>
+                {% if form.notes.errors %}
+                    <p class="expense-error">{{ form.notes.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- SAVE -->
+            <button type="submit" class="expense-save-button">
+                Save Expense Record
+            </button>
+        </form>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="expense-history-link">
+        <a href="{% url 'expense_list' %}">
+            View Expense History →
+        </a>
+    </div>
+</div>
+{% endblock %}

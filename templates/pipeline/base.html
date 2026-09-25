@@ -1,5 +1,4 @@
 {% load static %}
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,9 +14,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- FONT AWESOME 6 (PROFESSIONAL ICON LIBRARY) -->
+    <!-- FONT AWESOME 6 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-
     <!-- TAILWIND -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -46,15 +44,12 @@
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
     <script src="{% static 'js/base.js' %}"></script>
     
-    {% block extra_head %}
-    {% endblock %}
+    {% block extra_head %}{% endblock %}
+    {% block extra_css %}{% endblock %}
 </head>
 <body class="bg-paper text-ink font-sans antialiased">
 <div class="min-h-screen flex">
-
-    <!-- =========================================================
-         SIDEBAR
-         ========================================================= -->
+    <!-- SIDEBAR -->
     {% block sidebar_wrapper %}
     <aside id="mainSidebar"
            class="fixed inset-y-0 left-0 z-50
@@ -80,7 +75,6 @@
                 </div>
             </a>
         </div>
-
         <!-- USER IDENTITY BAR -->
         <div class="px-5 py-3 border-b border-white/10 flex-shrink-0 bg-black/10">
             <div class="flex items-center gap-3">
@@ -97,11 +91,8 @@
                 </div>
             </div>
         </div>
-
         <!-- MAIN NAVIGATION -->
         <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-3.5">
-
-            <!-- STORE MANAGER / ADMIN NAVIGATION -->
             {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" %}
                 <div>
                     <p class="nav-section-title">Overview</p>
@@ -110,38 +101,28 @@
                             <i class="fa-solid fa-chart-pie nav-icon"></i>
                             <span>Dashboard</span>
                         </a>
-                       {% if request.user.role == "ACCOUNTS" or request.user.role == "CASHIER" %}
-                        <a href="{% url 'reports' %}" class="nav-link">
-                            <i class="fa-solid fa-chart-line nav-icon"></i>
-                            <span>Reports</span>
-                        </a>
-                       {% endif %}
                     </div>
                 </div>
-                {% endif %}
+            {% endif %}
 
-                {% if request.user.role == "MANAGER" %}
+            {% if request.user.role == "MANAGER" %}
                 <div>
                     <p class="nav-section-title">Inventory</p>
                     <div class="space-y-0.5">
-
                          <a href="{% url 'stock_list' %}" class="nav-link">
                             <i class="fa-solid fa-seedling nav-icon"></i>
                             <span>Coffee Stock</span>
                         </a>
-
                          <a href="{% url 'pending_return_approvals' %}" class="nav-link">
                             <i class="fa-solid fa-boxes-stacked nav-icon"></i>
                             <span>Pending Returns</span>
                         </a>        
-
                          <a href="{% url 'stock_ledger' %}" class="nav-link">
                             <i class="fa-solid fa-list-check nav-icon"></i>
                             <span>Movement Ledger</span>
                         </a>
                     </div>
                 </div>
-
                 <div>
                     <p class="nav-section-title">Processing</p>
                     <div class="space-y-0.5">
@@ -149,12 +130,10 @@
                             <i class="fa-solid fa-gears nav-icon"></i>
                             <span>Processing</span>
                         </a>
-                        
                     </div>
                 </div>
             {% endif %}
 
-            <!-- STOCK MOVEMENT / RELEASES & RETURNS -->
             {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" or request.user.role == "CASHIER" %}
                 <div>
                     <p class="nav-section-title">Stock Movement</p>
@@ -171,7 +150,6 @@
                 </div>
             {% endif %}
 
-            <!-- SALES NAVIGATION -->
             {% if request.user.role == "SALES" %}
                 <div>
                     <p class="nav-section-title">Sales</p>
@@ -192,12 +170,10 @@
                 </div>
             {% endif %}
 
-            <!-- CASHIER NAVIGATION -->
-            {% if request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" %}
+            {% if request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" or request.user.role == "MANAGER" %}
                 <div>
-                    <p class="nav-section-title">Cash Desk</p>
+                    <p class="nav-section-title">Cash Desk & Finance</p>
                     <div class="space-y-0.5">
-                                               
                         <a href="{% url 'credit_control_ledger' %}" class="nav-link">
                             <i class="fa-solid fa-file-invoice-dollar nav-icon"></i>
                             <span>Credit Book Ledger</span>
@@ -206,17 +182,18 @@
                             <i class="fa-solid fa-users nav-icon"></i>
                             <span>Account Holders</span>
                         </a>
-
                         <a href="{% url 'reports' %}" class="nav-link">
-                           <i class="fa-solid fa-chart-pie nav-icon"></i>
+                           <i class="fa-solid fa-chart-line nav-icon"></i>
                             <span>Reports</span>
                         </a>
-                        
+                        <a href="{% url 'expense_tracker' %}" class="nav-link">
+                           <i class="fa-solid fa-receipt nav-icon"></i>
+                            <span>Expenses</span>
+                        </a>
                     </div>
                 </div>
             {% endif %}
 
-            <!-- COMMERCIAL / CRM -->
             {% if request.user.role == "ADMIN" %}
                 <div>
                     <p class="nav-section-title">Commercial</p>
@@ -239,7 +216,6 @@
                         </a>
                     </div>
                 </div>
-
                 <div>
                     <p class="nav-section-title">Administration</p>
                     <div class="space-y-0.5">
@@ -250,9 +226,7 @@
                     </div>
                 </div>
             {% endif %}
-
         </nav>
-
         <!-- SIDEBAR FOOTER -->
         <div class="px-3 py-3 border-t border-white/10 flex-shrink-0 space-y-0.5">
             <a href="#" class="nav-link">
@@ -267,108 +241,88 @@
                 </button>
             </form>
         </div>
-
     </aside>
     {% endblock %}
-
     <div id="sidebarOverlay" class="fixed inset-0 z-40 bg-black/40 hidden lg:hidden"></div>
-
+    
     <!-- MAIN APPLICATION AREA -->
     <div class="flex-1 min-w-0 lg:ml-64 flex flex-col min-h-screen">
-        
-        <!-- TOP BAR -->
-            {% block topbar %}
-<header class="min-h-16 bg-paper border-b border-line flex flex-wrap items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-0 z-30 py-2 gap-4">
-    <div class="flex items-center gap-3">
-        <button type="button"
-                id="sidebarToggle"
-                aria-label="Open navigation"
-                class="lg:hidden w-9 h-9 rounded-lg border border-line bg-white flex items-center justify-center text-ink hover:bg-gray-50">
-            <i class="fa-solid fa-bars text-sm"></i>
-        </button>
-        <div>
-            <p class="text-xs uppercase tracking-[0.14em] text-clay font-medium">
-                {% block breadcrumb %}
-                    Nonda Commodities
-                {% endblock %}
-            </p>
-        </div>
-    </div>
-    <div class="flex items-center gap-4">
-        {% block header_action %}
-        {% endblock %}
-        <span class="text-xs text-clay font-medium hidden sm:inline">
-            Nonda Commodities &bull; {% now "Y" %}
-        </span>
-    </div>
-</header>
-{% endblock %}
-
-        <!-- PAGE CONTENT -->
-      <main class="flex-1 p-4 sm:p-6 page-content">
-    <div class="w-full max-w-7xl mx-auto space-y-6">
-        
-        <!-- PAGE HEADER -->
-        {% block page_header %}
-        {% endblock %}
-        
-        <!-- SYSTEM MESSAGES -->
-        {% block messages %}
-            {% if messages %}
-                <div id="messages" class="w-full space-y-2">
-                    {% for message in messages %}
-                        <div class="p-3.5 rounded-lg text-sm font-medium border shadow-sm flex items-center justify-between
-                            {% if message.tags == 'success' %}
-                                bg-emerald-50 text-emerald-800 border-emerald-200
-                            {% elif message.tags == 'error' or message.tags == 'warning' %}
-                                bg-amber-50 text-amber-800 border-amber-200
-                            {% else %}
-                                bg-slate-50 text-slate-800 border-slate-200
-                            {% endif %}
-                        ">
-                            <span>{{ message }}</span>
-                            <button onclick="this.parentElement.remove()" class="text-xs opacity-60 hover:opacity-100">&times;</button>
-                        </div>
-                    {% endfor %}
+        {% block topbar %}
+        <header class="min-h-16 bg-paper border-b border-line flex flex-wrap items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-0 z-30 py-2 gap-4">
+            <div class="flex items-center gap-3">
+                <button type="button"
+                        id="sidebarToggle"
+                        aria-label="Open navigation"
+                        class="lg:hidden w-9 h-9 rounded-lg border border-line bg-white flex items-center justify-center text-ink hover:bg-gray-50">
+                    <i class="fa-solid fa-bars text-sm"></i>
+                </button>
+                <div>
+                    <p class="text-xs uppercase tracking-[0.14em] text-clay font-medium">
+                        {% block breadcrumb %}
+                            Nonda Commodities
+                        {% endblock %}
+                    </p>
                 </div>
-            {% endif %}
-        {% endblock messages %}
-
-        <!-- MAIN CONTENT -->
-        {% block content %}
+            </div>
+            <div class="flex items-center gap-4">
+                {% block header_action %}{% endblock %}
+                <span class="text-xs text-clay font-medium hidden sm:inline">
+                    Nonda Commodities &bull; {% now "Y" %}
+                </span>
+            </div>
+        </header>
         {% endblock %}
 
-    </div>
-</main>
+        <main class="flex-1 p-4 sm:p-6 page-content">
+            <div class="w-full max-w-7xl mx-auto space-y-6">
+                {% block page_header %}{% endblock %}
+                
+                {% block messages %}
+                    {% if messages %}
+                        <div id="messages" class="w-full space-y-2">
+                            {% for message in messages %}
+                                <div class="p-3.5 rounded-lg text-sm font-medium border shadow-sm flex items-center justify-between
+                                    {% if message.tags == 'success' %}
+                                        bg-emerald-50 text-emerald-800 border-emerald-200
+                                    {% elif message.tags == 'error' or message.tags == 'warning' %}
+                                        bg-amber-50 text-amber-800 border-amber-200
+                                    {% else %}
+                                        bg-slate-50 text-slate-800 border-slate-200
+                                    {% endif %}
+                                ">
+                                    <span>{{ message }}</span>
+                                    <button onclick="this.parentElement.remove()" class="text-xs opacity-60 hover:opacity-100">&times;</button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endblock messages %}
 
-                <script>
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+
+        <script>
+            setTimeout(function () {
+                const messages = document.getElementById("messages");
+                if (messages) {
+                    messages.style.transition = "opacity 0.5s ease";
+                    messages.style.opacity = "0";
                     setTimeout(function () {
-                        const messages = document.getElementById("messages");
-                        if (messages) {
-                            messages.style.transition = "opacity 0.5s ease";
-                            messages.style.opacity = "0";
-                            setTimeout(function () {
-                                messages.remove();
-                            }, 500);
-                        }
-                    }, 10000);
-                </script>
-             
+                        messages.remove();
+                    }, 500);
+                }
+            }, 10000);
+        </script>
 
-                <!-- PAGE BODY -->
-                    <!-- FOOTER -->
         {% block footer %}
-        <footer class=" sticky bottom-0 bg-paper border-t border-line px-4 sm:px-6 lg:px-8 py-4 text-center text-xs text-clay flex-shrink-0">
+        <footer class="sticky bottom-0 bg-paper border-t border-line px-4 sm:px-6 lg:px-8 py-4 text-center text-xs text-clay flex-shrink-0">
             Nonda Commodities <span class="mx-1">•</span> {% now "Y" %}
         </footer>
         {% endblock footer %}
-
     </div>
 </div>
 
-<!-- MOBILE SIDEBAR SCRIPT -->
-
-{% block extra_scripts %}
-{% endblock %}
+{% block extra_scripts %}{% endblock %}
 </body>
 </html>

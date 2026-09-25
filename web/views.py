@@ -535,7 +535,6 @@ class CoffeeStockDetailView(DetailView):
         ctx["available_ground"] = get_stage_inventory(self.object, "ground")
         return ctx
 
-@method_decorator(login_required, name='dispatch')
 class VarietyDatalistMixin:
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1121,7 +1120,6 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 from web.models import StockRequest, PackRelease, PackReturn
 
-@method_decorator(login_required, name='dispatch')
 class SingleItemReturnForm(forms.Form):
     release_id = forms.IntegerField(widget=forms.HiddenInput())
     packs_returned = forms.IntegerField(
@@ -2825,3 +2823,144 @@ def fulfill_item_view(request, item_pk):
             messages.error(request, str(e))
     
     return render(request, 'pipeline/fulfill_item.html', {'item': item})
+
+    # company expenses
+    from decimal import Decimal
+from datetime import datetime
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db.models import Sum
+from django.shortcuts import redirect
+from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.generic import ListView, TemplateView
+
+from .forms import ExpenseForm
+from .models import Expense, User
+
+
+@method_decorator(login_required, name="dispatch")
+class ExpenseTrackerView(RoleRequiredMixin, TemplateView):
+    template_name = "pipeline/expense_tracker.html"
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+        User.Role.CASHIER,
+    )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        if "form" not in ctx:
+            ctx["form"] = ExpenseForm(
+                initial={
+                    "expense_date": timezone.localdate()
+                }
+            )
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        form = ExpenseForm(request.POST)
+        if form.is_valid():
+            expense = form.save(commit=False)
+            expense.logged_by = request.user
+            expense.save()
+            messages.success(
+                request,
+                f"Expense of UGX {expense.amount:,.0f} logged successfully under "
+                f"'{expense.get_category_display()}'."
+            )
+            return redirect("expense_tracker")
+            
+        return self.render_to_response({"form": form})
+
+
+@method_decorator(login_required, name="dispatch")
+class ExpenseListView(RoleRequiredMixin, ListView):
+    model = Expense
+    template_name = "pipeline/expense_list.html"
+    context_object_name = "expenses"
+    paginate_by = 20
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+        User.Role.CASHIER,
+    )
+
+    def get_queryset(self):
+        qs = (
+            Expense.objects
+            .select_related("logged_by")
+            .order_by("-expense_date", "-created_at")
+        )
+        
+        selected_range = self.request.GET.get("range", "this_month")
+        today = timezone.localdate()
+
+        if selected_range == "today":
+            qs = qs.filter(expense_date=today)
+        elif selected_range == "this_week":
+            start_week = today - timezone.timedelta(days=today.weekday())
+            qs = qs.filter(
+                expense_date__gte=start_week,
+                expense_date__lte=today,
+            )
+        elif selected_range == "this_month":
+            qs = qs.filter(
+                expense_date__year=today.year,
+                expense_date__month=today.month,
+            )
+        elif selected_range == "custom":
+            start_raw = self.request.GET.get("start_date")
+            end_raw = self.request.GET.get("end_date")
+            if start_raw and end_raw:
+                try:
+                    start_date = datetime.strptime(start_raw, "%Y-%m-%d").date()
+                    end_date = datetime.strptime(end_raw, "%Y-%m-%d").date()
+                    qs = qs.filter(expense_date__range=(start_date, end_date))
+                except ValueError:
+                    pass
+
+        category_filter = self.request.GET.get("category")
+        if category_filter:
+            qs = qs.filter(category=category_filter)
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        filtered_qs = self.get_queryset()
+        total = filtered_qs.aggregate(total_sum=Sum("amount"))["total_sum"] or 0
+        
+        selected_range = self.request.GET.get("range", "this_month")
+        
+        if selected_range == "today":
+            range_label = "Today"
+        elif selected_range == "this_week":
+            range_label = "This Week"
+        elif selected_range == "this_month":
+            range_label = "This Month"
+        elif selected_range == "custom":
+            start_raw = self.request.GET.get("start_date", "")
+            end_raw = self.request.GET.get("end_date", "")
+            if start_raw and end_raw:
+                range_label = f"{start_raw} to {end_raw}"
+            else:
+                range_label = "Custom Range"
+        else:
+            range_label = "All Time"
+
+        categories = getattr(Expense, "CATEGORY_CHOICES", getattr(Expense, "CategoryChoices", None))
+        if hasattr(categories, "choices"):
+            categories = categories.choices
+
+        context.update({
+            "total_expenses": total,
+            "selected_range": selected_range,
+            "selected_range_label": range_label,
+            "category_filter": self.request.GET.get("category", ""),
+            "categories": categories or [],
+        })
+        return context

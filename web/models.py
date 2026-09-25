@@ -1973,3 +1973,42 @@ class RoastedSackSale(models.Model):
     @property
     def total_amount(self):
         return self.kg_sold * self.price_per_kg
+
+# expenses page
+from decimal import Decimal
+from django.db import models
+from django.conf import settings
+from django.utils import timezone
+
+class Expense(models.Model):
+    CATEGORY_CHOICES = (
+        ('rent', 'Rent'),
+        ('electricity', 'Electricity'),
+        ('maintenance', 'Maintenance'),
+        ('salaries', 'Salaries'),
+        ('logistics', 'Logistics & Transport'),
+        ('staff_food', 'Staff Food'),
+        ('others', 'Others'),
+    )
+
+    category = models.CharField(max_length=30, choices=CATEGORY_CHOICES)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    expense_date = models.DateField(default=timezone.now, help_text="Date the expense was incurred")
+    notes = models.TextField(
+        blank=True, 
+        null=True, 
+        help_text="Detailed note (Required if category is 'Others')"
+    )
+    logged_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="logged_expenses"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-expense_date', '-created_at']
+
+    def __str__(self):
+        return f"{self.get_category_display()} - UGX {self.amount:,.0f} ({self.expense_date})"

@@ -1,0 +1,143 @@
+{% extends "pipeline/base.html" %}
+{% load static humanize %}
+
+{% block title %}Expense History | Nonda{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/expense_tracker.css' %}">
+{% endblock %}
+
+{% block breadcrumb %}
+Accounts / Expenses / History
+{% endblock %}
+
+{% block content %}
+<div class="expense-list-page">
+    <!-- HEADER -->
+    <div class="expense-list-header">
+        <div>
+            <h1>Expense History</h1>
+            <p>Review and filter Nonda business expenses.</p>
+        </div>
+        <a href="{% url 'expense_tracker' %}" class="expense-new-button">
+            + Record Expense
+        </a>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="expense-summary-card">
+        <div>
+            <span>Total Expenses</span>
+            <strong>UGX {{ total_expenses|floatformat:0|intcomma }}</strong>
+        </div>
+        <div class="expense-summary-period">
+            {{ selected_range_label }}
+        </div>
+    </div>
+
+    <!-- FILTERS -->
+    <div class="expense-filter-card">
+        <div class="expense-filter-presets">
+            <a href="?range=today" class="{% if selected_range == 'today' %}active{% endif %}">
+                Today
+            </a>
+            <a href="?range=this_week" class="{% if selected_range == 'this_week' %}active{% endif %}">
+                This Week
+            </a>
+            <a href="?range=this_month" class="{% if selected_range == 'this_month' %}active{% endif %}">
+                This Month
+            </a>
+        </div>
+        <form method="GET" class="expense-filter-form">
+            <input type="hidden" name="range" value="custom">
+            <div>
+                <label>From</label>
+                <input type="date" name="start_date" value="{{ request.GET.start_date }}">
+            </div>
+            <div>
+                <label>To</label>
+                <input type="date" name="end_date" value="{{ request.GET.end_date }}">
+            </div>
+            <div>
+                <label>Category</label>
+                <select name="category">
+                    <option value="">All Categories</option>
+                    {% for value, label in categories %}
+                        <option value="{{ value }}" {% if category_filter == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit">Filter</button>
+        </form>
+    </div>
+
+    <!-- TABLE -->
+    <div class="expense-list-card">
+        <div class="expense-list-card-header">
+            <h2>Transactions</h2>
+            <span>{{ paginator.count }} record{{ paginator.count|pluralize }}</span>
+        </div>
+        <div class="expense-table-wrapper">
+            <table class="expense-list-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Category</th>
+                        <th>Description</th>
+                        <th>Logged By</th>
+                        <th class="amount-column">Amount (UGX)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for expense in expenses %}
+                        <tr>
+                            <td>{{ expense.expense_date|date:"d M Y" }}</td>
+                            <td>
+                                <span class="expense-category">
+                                    {{ expense.get_category_display }}
+                                </span>
+                            </td>
+                            <td class="expense-description">
+                                {{ expense.notes|default:"—" }}
+                            </td>
+                            <td>
+                                {{ expense.logged_by.username|default:"System" }}
+                            </td>
+                            <td class="amount-column">
+                                UGX {{ expense.amount|floatformat:0|intcomma }}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5" class="expense-empty">
+                                No expense records found for this period.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- PAGINATION -->
+        {% if is_paginated %}
+            <div class="expense-pagination">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}{% if selected_range %}&range={{ selected_range }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}">
+                        ← Previous
+                    </a>
+                {% endif %}
+                <span>
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if selected_range %}&range={{ selected_range }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}">
+                        Next →
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

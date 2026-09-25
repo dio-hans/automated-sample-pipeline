@@ -779,3 +779,64 @@ class PackReleaseForm(forms.ModelForm):
 
         return price
 
+# expenses form
+from django import forms
+from django.core.exceptions import ValidationError
+from .models import Expense
+from django import forms
+from .models import Expense
+
+
+class ExpenseForm(forms.ModelForm):
+    class Meta:
+        model = Expense
+        fields = [
+            "category",
+            "amount",
+            "expense_date",
+            "notes",
+        ]
+
+        # Shared Tailwind utility classes for all form inputs
+        input_classes = (
+            "w-full px-3.5 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 "
+            "shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600"
+        )
+
+        widgets = {
+            "category": forms.Select(attrs={
+                "class": input_classes,
+            }),
+
+            "amount": forms.NumberInput(attrs={
+                "class": input_classes,
+                "placeholder": "Enter amount in UGX",
+                "min": "0",
+                "step": "0.01",
+            }),
+
+            "expense_date": forms.DateInput(attrs={
+                "class": input_classes,
+                "type": "date",
+            }),
+
+            "notes": forms.Textarea(attrs={
+                "class": f"{input_classes} resize-none",
+                "rows": 3,
+                "placeholder": "What was this expense for?",
+            }),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        category = cleaned_data.get("category")
+        notes = cleaned_data.get("notes")
+
+        if category == "others" and not notes:
+            self.add_error(
+                "notes",
+                'Please provide details when selecting "Others".'
+            )
+
+        return cleaned_data
