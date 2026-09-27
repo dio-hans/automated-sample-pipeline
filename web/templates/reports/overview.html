@@ -1,0 +1,198 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}
+Management Reports | Nonda
+{% endblock %}
+
+{% block breadcrumb %}
+Management / Reports
+{% endblock %}
+
+{% block page_title %}
+Management Reports
+{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Executive view of business performance,
+    stock movement and management indicators.
+</p>
+{% endblock %}
+
+
+{% block header_action %}
+<button
+    onclick="window.print()"
+    class="px-4 py-2.5 rounded-lg border border-line
+           bg-white text-xs font-semibold text-slate-700"
+>
+    Print Report
+</button>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="space-y-6">
+
+    {% include "reports/components/report_nav.html" %}
+
+    {% include "reports/components/report_filters.html" %}
+
+
+    <div>
+        <p class="text-[10px] uppercase tracking-wider
+                  font-bold text-slate-400">
+            Reporting Period
+        </p>
+
+        <h2 class="font-display text-xl font-bold text-slate-800 mt-1">
+            {{ period_label }}
+        </h2>
+    </div>
+
+
+    <!-- R2 STOCK CONSUMPTION SUMMARY -->
+
+    <section class="bg-white border border-line rounded-xl
+                    shadow-sm overflow-hidden">
+
+        <div class="px-5 py-4 border-b border-line
+                    flex items-center justify-between">
+
+            <div>
+                <h2 class="text-sm font-bold text-slate-800">
+                    Stock Consumption
+                </h2>
+
+                <p class="text-xs text-slate-400 mt-1">
+                    Where coffee left productive inventory.
+                </p>
+            </div>
+
+            <a
+                href="{% url 'reports_stock' %}?period={{ preset }}"
+                class="text-xs font-semibold text-olive"
+            >
+                Full report →
+            </a>
+
+        </div>
+
+
+        <div class="grid grid-cols-1 md:grid-cols-4">
+
+            <div class="p-5 border-b md:border-b-0 md:border-r border-line">
+
+                <p class="text-[10px] uppercase tracking-wider
+                          font-bold text-slate-400">
+                    Total Consumed
+                </p>
+
+                <p class="font-display text-xl font-bold
+                          text-slate-800 mt-2">
+                    {{ consumption.total_consumed_kg|floatformat:2|intcomma }}
+                    kg
+                </p>
+
+            </div>
+
+
+            <div class="p-5 border-b md:border-b-0 md:border-r border-line">
+
+                <p class="text-[10px] uppercase tracking-wider
+                          font-bold text-slate-400">
+                    Sales
+                </p>
+
+                <p class="font-display text-xl font-bold
+                          text-emerald-700 mt-2">
+                    {{ consumption.sales_kg|floatformat:2|intcomma }}
+                    kg
+                </p>
+
+            </div>
+
+
+            <div class="p-5 border-b md:border-b-0 md:border-r border-line">
+
+                <p class="text-[10px] uppercase tracking-wider
+                          font-bold text-slate-400">
+                    Internal Use
+                </p>
+
+                <p class="font-display text-xl font-bold
+                          text-amber-700 mt-2">
+                    {{ consumption.internal_kg|floatformat:2|intcomma }}
+                    kg
+                </p>
+
+            </div>
+
+
+            <div class="p-5">
+
+                <p class="text-[10px] uppercase tracking-wider
+                          font-bold text-slate-400">
+                    Production Loss
+                </p>
+
+                <p class="font-display text-xl font-bold
+                          text-rose-700 mt-2">
+                    {{ consumption.processing_loss_kg|floatformat:2|intcomma }}
+                    kg
+                </p>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- NEXT REPORT MODULES -->
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+
+        <div class="border border-dashed border-line rounded-xl p-5 bg-slate-50/40">
+            <p class="text-xs font-bold text-slate-700">
+                Sales & Revenue
+            </p>
+            <p class="text-xs text-slate-400 mt-1">
+                R3
+            </p>
+        </div>
+
+        <div class="border border-dashed border-line rounded-xl p-5 bg-slate-50/40">
+            <p class="text-xs font-bold text-slate-700">
+                Finance & Expenses
+            </p>
+            <p class="text-xs text-slate-400 mt-1">
+                R4
+            </p>
+        </div>
+
+        <div class="border border-dashed border-line rounded-xl p-5 bg-slate-50/40">
+            <p class="text-xs font-bold text-slate-700">
+                Credit & Receivables
+            </p>
+            <p class="text-xs text-slate-400 mt-1">
+                R4
+            </p>
+        </div>
+
+        <div class="border border-dashed border-line rounded-xl p-5 bg-slate-50/40">
+            <p class="text-xs font-bold text-slate-700">
+                Operations
+            </p>
+            <p class="text-xs text-slate-400 mt-1">
+                R5
+            </p>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

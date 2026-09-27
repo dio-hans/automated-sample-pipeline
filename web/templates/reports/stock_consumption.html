@@ -1,0 +1,568 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}
+Stock Consumption Report | Nonda
+{% endblock %}
+
+{% block breadcrumb %}
+Management / Reports / Stock & Consumption
+{% endblock %}
+
+{% block page_title %}
+Stock & Consumption Report
+{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Understand where coffee moved out of productive inventory,
+    including sales, internal usage, damages and processing losses.
+</p>
+{% endblock %}
+
+
+{% block header_action %}
+<button
+    onclick="window.print()"
+    class="px-4 py-2.5 rounded-lg border border-line
+           bg-white text-xs font-semibold text-slate-700
+           hover:bg-slate-50"
+>
+    Print Report
+</button>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="space-y-6">
+
+    <!-- =====================================================
+         REPORT NAVIGATION
+         ===================================================== -->
+
+    {% include "reports/components/report_nav.html" %}
+
+
+    <!-- =====================================================
+         DATE FILTERS
+         ===================================================== -->
+
+    {% include "reports/components/report_filters.html" %}
+
+
+    <!-- =====================================================
+         PERIOD
+         ===================================================== -->
+
+    <div class="flex items-center justify-between">
+
+        <div>
+            <p class="text-xs uppercase tracking-wider
+                      font-bold text-slate-400">
+                Reporting Period
+            </p>
+
+            <p class="text-sm font-semibold text-slate-800 mt-1">
+                {{ period_label }}
+            </p>
+        </div>
+
+        <div class="text-right">
+            <p class="text-xs text-slate-400">
+                All quantities converted to
+            </p>
+
+            <p class="text-sm font-semibold text-slate-700">
+                Coffee-equivalent kilograms
+            </p>
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         KPI CARDS
+         ===================================================== -->
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+
+        <div class="bg-white border border-line rounded-xl p-5 shadow-sm">
+            <p class="text-[10px] uppercase tracking-wider
+                      font-bold text-slate-400">
+                Total Stock Consumed
+            </p>
+
+            <p class="font-display text-2xl font-bold
+                      text-slate-800 mt-2">
+                {{ total_consumed_kg|floatformat:2|intcomma }}
+                <span class="text-sm font-medium text-slate-400">
+                    kg
+                </span>
+            </p>
+        </div>
+
+
+        <div class="bg-white border border-line rounded-xl p-5 shadow-sm">
+            <p class="text-[10px] uppercase tracking-wider
+                      font-bold text-slate-400">
+                Sales
+            </p>
+
+            <p class="font-display text-2xl font-bold
+                      text-emerald-700 mt-2">
+                {{ sales_kg|floatformat:2|intcomma }}
+                <span class="text-sm font-medium text-slate-400">
+                    kg
+                </span>
+            </p>
+        </div>
+
+
+        <div class="bg-white border border-line rounded-xl p-5 shadow-sm">
+            <p class="text-[10px] uppercase tracking-wider
+                      font-bold text-slate-400">
+                Internal Usage
+            </p>
+
+            <p class="font-display text-2xl font-bold
+                      text-amber-700 mt-2">
+                {{ internal_kg|floatformat:2|intcomma }}
+                <span class="text-sm font-medium text-slate-400">
+                    kg
+                </span>
+            </p>
+        </div>
+
+
+        <div class="bg-white border border-line rounded-xl p-5 shadow-sm">
+            <p class="text-[10px] uppercase tracking-wider
+                      font-bold text-slate-400">
+                Production Loss
+            </p>
+
+            <p class="font-display text-2xl font-bold
+                      text-rose-700 mt-2">
+                {{ processing_loss_kg|floatformat:2|intcomma }}
+                <span class="text-sm font-medium text-slate-400">
+                    kg
+                </span>
+            </p>
+
+            {% if packaging_loss_kg %}
+            <p class="text-[10px] text-slate-400 mt-1">
+                Packaging loss:
+                {{ packaging_loss_kg|floatformat:2 }} kg
+            </p>
+            {% endif %}
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         MAIN CHART + RANKING
+         ===================================================== -->
+
+    <div class="grid grid-cols-1 xl:grid-cols-5 gap-5">
+
+        <!-- PIE CHART -->
+
+        <section class="xl:col-span-3 bg-white border
+                        border-line rounded-xl shadow-sm p-5">
+
+            <div class="mb-5">
+
+                <h2 class="text-sm font-bold text-slate-800">
+                    Where Did The Coffee Go?
+                </h2>
+
+                <p class="text-xs text-slate-400 mt-1">
+                    Share of total stock consumption during
+                    {{ period_label }}.
+                </p>
+
+            </div>
+
+            {% if breakdown %}
+
+            <div class="relative h-[360px]">
+                <canvas id="stockConsumptionChart"></canvas>
+            </div>
+
+            {% else %}
+
+            <div class="h-[360px] flex items-center justify-center">
+                <div class="text-center">
+                    <p class="text-sm font-semibold text-slate-500">
+                        No stock consumption recorded
+                    </p>
+
+                    <p class="text-xs text-slate-400 mt-1">
+                        There are no qualifying movements
+                        for this reporting period.
+                    </p>
+                </div>
+            </div>
+
+            {% endif %}
+
+        </section>
+
+
+        <!-- RANKING -->
+
+        <section class="xl:col-span-2 bg-white border
+                        border-line rounded-xl shadow-sm overflow-hidden">
+
+            <div class="px-5 py-4 border-b border-line bg-slate-50/60">
+
+                <h2 class="text-sm font-bold text-slate-800">
+                    Consumption Ranking
+                </h2>
+
+                <p class="text-xs text-slate-400 mt-1">
+                    Highest to lowest stock consumption.
+                </p>
+
+            </div>
+
+            <div class="divide-y divide-line">
+
+                {% for row in breakdown %}
+
+                <div class="px-5 py-3.5">
+
+                    <div class="flex items-center justify-between gap-4">
+
+                        <div class="min-w-0">
+
+                            <div class="flex items-center gap-2">
+
+                                <span class="w-6 h-6 rounded-full
+                                             bg-slate-100 text-slate-500
+                                             flex items-center justify-center
+                                             text-[10px] font-bold">
+                                    {{ forloop.counter }}
+                                </span>
+
+                                <p class="text-xs font-semibold
+                                          text-slate-800 truncate">
+                                    {{ row.label }}
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                        <div class="text-right shrink-0">
+
+                            <p class="text-xs font-bold text-slate-800">
+                                {{ row.kg|floatformat:2|intcomma }} kg
+                            </p>
+
+                            <p class="text-[10px] font-semibold
+                                      text-slate-400 mt-0.5">
+                                {{ row.percentage|floatformat:1 }}%
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                    <div class="mt-2.5 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+
+                        <div
+                            class="h-full bg-olive rounded-full"
+                            style="width: {{ row.percentage }}%;">
+                        </div>
+
+                    </div>
+
+                </div>
+
+                {% empty %}
+
+                <p class="px-5 py-10 text-center text-xs text-slate-400">
+                    No consumption data for this period.
+                </p>
+
+                {% endfor %}
+
+            </div>
+
+        </section>
+
+    </div>
+
+
+    <!-- =====================================================
+         INTERNAL USAGE
+         ===================================================== -->
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+
+        <section class="bg-white border border-line
+                        rounded-xl shadow-sm overflow-hidden">
+
+            <div class="px-5 py-4 border-b border-line bg-slate-50/60">
+
+                <h2 class="text-sm font-bold text-slate-800">
+                    Internal Consumption
+                </h2>
+
+                <p class="text-xs text-slate-400 mt-1">
+                    Marketing, staff coffee, hospitality,
+                    damages, testing and other internal accounts.
+                </p>
+
+            </div>
+
+            <div class="divide-y divide-line">
+
+                {% for account in internal_accounts %}
+
+                <div class="px-5 py-3 flex items-center
+                            justify-between gap-4">
+
+                    <div>
+                        <p class="text-xs font-semibold text-slate-800">
+                            {{ account.name }}
+                        </p>
+
+                        <p class="text-[10px] text-slate-400 mt-0.5">
+                            {{ account.items }}
+                            transaction item{{ account.items|pluralize }}
+                        </p>
+                    </div>
+
+                    <p class="text-xs font-bold text-slate-800">
+                        {{ account.kg|floatformat:2|intcomma }} kg
+                    </p>
+
+                </div>
+
+                {% empty %}
+
+                <p class="px-5 py-8 text-center text-xs text-slate-400">
+                    No internal consumption for this period.
+                </p>
+
+                {% endfor %}
+
+            </div>
+
+        </section>
+
+
+        <!-- PROCESSING LOSSES -->
+
+        <section class="bg-white border border-line
+                        rounded-xl shadow-sm overflow-hidden">
+
+            <div class="px-5 py-4 border-b border-line bg-slate-50/60">
+
+                <h2 class="text-sm font-bold text-slate-800">
+                    Processing Loss
+                </h2>
+
+                <p class="text-xs text-slate-400 mt-1">
+                    Recorded production loss by processing operation.
+                </p>
+
+            </div>
+
+            <div class="divide-y divide-line">
+
+                {% for row in processing_breakdown %}
+
+                <div class="px-5 py-3 flex items-center justify-between">
+
+                    <p class="text-xs font-semibold text-slate-800">
+                        {{ row.process }}
+                    </p>
+
+                    <p class="text-xs font-bold text-rose-600">
+                        {{ row.kg|floatformat:2|intcomma }} kg
+                    </p>
+
+                </div>
+
+                {% empty %}
+
+                <p class="px-5 py-8 text-center text-xs text-slate-400">
+                    No processing losses recorded for this period.
+                </p>
+
+                {% endfor %}
+
+                {% if packaging_loss_kg %}
+
+                <div class="px-5 py-3 flex items-center justify-between">
+
+                    <p class="text-xs font-semibold text-slate-800">
+                        Packaging
+                    </p>
+
+                    <p class="text-xs font-bold text-rose-600">
+                        {{ packaging_loss_kg|floatformat:2|intcomma }} kg
+                    </p>
+
+                </div>
+
+                {% endif %}
+
+            </div>
+
+        </section>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     CHART DATA
+     ========================================================= -->
+
+{{ chart_labels|json_script:"consumption-labels" }}
+{{ chart_values|json_script:"consumption-values" }}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const canvas = document.getElementById(
+        "stockConsumptionChart"
+    );
+
+    if (!canvas) {
+        return;
+    }
+
+    const labels = JSON.parse(
+        document.getElementById(
+            "consumption-labels"
+        ).textContent
+    );
+
+    const values = JSON.parse(
+        document.getElementById(
+            "consumption-values"
+        ).textContent
+    );
+
+    if (!values.length) {
+        return;
+    }
+
+    new Chart(canvas, {
+        type: "doughnut",
+
+        data: {
+            labels: labels,
+
+            datasets: [{
+                data: values,
+
+                backgroundColor: [
+                    "#556B2F",
+                    "#B66A3C",
+                    "#D9A441",
+                    "#718096",
+                    "#B45353",
+                    "#5F7C8A",
+                    "#8B6F47",
+                    "#A0AEC0"
+                ],
+
+                borderWidth: 3,
+                borderColor: "#ffffff",
+                hoverOffset: 8
+            }]
+        },
+
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: "62%",
+
+            plugins: {
+
+                legend: {
+                    position: "bottom",
+
+                    labels: {
+                        usePointStyle: true,
+                        boxWidth: 8,
+                        padding: 18,
+                        font: {
+                            size: 11
+                        }
+                    }
+                },
+
+                tooltip: {
+                    callbacks: {
+
+                        label: function (context) {
+
+                            const total = context.dataset.data.reduce(
+                                (sum, value) => sum + Number(value),
+                                0
+                            );
+
+                            const value = Number(context.raw);
+
+                            const percentage = total
+                                ? ((value / total) * 100).toFixed(1)
+                                : "0.0";
+
+                            return (
+                                context.label +
+                                ": " +
+                                value.toLocaleString() +
+                                " kg (" +
+                                percentage +
+                                "%)"
+                            );
+                        }
+
+                    }
+                }
+
+            }
+        }
+    });
+
+});
+</script>
+
+
+<style>
+@media print {
+
+    aside,
+    nav,
+    button,
+    form {
+        display: none !important;
+    }
+
+    body {
+        background: white !important;
+    }
+
+    .shadow-sm {
+        box-shadow: none !important;
+    }
+
+    section,
+    .rounded-xl {
+        break-inside: avoid;
+    }
+}
+</style>
+
+{% endblock %}

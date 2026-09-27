@@ -1,3 +1,5 @@
+from .services.reporting.periods import resolve_report_period
+from .services.reporting.consumption import get_stock_consumption_report
 from django.utils.decorators import method_decorator
 from datetime import datetime, time, timezone
 from django import forms
@@ -3645,6 +3647,8 @@ class InternalStockIssueDetailView(
 
         return context
 
+    ##### REPORTS FOR NONDA
+
 from datetime import timedelta
 from django.utils import timezone
 
@@ -3677,3 +3681,65 @@ def apply_date_filter(queryset, request, date_field='issue_date'):
         'to_date': to_date,
     }
     return queryset, context_data
+
+@method_decorator(login_required, name="dispatch")
+class ReportOverviewView(RoleRequiredMixin, TemplateView):
+    template_name = "reports/overview.html"
+
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+    )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        period = resolve_report_period(self.request)
+
+        consumption = get_stock_consumption_report(
+            period
+        )
+
+        context.update({
+            "period": period,
+            "period_label": period.label,
+            "preset": period.preset,
+
+            # First executive report module
+            "consumption": consumption,
+        })
+
+        return context
+
+
+@method_decorator(login_required, name="dispatch")
+class StockConsumptionReportView(
+    RoleRequiredMixin,
+    TemplateView,
+):
+    template_name = "reports/stock_consumption.html"
+
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+    )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        period = resolve_report_period(self.request)
+
+        report = get_stock_consumption_report(
+            period
+        )
+
+        context.update({
+            "period": period,
+            "period_label": period.label,
+            "preset": period.preset,
+            **report,
+        })
+
+        return context

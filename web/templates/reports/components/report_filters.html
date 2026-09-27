@@ -1,0 +1,86 @@
+<form method="get"
+      class="bg-white border border-line rounded-xl shadow-sm p-3">
+
+    <div class="flex flex-wrap items-center gap-2">
+
+        <a href="?period=today"
+           class="px-3 py-2 rounded-lg border text-xs font-semibold
+           {% if preset == 'today' %}
+               bg-olive text-white border-olive
+           {% else %}
+               bg-slate-50 text-slate-600 border-line
+           {% endif %}">
+            Today
+        </a>
+
+        <a href="?period=yesterday"
+           class="px-3 py-2 rounded-lg border text-xs font-semibold
+           {% if preset == 'yesterday' %}
+               bg-olive text-white border-olive
+           {% else %}
+               bg-slate-50 text-slate-600 border-line
+           {% endif %}">
+            Yesterday
+        </a>
+
+        <a href="?period=this_week"
+           class="px-3 py-2 rounded-lg border text-xs font-semibold
+           {% if preset == 'this_week' %}
+               bg-olive text-white border-olive
+           {% else %}
+               bg-slate-50 text-slate-600 border-line
+           {% endif %}">
+            This Week
+        </a>
+
+        <a href="?period=this_month"
+           class="px-3 py-2 rounded-lg border text-xs font-semibold
+           {% if preset == 'this_month' %}
+               bg-olive text-white border-olive
+           {% else %}
+               bg-slate-50 text-slate-600 border-line
+           {% endif %}">
+            This Month
+        </a>
+
+        <a href="?period=overall"
+           class="px-3 py-2 rounded-lg border text-xs font-semibold
+           {% if preset == 'overall' %}
+               bg-olive text-white border-olive
+           {% else %}
+               bg-slate-50 text-slate-600 border-line
+           {% endif %}">
+            Overall
+        </a>
+
+        <div class="hidden lg:block w-px h-7 bg-line mx-1"></div>
+
+        <input type="hidden" name="period" value="custom">
+
+        <input
+            type="date"
+            name="start_date"
+            value="{{ period.start_date|date:'Y-m-d' }}"
+            class="rounded-lg border border-line px-3 py-2 text-xs"
+        >
+
+        <span class="text-xs text-slate-400">to</span>
+
+        <input
+            type="date"
+            name="end_date"
+            value="{{ period.end_date|date:'Y-m-d' }}"
+            class="rounded-lg border border-line px-3 py-2 text-xs"
+        >
+
+        <button
+            type="submit"
+            class="px-4 py-2 rounded-lg bg-slate-800
+                   text-white text-xs font-semibold"
+        >
+            Apply
+        </button>
+
+    </div>
+
+</form>

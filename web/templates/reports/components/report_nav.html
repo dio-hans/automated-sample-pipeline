@@ -1,0 +1,55 @@
+<div class="flex flex-wrap items-center gap-2">
+
+    <a
+        href="{% url 'reports_overview' %}?period={{ preset }}"
+        class="px-3 py-2 rounded-lg border text-xs font-semibold transition
+        {% if request.resolver_match.url_name == 'reports_overview' %}
+            bg-olive text-white border-olive
+        {% else %}
+            bg-white text-slate-600 border-line hover:bg-slate-50
+        {% endif %}"
+    >
+        Overview
+    </a>
+
+    <a
+        href="{% url 'reports_stock' %}?period={{ preset }}"
+        class="px-3 py-2 rounded-lg border text-xs font-semibold transition
+        {% if request.resolver_match.url_name == 'reports_stock' %}
+            bg-olive text-white border-olive
+        {% else %}
+            bg-white text-slate-600 border-line hover:bg-slate-50
+        {% endif %}"
+    >
+        Stock & Consumption
+    </a>
+
+    <span
+        class="px-3 py-2 rounded-lg border border-line
+               bg-slate-50 text-slate-400 text-xs font-semibold"
+    >
+        Sales
+    </span>
+
+    <span
+        class="px-3 py-2 rounded-lg border border-line
+               bg-slate-50 text-slate-400 text-xs font-semibold"
+    >
+        Finance
+    </span>
+
+    <span
+        class="px-3 py-2 rounded-lg border border-line
+               bg-slate-50 text-slate-400 text-xs font-semibold"
+    >
+        Credit
+    </span>
+
+    <span
+        class="px-3 py-2 rounded-lg border border-line
+               bg-slate-50 text-slate-400 text-xs font-semibold"
+    >
+        Operations
+    </span>
+
+</div>
