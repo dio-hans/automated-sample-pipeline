@@ -143,3 +143,29 @@ aside a.nav-link.active {
     color: #ffffff !important;
     font-weight: 600 !important;
 }
+
+/* ---------------------------------------------------------
+   SIDEBAR SCROLLBAR (Firefox & WebKit)
+   --------------------------------------------------------- */
+#mainSidebar nav {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.4) transparent;
+}
+
+#mainSidebar nav::-webkit-scrollbar {
+    width: 8px; /* Wider scrollbar */
+}
+
+#mainSidebar nav::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.15); /* Subtle dark track */
+    border-radius: 999px;
+}
+
+#mainSidebar nav::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.4); /* High contrast white bar */
+    border-radius: 999px;
+}
+
+#mainSidebar nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.7); /* Brighter on hover */
+}

@@ -91,19 +91,19 @@
                 </div>
             </div>
         </div>
+
+        <!-- PINNED DASHBOARD LINK (STAYS FIXED AT TOP) -->
+        {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" %}
+        <div class="px-3 pt-3 pb-2 border-b border-white/10 flex-shrink-0">
+            <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                <i class="fa-solid fa-chart-pie nav-icon"></i>
+                <span>Dashboard</span>
+            </a>
+        </div>
+        {% endif %}
+
         <!-- MAIN NAVIGATION -->
         <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-3.5">
-            {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" %}
-                <div>
-                    <p class="nav-section-title">Overview</p>
-                    <div class="space-y-0.5">
-                        <a href="{% url 'dashboard' %}" class="nav-link">
-                            <i class="fa-solid fa-chart-pie nav-icon"></i>
-                            <span>Dashboard</span>
-                        </a>
-                    </div>
-                </div>
-            {% endif %}
 
             {% if request.user.role == "MANAGER" %}
                 <div>
