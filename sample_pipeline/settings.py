@@ -142,3 +142,19 @@ import os
 # Replace 'web' with the actual app name where your custom User model lives
 AUTH_USER_MODEL = 'web.User'
 
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "loggers": {
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}
