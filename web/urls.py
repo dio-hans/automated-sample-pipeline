@@ -138,4 +138,21 @@ path(
 ),
 
 path("expenses/history/",views.ExpenseListView.as_view(),name="expense_list",),
+
+### INTERNAL ACCOUNTS
+path("internal/accounts/", views.InternalAccountListView.as_view(), name="internal_account_list"),
+
+
+# Issues
+path("internal-accounts/",views.InternalAccountListView.as_view(),name="internal_account_list",),
+
+path("internal-accounts/create/",views.InternalAccountCreateView.as_view(),name="internal_account_create",),
+
+path("internal-stock/",views.InternalStockIssueListView.as_view(),name="internal_stock_issue_list",),
+
+path("internal-stock/create/",views.InternalStockIssueCreateView.as_view(),name="internal_stock_issue_create",),
+
+path("internal-stock/<int:pk>/",views.InternalStockIssueDetailView.as_view(),name="internal_stock_issue_detail",),
+path("internal-accounts/<int:pk>/",views.InternalAccountDetailView.as_view(),name="internal_account_detail",),
+
 ]

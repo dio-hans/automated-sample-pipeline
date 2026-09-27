@@ -1,7 +1,7 @@
 from decimal import Decimal
 from django import forms
 from .models import (
-    AccountHolder, CoffeeStock, PackagedProduct, PackagingRun, 
+    AccountHolder, CoffeeStock, InternalStockIssueItem, PackagedProduct, PackagingRun, 
 PackRelease, PackReturn, PackSize
 )
 from .models import Blend
@@ -837,3 +837,62 @@ class ExpenseForm(forms.ModelForm):
             )
 
         return cleaned_data
+
+# internal accounts
+from django import forms
+from .models import InternalAccount, InternalStockIssue, CoffeeStock, PackagedProduct, StockStage
+
+
+class InternalAccountForm(forms.ModelForm):
+    class Meta:
+        model = InternalAccount
+        fields = ["name", "account_type", "description", "is_active"]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
+        }
+
+
+class InternalStockIssueHeaderForm(forms.ModelForm):
+    class Meta:
+        model = InternalStockIssue
+        fields = ["account", "issue_date", "reason", "notes"]
+        widgets = {
+            "issue_date": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Only allow active internal accounts for new issues
+        self.fields["account"].queryset = InternalAccount.objects.filter(is_active=True)
+
+
+class BaseInternalIssueItemForm(forms.Form):
+    ITEM_TYPE_CHOICES = (
+        ("non_packaged", "Non-Packaged Coffee"),
+        ("packaged", "Packaged Product"),
+    )
+
+    item_type = forms.ChoiceField(choices=ITEM_TYPE_CHOICES, initial="non_packaged")
+    
+    # Non-packaged fields
+    coffee_stock = forms.ModelChoiceField(
+        queryset=CoffeeStock.objects.all(), required=False
+    )
+    stock_stage = forms.ChoiceField(
+        choices=InternalStockIssueItem.NON_PACKAGED_STAGE_CHOICES, required=False
+    )
+    quantity_kg = forms.DecimalField(
+        max_digits=10, decimal_places=2, min_value=0.01, required=False
+    )
+
+    # Packaged fields
+    packaged_product = forms.ModelChoiceField(
+        queryset=PackagedProduct.objects.all(), required=False
+    )
+    packs = forms.IntegerField(min_value=1, required=False)
+
+    # Valuation
+    unit_cost = forms.DecimalField(
+        max_digits=12, decimal_places=2, min_value=0, required=False
+    )

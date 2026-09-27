@@ -1,0 +1,231 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}
+Issue Internal Stock | Nonda
+{% endblock %}
+
+{% block breadcrumb %}
+Inventory / Internal Stock / Issue Stock
+{% endblock %}
+
+{% block page_title %}
+Issue Internal Stock
+{% endblock %}
+
+{% block page_subtitle %}
+Record coffee used internally for marketing, staff, visitors, damages, testing and other approved purposes.
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto pb-12">
+    <form method="post" id="internalStockForm" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- HEADER CARD -->
+        <div class="bg-white border border-stone-200 rounded-xl shadow-sm p-6">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-stone-500 mb-4 border-b border-stone-100 pb-2">
+                Issue Details
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-stone-600 mb-1.5">
+                        Internal Account <span class="text-red-500">*</span>
+                    </label>
+                    <select name="account" required class="w-full px-3 py-2.5 rounded-lg border border-stone-300 bg-white text-stone-800 text-xs focus:ring-2 focus:ring-[#00674F] focus:border-[#00674F] shadow-sm transition-all outline-none">
+                        <option value="">Select account</option>
+                        {% for account in accounts %}
+                            <option value="{{ account.pk }}">{{ account.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase text-stone-600 mb-1.5">
+                        Date <span class="text-red-500">*</span>
+                    </label>
+                    <input type="date" name="issue_date" value="{{ today|date:'Y-m-d' }}" required class="w-full px-3 py-2.5 rounded-lg border border-stone-300 bg-white text-stone-800 text-xs focus:ring-2 focus:ring-[#00674F] focus:border-[#00674F] shadow-sm transition-all outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase text-stone-600 mb-1.5">
+                        Reason
+                    </label>
+                    <input type="text" name="reason" class="w-full px-3 py-2.5 rounded-lg border border-stone-300 bg-white text-stone-800 text-xs focus:ring-2 focus:ring-[#00674F] focus:border-[#00674F] shadow-sm transition-all outline-none" placeholder="e.g. supermarket tasting">
+                </div>
+            </div>
+
+            <div class="mt-5">
+                <label class="block text-xs font-bold uppercase text-stone-600 mb-1.5">
+                    Notes
+                </label>
+                <textarea name="notes" rows="2" class="w-full px-3 py-2 rounded-lg border border-stone-300 bg-white text-stone-800 text-xs focus:ring-2 focus:ring-[#00674F] focus:border-[#00674F] shadow-sm transition-all outline-none" placeholder="Additional explanation..."></textarea>
+            </div>
+        </div>
+
+        <!-- ITEMS CARD -->
+        <div class="bg-white border border-stone-200 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-stone-200 flex items-center justify-between bg-stone-50/50">
+                <div>
+                    <h2 class="font-bold text-stone-900 text-sm">
+                        Stock Being Issued
+                    </h2>
+                    <p class="text-xs text-stone-500 mt-0.5">
+                        Add packaged or non-packaged coffee items to this issue request.
+                    </p>
+                </div>
+                <button type="button" id="addItemBtn" class="px-4 py-2 rounded-lg bg-[#00674F] text-white text-xs font-bold hover:bg-[#00523e] transition-colors shadow-sm flex items-center gap-1.5">
+                    <i class="fa-solid fa-plus text-xs"></i> Add Item
+                </button>
+            </div>
+
+            <div id="issueItems" class="p-6 space-y-4">
+                <!-- ITEM ROW -->
+                <div class="issue-item border border-stone-200 rounded-xl p-4 bg-stone-50/60 relative transition-all">
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                        
+                        <!-- STOCK TYPE (2 cols) -->
+                        <div class="md:col-span-2">
+                            <label class="block text-[11px] font-bold uppercase text-stone-500 mb-1">
+                                Stock Type
+                            </label>
+                            <select name="item_type" class="item-type w-full px-3 py-2 rounded-lg border border-stone-300 bg-white text-stone-800 text-xs focus:ring-2 focus:ring-[#00674F] focus:border-[#00674F] shadow-sm transition-all outline-none" onchange="toggleIssueRow(this)">
+                                <option value="non_packaged">Non-packaged</option>
+                                <option value="packaged">Packaged</option>
+                            </select>
+                        </div>
+
+                        <!-- NON-PACKAGED SELECTION (5 cols) -->
+                        <div class="md:col-span-5 non-packaged-fields">
+                            <label class="block text-[11px] font-bold uppercase text-stone-500 mb-1">
+                                Coffee Batch / Stage
+                            </label>
+                            <select name="stock_stage_selection" class="stock-selection w-full px-3 py-2 rounded-lg border border-stone-300 bg-white text-stone-800 text-xs focus:ring-2 focus:ring-[#00674F] focus:border-[#00674F] shadow-sm transition-all outline-none" onchange="syncStockSelection(this)">
+                                <option value="">Select available coffee</option>
+                                {% for option in stock_options %}
+                                    <option value="{{ option.value }}" data-stock-id="{{ option.stock_id }}" data-stage="{{ option.stage }}" data-available="{{ option.available }}">
+                                        {{ option.batch_number }} · {{ option.variety }} · {{ option.stage_label }} — {{ option.available }} kg
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <input type="hidden" name="coffee_stock" class="coffee-stock-hidden">
+                            <input type="hidden" name="stock_stage" class="stock-stage-hidden">
+                        </div>
+
+                        <!-- PACKAGED SELECTION (5 cols - Hidden by Default) -->
+                        <div class="md:col-span-5 packaged-fields hidden">
+                            <label class="block text-[11px] font-bold uppercase text-stone-500 mb-1">
+                                Packaged Product
+                            </label>
+                            <select name="packaged_product" class="w-full px-3 py-2 rounded-lg border border-stone-300 bg-white text-stone-800 text-xs focus:ring-2 focus:ring-[#00674F] focus:border-[#00674F] shadow-sm transition-all outline-none">
+                                <option value="">Select packaged product</option>
+                                {% for product in packaged_products %}
+                                    <option value="{{ product.id }}">
+                                        {{ product.label }} — {{ product.available }} packs
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- QUANTITY KG (2 cols) -->
+                        <div class="md:col-span-2 non-packaged-fields">
+                            <label class="block text-[11px] font-bold uppercase text-stone-500 mb-1">
+                                Quantity (kg)
+                            </label>
+                            <input type="number" name="quantity_kg" step="0.01" min="0.01" class="w-full px-3 py-2 rounded-lg border border-stone-300 bg-white text-stone-800 text-xs focus:ring-2 focus:ring-[#00674F] focus:border-[#00674F] shadow-sm transition-all outline-none" placeholder="0.00">
+                        </div>
+
+                        <!-- PACKS (2 cols - Hidden by Default) -->
+                        <div class="md:col-span-2 packaged-fields hidden">
+                            <label class="block text-[11px] font-bold uppercase text-stone-500 mb-1">
+                                Packs
+                            </label>
+                            <input type="number" name="packs" min="1" step="1" class="w-full px-3 py-2 rounded-lg border border-stone-300 bg-white text-stone-800 text-xs focus:ring-2 focus:ring-[#00674F] focus:border-[#00674F] shadow-sm transition-all outline-none" placeholder="0">
+                        </div>
+
+                        <!-- UNIT COST (2 cols) -->
+                        <div class="md:col-span-2">
+                            <label class="block text-[11px] font-bold uppercase text-stone-500 mb-1">
+                                Unit Cost
+                            </label>
+                            <input type="number" name="unit_cost" step="0.01" min="0" class="w-full px-3 py-2 rounded-lg border border-stone-300 bg-white text-stone-800 text-xs focus:ring-2 focus:ring-[#00674F] focus:border-[#00674F] shadow-sm transition-all outline-none" placeholder="Optional">
+                        </div>
+
+                        <!-- REMOVE BUTTON (1 col) -->
+                        <div class="md:col-span-1 flex items-end">
+                            <button type="button" onclick="removeIssueRow(this)" class="w-full h-[38px] px-2 rounded-lg border border-red-200 text-red-600 bg-white hover:bg-red-50 hover:border-red-300 font-medium text-xs transition-colors flex items-center justify-center gap-1">
+                                <span>Remove</span>
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUBMIT BAR -->
+            <div class="px-6 py-4 border-t border-stone-200 bg-stone-50/50 flex items-center justify-end">
+                <button type="submit" class="px-6 py-2.5 rounded-lg bg-[#00674F] text-white text-xs font-bold hover:bg-[#00523e] transition-colors shadow-md">
+                    Issue Stock
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+function toggleIssueRow(select) {
+    const row = select.closest(".issue-item");
+    const nonPackaged = row.querySelectorAll(".non-packaged-fields");
+    const packaged = row.querySelectorAll(".packaged-fields");
+    const isPackaged = select.value === "packaged";
+
+    nonPackaged.forEach(element => element.classList.toggle("hidden", isPackaged));
+    packaged.forEach(element => element.classList.toggle("hidden", !isPackaged));
+
+    if (isPackaged) {
+        row.querySelector(".coffee-stock-hidden").value = "";
+        row.querySelector(".stock-stage-hidden").value = "";
+        row.querySelector(".stock-selection").value = "";
+    } else {
+        const product = row.querySelector('[name="packaged_product"]');
+        if (product) {
+            product.value = "";
+        }
+    }
+}
+
+function syncStockSelection(select) {
+    const row = select.closest(".issue-item");
+    const option = select.options[select.selectedIndex];
+    if (!option) return;
+
+    row.querySelector(".coffee-stock-hidden").value = option.dataset.stockId || "";
+    row.querySelector(".stock-stage-hidden").value = option.dataset.stage || "";
+}
+
+function removeIssueRow(button) {
+    const rows = document.querySelectorAll(".issue-item");
+    if (rows.length === 1) {
+        alert("At least one stock item is required.");
+        return;
+    }
+    button.closest(".issue-item").remove();
+}
+
+document.getElementById("addItemBtn").addEventListener("click", function() {
+    const container = document.getElementById("issueItems");
+    const firstRow = container.querySelector(".issue-item");
+    const newRow = firstRow.cloneNode(true);
+
+    // Reset inputs & hidden values in cloned row
+    newRow.querySelectorAll("input").forEach(input => input.value = "");
+    newRow.querySelectorAll("select").forEach(select => select.selectedIndex = 0);
+
+    // Reset visibility to non-packaged
+    newRow.querySelectorAll(".packaged-fields").forEach(el => el.classList.add("hidden"));
+    newRow.querySelectorAll(".non-packaged-fields").forEach(el => el.classList.remove("hidden"));
+    newRow.querySelector(".item-type").value = "non_packaged";
+
+    container.appendChild(newRow);
+});
+</script>
+{% endblock %}

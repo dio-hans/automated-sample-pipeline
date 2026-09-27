@@ -226,6 +226,47 @@
                     </div>
                 </div>
             {% endif %}
+
+            <!-- Internal Stock Navigation Block -->
+
+            {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
+                <div>
+               <div class="sidebar-section">
+
+                    <div class="nav-section-title">
+                        Internal Stock
+                    </div>
+
+                    <ul class="sidebar-nav">
+
+                        <!-- Issue History -->
+                        <li class="sidebar-nav-item">
+
+                            <!-- Issue History -->
+                            <a href="{% url 'internal_stock_issue_list' %}" class="nav-link {% if request.resolver_match.url_name == 'internal_stock_issue_list' %}active{% endif %}">
+                                <i class="fas fa-history sidebar-icon"></i>
+                                <span>Issue History</span>
+                            </a>
+
+                            <!-- Record Internal Issue -->
+                            <a href="{% url 'internal_stock_issue_create' %}" class="nav-link {% if request.resolver_match.url_name == 'internal_stock_issue_create' %}active{% endif %}">
+                                <i class="fas fa-file-export sidebar-icon"></i>
+                                <span>Record Issue</span>
+                            </a>
+
+                            <!-- Internal Accounts -->
+                            <a href="{% url 'internal_account_list' %}" class="nav-link {% if request.resolver_match.url_name == 'internal_account_list' %}active{% endif %}">
+                                <i class="fas fa-sitemap sidebar-icon"></i>
+                                <span>Accounts</span>
+                            </a>
+                        </li>
+
+                    </ul>
+
+                </div>
+
+                {% endif %}
+
         </nav>
         <!-- SIDEBAR FOOTER -->
         <div class="px-3 py-3 border-t border-white/10 flex-shrink-0 space-y-0.5">
@@ -266,9 +307,6 @@
             </div>
             <div class="flex items-center gap-4">
                 {% block header_action %}{% endblock %}
-                <span class="text-xs text-clay font-medium hidden sm:inline">
-                    Nonda Commodities &bull; {% now "Y" %}
-                </span>
             </div>
         </header>
         {% endblock %}
@@ -324,5 +362,18 @@
 </div>
 
 {% block extra_scripts %}{% endblock %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const currentPath = window.location.pathname;
+    const navLinks = document.querySelectorAll("#mainSidebar a.nav-link");
+
+    navLinks.forEach(link => {
+        const linkPath = link.getAttribute("href");
+        if (linkPath && linkPath !== "#" && currentPath === linkPath) {
+            link.classList.add("active");
+        }
+    });
+});
+</script>
 </body>
 </html>

@@ -1,0 +1,46 @@
+{% extends "pipeline/base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/internal_stock.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="app-container">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Internal Usage & Cost Report</h1>
+      <p class="page-subtitle">Aggregated stock consumption broken down by account.</p>
+    </div>
+  </div>
+
+  <div class="table-container">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Account Name</th>
+          <th>Account Type</th>
+          <th class="text-right">Non-Packaged (Kg)</th>
+          <th class="text-right">Packaged (Packs)</th>
+          <th class="text-right">Total Valuation</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for account in accounts %}
+        <tr>
+          <td class="font-bold">{{ account.name }}</td>
+          <td class="text-muted">{{ account.get_account_type_display }}</td>
+          <td class="text-right font-mono font-bold">{{ account.total_kg|default:"0.00" }} kg</td>
+          <td class="text-right font-mono font-bold">{{ account.total_packs|default:"0" }} packs</td>
+          <td class="text-right font-mono font-bold" style="color: #059669;">{{ account.total_value|default:"0.00" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="text-center text-muted" style="padding: 20px;">No account data available.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

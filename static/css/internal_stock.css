@@ -1,0 +1,551 @@
+/* Nonda Commodities ERP - Design System Alignment */
+
+.app-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #0f172a;
+}
+
+/* Header Typography */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.01em;
+}
+
+.page-subtitle {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Card Styling */
+.form-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  margin-bottom: 16px;
+}
+
+/* Form Controls & Labels */
+.form-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label,
+.form-label-style {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #334155;
+}
+
+.form-control,
+.form-card input,
+.form-card select,
+.form-card textarea,
+.data-table input,
+.data-table select {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #0f172a;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-control:focus,
+.form-card input:focus,
+.form-card select:focus,
+.form-card textarea:focus {
+  outline: none;
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+}
+
+/* Table Card */
+.table-container {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.table-header-bar {
+  background-color: #f8fafc;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #334155;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.data-table th {
+  background-color: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+/* Button System (Matching Expense Form) */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.btn-primary,
+.btn-success {
+  background-color: #f97316; /* Nonda Primary Orange */
+  color: #ffffff;
+  border-color: #f97316;
+}
+
+.btn-primary:hover,
+.btn-success:hover {
+  background-color: #ea580c;
+  border-color: #ea580c;
+}
+
+.btn-secondary {
+  background-color: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.btn-secondary:hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 11px;
+}
+
+.btn-danger-text {
+  color: #ef4444;
+  background: none;
+  border: none;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.btn-danger-text:hover {
+  background-color: #fef2f2;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.internal-input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #E4DECB;
+    border-radius: 0.5rem;
+    padding: 0.65rem 0.75rem;
+    background: #ffffff;
+    color: #111827;
+    font-size: 0.875rem;
+    outline: none;
+}
+
+.internal-input:focus {
+    border-color: #f97316;
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
+}
+
+.internal-label {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #4b5563;
+}
+
+.internal-detail-label {
+    margin-bottom: 0.25rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+}
+
+
+/* CSS FOR THE INTERNAL STOCK DETAIL: Container & Layout Spacing */
+.account-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Card Base Styles */
+.compact-card {
+    background-color: #ffffff;
+    border: 1px solid #E4DECB;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+/* Header Bar (Vertical footprint reduced by ~60%) */
+.header-bar {
+    padding: 8px 14px;
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.account-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.account-type {
+    font-size: 12px;
+    color: #64748b;
+    margin: 2px 0 0 0;
+}
+
+.account-desc {
+    font-size: 12px;
+    color: #475569;
+    margin: 2px 0 0 0;
+}
+
+/* Status Badges */
+.badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.badge-active {
+    background-color: #ecfdf5;
+    color: #047857;
+}
+
+.badge-inactive {
+    background-color: #f1f5f9;
+    color: #64748b;
+}
+
+/* Date Filter Bar (60% Height Reduction) */
+.filter-bar {
+    padding: 6px 12px;
+}
+
+.filter-form {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.filter-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    letter-spacing: 0.3px;
+}
+
+.compact-input {
+    height: 30px;
+    padding: 2px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    font-size: 12px;
+    color: #0f172a;
+    background-color: #ffffff;
+    outline: none;
+}
+
+.compact-input:focus {
+    border-color: #00674F;
+}
+
+.filter-actions {
+    display: flex;
+    gap: 6px;
+}
+
+/* Compact Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    text-decoration: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    border: none;
+    white-space: nowrap;
+}
+
+.btn-primary {
+    background-color: #8B3A2B;
+    color: #ffffff;
+    padding: 5px 12px;
+    font-size: 12px;
+    height: 30px;
+}
+
+.btn-primary:hover {
+    background-color: #722f23;
+}
+
+.btn-secondary {
+    background-color: #ffffff;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    padding: 5px 12px;
+    font-size: 12px;
+    height: 30px;
+}
+
+.btn-secondary:hover {
+    background-color: #f8fafc;
+}
+
+.btn-sm {
+    height: 30px;
+    padding: 0 10px;
+}
+
+/* Metrics Grid & Compact Cards */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 8px;
+}
+
+.metric-card {
+    padding: 8px 12px;
+}
+
+.metric-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    margin: 0;
+}
+
+.metric-value {
+    font-size: 16px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 2px 0 0 0;
+    line-height: 1.1;
+}
+
+.metric-unit {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+}
+
+/* Table Section */
+.table-card {
+    overflow: hidden;
+}
+
+.table-card-header {
+    padding: 8px 14px;
+    border-bottom: 1px solid #E4DECB;
+    background-color: #faf9f6;
+}
+
+.table-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+.table-subtitle {
+    font-size: 11px;
+    color: #64748b;
+    margin: 1px 0 0 0;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.compact-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    text-align: left;
+}
+
+.compact-table th {
+    background-color: #f8fafc;
+    padding: 6px 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    border-bottom: 1px solid #E4DECB;
+}
+
+.compact-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: top;
+}
+
+.compact-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Helpers & Utilities */
+.text-right { text-align: right; }
+.text-muted { color: #64748b; }
+.text-dark { color: #0f172a; }
+.font-medium { font-weight: 600; }
+
+.item-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.item-group {
+    line-height: 1.2;
+}
+
+.item-name {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.item-sub {
+    font-size: 10px;
+    color: #64748b;
+}
+
+.item-qty {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.table-link {
+    color: #00674F;
+    font-weight: 700;
+    font-size: 11px;
+    text-decoration: none;
+}
+
+.table-link:hover {
+    text-decoration: underline;
+}
+
+.empty-state {
+    padding: 16px;
+    text-align: center;
+    color: #64748b;
+}
+
+.footer-nav {
+    margin-top: 2px;
+}
+
+.back-link {
+    font-size: 12px;
+    font-weight: 600;
+    color: #00674F;
+    text-decoration: none;
+}
+
+.back-link:hover {
+    text-decoration: underline;
+}

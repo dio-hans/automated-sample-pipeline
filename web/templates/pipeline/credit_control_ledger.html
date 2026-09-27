@@ -74,35 +74,38 @@
          ========================================================= -->
     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm">
         <!-- Timeline -->
-        <div class="flex flex-wrap items-center gap-1.5">
-            <a href="?preset=this_month&scope={{ view_scope }}"
-               class="px-3 py-1 rounded-md text-xs font-medium transition
-               {% if preset == 'this_month' %}
-                   bg-olive text-white
-               {% else %}
-                   bg-white text-slate-600 border border-slate-200 hover:bg-slate-50
-               {% endif %}">
-                This Month
-            </a>
-            <a href="?preset=last_7_days&scope={{ view_scope }}"
-               class="px-3 py-1 rounded-md text-xs font-medium transition
-               {% if preset == 'last_7_days' %}
-                   bg-olive text-white
-               {% else %}
-                   bg-white text-slate-600 border border-slate-200 hover:bg-slate-50
-               {% endif %}">
-                This Week
-            </a>
-            <a href="?preset=today&scope={{ view_scope }}"
-               class="px-3 py-1 rounded-md text-xs font-medium transition
-               {% if preset == 'today' %}
-                   bg-olive text-white
-               {% else %}
-                   bg-white text-slate-600 border border-slate-200 hover:bg-slate-50
-               {% endif %}">
-                Today
-            </a>
-        </div>
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm">
+    <!-- Timeline -->
+    <div class="flex flex-wrap items-center gap-1.5">
+        <a href="?preset=this_month&scope={{ view_scope }}"
+           class="px-3 py-1 rounded-md text-xs font-medium transition
+           {% if preset == 'this_month' %}
+               bg-olive text-white
+           {% else %}
+               bg-white text-slate-600 border border-slate-200 hover:bg-slate-50
+           {% endif %}">
+            This Month
+        </a>
+        <a href="?preset=this_week&scope={{ view_scope }}"
+           class="px-3 py-1 rounded-md text-xs font-medium transition
+           {% if preset == 'this_week' %}
+               bg-olive text-white
+           {% else %}
+               bg-white text-slate-600 border border-slate-200 hover:bg-slate-50
+           {% endif %}">
+            This Week
+        </a>
+        <a href="?preset=today&scope={{ view_scope }}"
+           class="px-3 py-1 rounded-md text-xs font-medium transition
+           {% if preset == 'today' %}
+               bg-olive text-white
+           {% else %}
+               bg-white text-slate-600 border border-slate-200 hover:bg-slate-50
+           {% endif %}">
+            Today
+        </a>
+    </div>
+</div>
         <!-- Scope -->
         <div class="flex items-center gap-1.5 border-t lg:border-t-0 pt-2 lg:pt-0 border-slate-100">
             

@@ -1,0 +1,139 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}
+Create Internal Account | Nonda
+{% endblock %}
+
+{% block breadcrumb %}
+Inventory / Internal Accounts / Create
+{% endblock %}
+
+{% block page_title %}
+Create Internal Account
+{% endblock %}
+
+{% block page_subtitle %}
+Create a reusable account for internal coffee consumption or stock loss.
+{% endblock %}
+
+{% block content %}
+
+<div class="min-h-[70vh] flex items-start justify-center pt-4">
+
+    <div class="w-full max-w-2xl bg-white border border-[#E4DECB] rounded-xl shadow-sm p-6">
+
+        <div class="mb-6 pb-4 border-b border-[#E4DECB]">
+
+            <h2 class="text-lg font-bold text-gray-900">
+                New Internal Account
+            </h2>
+
+            <p class="text-sm text-gray-500 mt-1">
+                Examples: Marketing, Staff Coffee, Visitor Hospitality, Damaged Stock.
+            </p>
+
+        </div>
+
+
+        <form method="post" class="space-y-5">
+
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+
+                <div class="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+
+                    {{ form.non_field_errors }}
+
+                </div>
+
+            {% endif %}
+
+
+            <div>
+
+                <label class="block text-xs font-bold uppercase text-gray-600 mb-1.5">
+                    Account Name
+                </label>
+
+                {{ form.name }}
+
+                {% if form.name.errors %}
+                    <p class="mt-1 text-xs text-red-600">
+                        {{ form.name.errors.0 }}
+                    </p>
+                {% endif %}
+
+            </div>
+
+
+            <div>
+
+                <label class="block text-xs font-bold uppercase text-gray-600 mb-1.5">
+                    Account Type
+                </label>
+
+                {{ form.account_type }}
+
+                {% if form.account_type.errors %}
+                    <p class="mt-1 text-xs text-red-600">
+                        {{ form.account_type.errors.0 }}
+                    </p>
+                {% endif %}
+
+            </div>
+
+
+            <div>
+
+                <label class="block text-xs font-bold uppercase text-gray-600 mb-1.5">
+                    Description
+                </label>
+
+                {{ form.description }}
+
+                {% if form.description.errors %}
+                    <p class="mt-1 text-xs text-red-600">
+                        {{ form.description.errors.0 }}
+                    </p>
+                {% endif %}
+
+            </div>
+
+
+            <label class="flex items-center gap-2 text-sm text-gray-700">
+
+                {{ form.is_active }}
+
+                <span>
+                    Account is active
+                </span>
+
+            </label>
+
+
+            <div class="flex items-center justify-end gap-3 pt-3">
+
+                <a
+                    href="{% url 'internal_account_list' %}"
+                    class="px-4 py-2.5 rounded-lg border border-[#E4DECB] text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                >
+                    Cancel
+                </a>
+
+                <button
+                    type="submit"
+                    class="px-5 py-2.5 rounded-lg bg-rust text-white text-sm font-bold hover:bg-rust-dark"
+                >
+                    Create Account
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+{% endblock %}

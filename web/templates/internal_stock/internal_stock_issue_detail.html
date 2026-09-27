@@ -1,0 +1,283 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}
+Internal Stock Issue #{{ issue.pk }} | Nonda
+{% endblock %}
+
+{% block breadcrumb %}
+Inventory / Internal Stock / Issue #{{ issue.pk }}
+{% endblock %}
+
+{% block page_title %}
+Internal Stock Issue #{{ issue.pk }}
+{% endblock %}
+
+{% block page_subtitle %}
+Detailed record of coffee removed from Nonda inventory for internal use.
+{% endblock %}
+
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="static 'css/internal_css">
+
+{% endblock %}
+
+{% block content %}
+
+<div class="max-w-5xl mx-auto space-y-5">
+
+
+    <!-- SUMMARY -->
+
+    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm p-6">
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+
+            <div>
+                <p class="internal-detail-label">
+                    Account
+                </p>
+
+                <p class="font-bold text-gray-900">
+                    {{ issue.account.name }}
+                </p>
+            </div>
+
+
+            <div>
+                <p class="internal-detail-label">
+                    Type
+                </p>
+
+                <p class="text-gray-700">
+                    {{ issue.account.get_account_type_display }}
+                </p>
+            </div>
+
+
+            <div>
+                <p class="internal-detail-label">
+                    Date
+                </p>
+
+                <p class="text-gray-700">
+                    {{ issue.issue_date|date:"d M Y" }}
+                </p>
+            </div>
+
+
+            <div>
+                <p class="internal-detail-label">
+                    Recorded By
+                </p>
+
+                <p class="text-gray-700">
+                    {{ issue.issued_by.username|default:"System" }}
+                </p>
+            </div>
+
+        </div>
+
+
+        {% if issue.reason %}
+
+            <div class="mt-5 pt-5 border-t border-[#E4DECB]">
+
+                <p class="internal-detail-label">
+                    Reason
+                </p>
+
+                <p class="text-gray-700">
+                    {{ issue.reason }}
+                </p>
+
+            </div>
+
+        {% endif %}
+
+
+        {% if issue.notes %}
+
+            <div class="mt-4">
+
+                <p class="internal-detail-label">
+                    Notes
+                </p>
+
+                <p class="text-gray-600 text-sm">
+                    {{ issue.notes }}
+                </p>
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+
+    <!-- ITEMS -->
+
+    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
+
+        <div class="px-6 py-4 border-b border-[#E4DECB]">
+
+            <h2 class="font-bold text-gray-900">
+                Stock Issued
+            </h2>
+
+        </div>
+
+
+        <table class="w-full text-sm">
+
+            <thead class="bg-gray-50">
+
+                <tr>
+
+                    <th class="text-left px-6 py-3 text-xs uppercase text-gray-500">
+                        Coffee
+                    </th>
+
+                    <th class="text-left px-6 py-3 text-xs uppercase text-gray-500">
+                        Type
+                    </th>
+
+                    <th class="text-left px-6 py-3 text-xs uppercase text-gray-500">
+                        Quantity
+                    </th>
+
+                    <th class="text-right px-6 py-3 text-xs uppercase text-gray-500">
+                        Value
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                {% for item in items %}
+
+                    <tr class="border-t border-gray-100">
+
+                        <td class="px-6 py-4">
+
+                            {% if item.packaged_product %}
+
+                                <div class="font-bold text-gray-900">
+                                    {{ item.packaged_product }}
+                                </div>
+
+                                <div class="text-xs text-gray-500">
+                                    Packaged
+                                </div>
+
+                            {% else %}
+
+                                <div class="font-bold text-gray-900">
+                                    {{ item.coffee_stock.variety.name }}
+                                </div>
+
+                                <div class="text-xs text-gray-500">
+                                    Batch {{ item.coffee_stock.batch_number }}
+                                </div>
+
+                            {% endif %}
+
+                        </td>
+
+
+                        <td class="px-6 py-4 text-gray-600">
+
+                            {% if item.packaged_product %}
+
+                                Packaged Coffee
+
+                            {% else %}
+
+                                {{ item.get_stock_stage_display }}
+
+                            {% endif %}
+
+                        </td>
+
+
+                        <td class="px-6 py-4 font-semibold">
+
+                            {% if item.packaged_product %}
+
+                                {{ item.packs }} packs
+
+                            {% else %}
+
+                                {{ item.quantity_kg }} kg
+
+                            {% endif %}
+
+                        </td>
+
+
+                        <td class="px-6 py-4 text-right font-semibold">
+
+                            {% if item.unit_cost %}
+
+                                UGX {{ item.total_value|floatformat:0 }}
+
+                            {% else %}
+
+                                —
+
+                            {% endif %}
+
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+
+        <div class="px-6 py-4 border-t border-[#E4DECB] flex justify-end">
+
+            <div class="text-right">
+
+                <p class="text-xs uppercase text-gray-500 font-bold">
+                    Recorded Stock Value
+                </p>
+
+                <p class="text-lg font-extrabold text-gray-900">
+                    UGX {{ total_value|floatformat:0 }}
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="flex justify-between">
+
+        <a
+            href="{% url 'internal_stock_issue_list' %}"
+            class="px-4 py-2.5 rounded-lg border border-[#E4DECB] text-sm font-semibold text-gray-600 hover:bg-gray-50"
+        >
+            ← Back to History
+        </a>
+
+        <a
+            href="{% url 'internal_stock_issue_create' %}"
+            class="px-4 py-2.5 rounded-lg bg-rust text-white text-sm font-bold"
+        >
+            + Issue More Stock
+        </a>
+
+    </div>
+
+</div>
+
+{% endblock %}

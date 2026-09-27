@@ -1,0 +1,141 @@
+{% extends "pipeline/base.html" %}
+{% load static %}
+
+{% block title %}
+Internal Stock History | Nonda
+{% endblock %}
+
+{% block breadcrumb %}
+Inventory / Internal Stock / History
+{% endblock %}
+
+{% block page_title %}
+Internal Stock History
+{% endblock %}
+
+{% block page_subtitle %}
+Every non-sale movement of coffee recorded against an internal account.
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-4 pb-10">
+    <!-- TOP ACTION HEADER -->
+    <div class="bg-white border border-stone-200 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-base font-bold text-stone-900">
+                Internal Stock Issues
+            </h2>
+            <p class="text-xs text-stone-500 mt-0.5">
+                Marketing, staff use, visitors, damage, testing, and other internal usage records.
+            </p>
+        </div>
+        <div>
+            <a href="{% url 'internal_stock_issue_create' %}" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#00674F] text-white text-xs font-bold hover:bg-[#00523e] transition-colors shadow-sm">
+                <i class="fa-solid fa-plus text-xs"></i>
+                <span>Issue Stock</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- DATE FILTER BAR (REUSABLE COMPONENT) -->
+    {% include "components/date_filters.html" %}
+
+    <!-- DATA TABLE -->
+    <div class="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead class="bg-stone-100/80 border-b border-stone-200 text-[11px] font-bold uppercase tracking-wider text-stone-600">
+                    <tr>
+                        <th class="px-4 py-3 whitespace-nowrap">Date</th>
+                        <th class="px-4 py-3 whitespace-nowrap">Account</th>
+                        <th class="px-4 py-3 whitespace-nowrap">Reason</th>
+                        <th class="px-4 py-3">Issued Items</th>
+                        <th class="px-4 py-3 whitespace-nowrap">Recorded By</th>
+                        <th class="px-4 py-3 text-right whitespace-nowrap">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-stone-200 text-stone-800">
+                    {% for issue in issues %}
+                        <tr class="hover:bg-stone-50/80 transition-colors">
+                            <td class="px-4 py-2.5 font-medium whitespace-nowrap text-stone-700">
+                                {{ issue.issue_date|date:"d M Y" }}
+                            </td>
+                            <td class="px-4 py-2.5 whitespace-nowrap">
+                                <div class="font-bold text-stone-900 leading-tight">
+                                    {{ issue.account.name }}
+                                </div>
+                                <div class="mt-0.5">
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-stone-100 text-stone-600 border border-stone-200">
+                                        {{ issue.account.get_account_type_display }}
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="px-4 py-2.5 text-stone-600 max-w-xs truncate">
+                                {{ issue.reason|default:"—" }}
+                            </td>
+                            <td class="px-4 py-2.5">
+                                <div class="flex flex-wrap gap-1">
+                                    {% for item in issue.items.all %}
+                                        <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border border-stone-200 bg-stone-50 text-[11px] text-stone-700 font-medium">
+                                            {% if item.packaged_product %}
+                                                <span class="text-stone-900 font-semibold">{{ item.packaged_product }}</span>
+                                                <span class="text-stone-400">•</span>
+                                                <span class="text-[#00674F] font-bold">{{ item.packs }} packs</span>
+                                            {% else %}
+                                                <span class="text-stone-900 font-semibold">{{ item.coffee_stock.variety.name }}</span>
+                                                <span class="text-stone-400">•</span>
+                                                <span class="text-stone-500">{{ item.get_stock_stage_display }}</span>
+                                                <span class="text-stone-400">•</span>
+                                                <span class="text-[#00674F] font-bold">{{ item.quantity_kg }} kg</span>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td class="px-4 py-2.5 whitespace-nowrap text-stone-500">
+                                {{ issue.issued_by.username|default:"System" }}
+                            </td>
+                            <td class="px-4 py-2.5 text-right whitespace-nowrap">
+                                <a href="{% url 'internal_stock_issue_detail' issue.pk %}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-stone-100 hover:bg-stone-200 text-[#00674F] font-bold text-xs transition-colors">
+                                    <span>View</span>
+                                    <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="px-4 py-12 text-center text-stone-500 bg-stone-50/30">
+                                <div class="max-w-xs mx-auto space-y-2">
+                                    <i class="fa-solid fa-calendar-xmark text-2xl text-stone-300"></i>
+                                    <p class="text-xs text-stone-500">No internal stock issues found for the selected date range.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- PAGINATION -->
+        {% if is_paginated %}
+            <div class="flex items-center justify-between px-4 py-3 bg-stone-50/50 border-t border-stone-200 text-xs text-stone-600">
+                <div>
+                    Showing page <span class="font-bold text-stone-800">{{ page_obj.number }}</span> of <span class="font-bold text-stone-800">{{ page_obj.paginator.num_pages }}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}{% if extra_qs %}&{{ extra_qs }}{% endif %}" class="px-3 py-1.5 rounded-lg border border-stone-300 bg-white font-semibold text-stone-700 hover:bg-stone-100 transition-colors">
+                            ← Previous
+                        </a>
+                    {% endif %}
+                    {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}{% if extra_qs %}&{{ extra_qs }}{% endif %}" class="px-3 py-1.5 rounded-lg border border-stone-300 bg-white font-semibold text-stone-700 hover:bg-stone-100 transition-colors">
+                            Next →
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

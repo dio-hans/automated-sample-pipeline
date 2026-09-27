@@ -1,0 +1,191 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}{{ account.name }} | Internal Stock | Nonda{% endblock %}
+
+{% block breadcrumb %}
+Inventory / Internal Accounts / {{ account.name }}
+{% endblock %}
+
+{% block page_title %}{{ account.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-3">
+
+    <!-- ACCOUNT HEADER BAR -->
+    <div class="bg-white p-3 rounded-lg border border-stone-200 shadow-sm flex items-center justify-between">
+        <div class="space-y-0.5">
+            <div class="flex items-center gap-2">
+                <h2 class="text-base font-bold text-stone-900 leading-tight">{{ account.name }}</h2>
+                {% if account.is_active %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Active</span>
+                {% else %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 text-stone-600">Inactive</span>
+                {% endif %}
+            </div>
+            <p class="text-xs text-stone-500">{{ account.get_account_type_display }}</p>
+            {% if account.description %}
+                <p class="text-xs text-stone-600">{{ account.description }}</p>
+            {% endif %}
+        </div>
+        <a href="{% url 'internal_stock_issue_create' %}" class="inline-flex items-center px-3 py-1.5 bg-[#8B3A2B] hover:bg-[#722f23] text-white text-xs font-bold rounded transition-colors shadow-sm">
+            + Issue Stock
+        </a>
+    </div>
+
+    <!-- METRICS SUMMARY GRID -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        <div class="bg-white p-2.5 rounded-lg border border-stone-200 shadow-sm">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-stone-500">Transactions</p>
+            <p class="text-lg font-extrabold text-stone-900 mt-0.5 leading-none">{{ total_issues }}</p>
+        </div>
+        <div class="bg-white p-2.5 rounded-lg border border-stone-200 shadow-sm">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-stone-500">Non-packaged</p>
+            <p class="text-lg font-extrabold text-stone-900 mt-0.5 leading-none">{{ total_kg|floatformat:2 }} <span class="text-xs font-normal text-stone-500">kg</span></p>
+        </div>
+        <div class="bg-white p-2.5 rounded-lg border border-stone-200 shadow-sm">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-stone-500">Packaged</p>
+            <p class="text-lg font-extrabold text-stone-900 mt-0.5 leading-none">{{ total_packs }} <span class="text-xs font-normal text-stone-500">packs</span></p>
+        </div>
+        <div class="bg-white p-2.5 rounded-lg border border-stone-200 shadow-sm">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-stone-500">Recorded Value</p>
+            <p class="text-lg font-extrabold text-stone-900 mt-0.5 leading-none"><span class="text-xs font-normal text-stone-500">UGX</span> {{ total_value|floatformat:0|intcomma }}</p>
+        </div>
+    </div>
+
+
+    <!-- HISTORY TABLE CARD -->
+    <div class="bg-white rounded-lg border border-stone-200 shadow-sm overflow-hidden">
+        <!-- DATE FILTER BAR -->
+   <!-- COMPACT DATE FILTER BAR -->
+<div class="bg-white p-2 rounded-xl border border-stone-200 shadow-sm flex flex-wrap items-center justify-between gap-2 text-xs">
+    
+    <!-- PRESET QUICK FILTERS (GREEN ACTIVE HIGHLIGHTS) -->
+    <div class="flex items-center gap-1 flex-wrap">
+        <a href="?period=all" 
+           class="px-3 py-1.5 rounded-lg font-medium transition-colors {% if selected_period == 'all' or not selected_period %}bg-[#00674F] text-white shadow-sm font-semibold{% else %}bg-stone-100 hover:bg-stone-200 text-stone-600{% endif %}">
+            All
+        </a>
+        <a href="?period=this_week" 
+           class="px-3 py-1.5 rounded-lg font-medium transition-colors {% if selected_period == 'this_week' %}bg-[#00674F] text-white shadow-sm font-semibold{% else %}bg-stone-100 hover:bg-stone-200 text-stone-600{% endif %}">
+            This Week
+        </a>
+        <a href="?period=today" 
+           class="px-3 py-1.5 rounded-lg font-medium transition-colors {% if selected_period == 'today' %}bg-[#00674F] text-white shadow-sm font-semibold{% else %}bg-stone-100 hover:bg-stone-200 text-stone-600{% endif %}">
+            Today
+        </a>
+        <a href="?period=yesterday" 
+           class="px-3 py-1.5 rounded-lg font-medium transition-colors {% if selected_period == 'yesterday' %}bg-[#00674F] text-white shadow-sm font-semibold{% else %}bg-stone-100 hover:bg-stone-200 text-stone-600{% endif %}">
+            Yesterday
+        </a>
+        <a href="?period=this_month" 
+           class="px-3 py-1.5 rounded-lg font-medium transition-colors {% if selected_period == 'this_month' %}bg-[#00674F] text-white shadow-sm font-semibold{% else %}bg-stone-100 hover:bg-stone-200 text-stone-600{% endif %}">
+            This Month
+        </a>
+    </div>
+
+    <!-- INLINE DATE RANGE PICKER -->
+    <form method="get" class="flex items-center gap-2">
+        <input type="hidden" name="period" value="custom">
+        <div class="inline-flex items-center bg-stone-50 border border-stone-200 rounded-lg px-2 py-1 gap-1.5 text-stone-500">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-stone-400">From</span>
+            <input type="date" name="from_date" value="{{ from_date }}" onchange="this.form.submit()" class="bg-transparent border-0 p-0 text-xs text-stone-800 focus:ring-0 focus:outline-none cursor-pointer">
+            
+            <span class="text-stone-300">|</span>
+            
+            <span class="text-[10px] font-bold uppercase tracking-wider text-stone-400">To</span>
+            <input type="date" name="to_date" value="{{ to_date }}" onchange="this.form.submit()" class="bg-transparent border-0 p-0 text-xs text-stone-800 focus:ring-0 focus:outline-none cursor-pointer">
+        </div>
+
+        {% if selected_period == 'custom' or from_date or to_date %}
+            <a href="?period=all" class="px-2 py-1 text-stone-400 hover:text-red-600 transition-colors text-xs font-semibold" title="Reset filter">
+                <i class="fa-solid fa-xmark"></i>
+            </a>
+        {% endif %}
+    </form>
+</div>
+        <div class="px-3.5 py-2.5 border-b border-stone-200 bg-stone-50/50">
+            <h3 class="text-xs font-bold text-stone-900">Stock Usage History</h3>
+            <p class="text-[11px] text-stone-500">
+                {% if from_date or to_date %}
+                    Showing records {% if from_date %}from {{ from_date }}{% endif %} {% if to_date %}to {{ to_date }}{% endif %}
+                {% else %}
+                    Showing all recorded transactions.
+                {% endif %}
+            </p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                    <tr class="bg-stone-50 border-b border-stone-200 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                        <th class="px-3.5 py-2">Date</th>
+                        <th class="px-3.5 py-2">Reason</th>
+                        <th class="px-3.5 py-2">Coffee</th>
+                        <th class="px-3.5 py-2">Quantity</th>
+                        <th class="px-3.5 py-2">Recorded By</th>
+                        <th class="px-3.5 py-2 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-stone-100">
+                    {% for issue in issues %}
+                        <tr class="hover:bg-stone-50/50 transition-colors">
+                            <td class="px-3.5 py-2 font-medium text-stone-900 whitespace-nowrap">{{ issue.issue_date|date:"d M Y" }}</td>
+                            <td class="px-3.5 py-2 text-stone-500">{{ issue.reason|default:"—" }}</td>
+                            <td class="px-3.5 py-2">
+                                <div class="space-y-1">
+                                    {% for item in issue.items.all %}
+                                        {% if item.packaged_product %}
+                                            <div>
+                                                <div class="font-semibold text-stone-900">{{ item.packaged_product }}</div>
+                                                <div class="text-[10px] text-stone-500">Packaged coffee</div>
+                                            </div>
+                                        {% else %}
+                                            <div>
+                                                <div class="font-semibold text-stone-900">{{ item.coffee_stock.variety.name }}</div>
+                                                <div class="text-[10px] text-stone-500">
+                                                    Batch {{ item.coffee_stock.batch_number }} · {{ item.get_stock_stage_display }}
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td class="px-3.5 py-2">
+                                <div class="space-y-1 font-semibold text-stone-900">
+                                    {% for item in issue.items.all %}
+                                        <div>
+                                            {% if item.packaged_product %}
+                                                {{ item.packs }} packs
+                                            {% else %}
+                                                {{ item.quantity_kg }} kg
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td class="px-3.5 py-2 text-stone-500">{{ issue.issued_by.username|default:"System" }}</td>
+                            <td class="px-3.5 py-2 text-right whitespace-nowrap">
+                                <a href="{% url 'internal_stock_issue_detail' issue.pk %}" class="text-[#00674F] font-bold hover:underline text-[11px]">View</a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="px-3.5 py-6 text-center text-stone-500">
+                                No stock recorded under <strong>{{ account.name }}</strong> for the selected period.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- NAVIGATION LINK -->
+    <div class="pt-1">
+        <a href="{% url 'internal_account_list' %}" class="text-xs font-semibold text-[#00674F] hover:underline inline-flex items-center gap-1">
+            Back to Internal Accounts
+        </a>
+    </div>
+
+</div>
+{% endblock %}

@@ -70,13 +70,13 @@ aside button[type="submit"] {
             font-weight: 500;
             transition: background-color 150ms ease, color 150ms ease;
         }
-        .nav-link:hover {
-            background: rgba(255, 255, 255, 0.12);
-            color: #ffffff;
+        .nav-slink:hover {
+            background: #0d4e48 !important;
+            color: #ffffff !important;
         }
         .nav-link.active {
-            background: rgba(255, 255, 255, 0.20);
-            color: #ffffff;
+            background: #0d4e48 !important;
+            color: #ffffff !important;
             font-weight: 600;
         }
         .nav-icon {
@@ -136,3 +136,10 @@ aside button[type="submit"] {
                 transform: translateY(0);
             }
         }
+/* Sidebar Hover and Active Page Color */
+aside a.nav-link:hover,
+aside a.nav-link.active {
+    background-color: #0d4e48 !important; /* Dark Green-Blue */
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}

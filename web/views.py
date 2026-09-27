@@ -11,8 +11,10 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
+from .services.internal_stock import create_internal_stock_issue, get_packaged_internal_available
+
 from .sales_workflow import approve_existing_pack_return, fulfill_request_item
-from .models import AccountHolder, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage
+from .models import AccountHolder, InternalAccount, InternalStockIssue, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage
 from decimal import Decimal
 from .services.processing import complete_roasting, complete_sorting
 from django.views.generic import TemplateView
@@ -41,6 +43,7 @@ from .forms import (
     CoffeeStockIntakeForm,
     CompanyForm,
     ContractForm,
+    InternalAccountForm,
     PackagedProductBulkForm,
     PackagingRunForm,
     PackReleaseForm,
@@ -159,7 +162,7 @@ def toggle_user_status(request, user_id):
     
     if employee == request.user:
         messages.error(request, "Security Violation Protection: You cannot lock out your own administrative account.")
-        return redirect('regi/ster_user')
+        return redirect('register_user')
 
     # Atomic inversion of status state
     employee.is_active = not employee.is_active
@@ -172,7 +175,7 @@ def toggle_user_status(request, user_id):
     else:
         messages.warning(request, f"Terminal operational rights for {employee.username} have been suspended.")
         
-    return redirect('register_user')
+    return redirect('register')
 
 # AUTH & USER CONTROL 
 @method_decorator(login_required, name='dispatch') 
@@ -346,6 +349,22 @@ from datetime import datetime, time
 from django.db.models import Q
 from django.utils import timezone
 
+from django.db.models import F, Sum, DecimalField, ExpressionWrapper
+from django.utils import timezone
+from datetime import datetime, time
+# ... your other imports ...
+
+from django.db.models import F, Sum, DecimalField, ExpressionWrapper
+from django.utils import timezone
+from datetime import datetime, time
+
+from datetime import datetime, time
+from django.db.models import F, Q, Sum, DecimalField, ExpressionWrapper
+from django.utils import timezone
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+from django.views.generic import ListView
+
 @method_decorator(login_required, name='dispatch')
 class PackReturnListView(InventoryRoleRequiredMixin, ListView):
     model = PackReturn
@@ -356,45 +375,64 @@ class PackReturnListView(InventoryRoleRequiredMixin, ListView):
         qs = PackReturn.objects.select_related(
             "release__product__blend",
             "release__product__pack_size",
+            "release__released_to",  # <-- Added: Fetches person assigned to the release
             "received_by"
         )
-
         today = timezone.localdate()
-        # Default to 'today' if range is not provided in GET parameters
-        selected_range = self.request.GET.get("range", "today")
 
-        # Handle Date Range Presets
+        # Safely extract preset or range from GET query params
+        selected_range = (
+            self.request.GET.get("preset") or 
+            self.request.GET.get("range") or 
+            "today"
+        ).strip()
+
+        # Default fallbacks to avoid UnboundLocalError
+        start_date, end_date = None, None
+
         if selected_range == "today":
             start_date, end_date = today, today
+
         elif selected_range == "yesterday":
             yesterday = today - timezone.timedelta(days=1)
             start_date, end_date = yesterday, yesterday
+
+        elif selected_range == "this_week":
+            # Monday of the current week through today
+            start_date = today - timezone.timedelta(days=today.weekday())
+            end_date = today
+
+        elif selected_range in ["last_7_days", "last_7"]:
+            start_date = today - timezone.timedelta(days=6)
+            end_date = today
+
         elif selected_range == "this_month":
-            start_date, end_date = today.replace(day=1), today
+            start_date = today.replace(day=1)
+            end_date = today
+
         elif selected_range == "custom":
             try:
-                start_date = datetime.strptime(
-                    self.request.GET.get("start_date"), "%Y-%m-%d"
-                ).date()
-                end_date = datetime.strptime(
-                    self.request.GET.get("end_date"), "%Y-%m-%d"
-                ).date()
-                if start_date > end_date:
-                    start_date, end_date = end_date, start_date
+                s_str = self.request.GET.get("start_date")
+                e_str = self.request.GET.get("end_date")
+                if s_str and e_str:
+                    start_date = datetime.strptime(s_str, "%Y-%m-%d").date()
+                    end_date = datetime.strptime(e_str, "%Y-%m-%d").date()
+                    if start_date > end_date:
+                        start_date, end_date = end_date, start_date
+                else:
+                    start_date, end_date = today, today
             except (TypeError, ValueError):
                 start_date, end_date = today, today
-                selected_range = "today"
-        else:
-            # 'all' range
-            start_date, end_date = None, None
 
-        # Apply date filters
+        # 'all' range leaves start_date and end_date as None
+
+        # Apply date range filtering
         if start_date and end_date:
             start_dt = timezone.make_aware(datetime.combine(start_date, time.min))
             end_dt = timezone.make_aware(datetime.combine(end_date + timezone.timedelta(days=1), time.min))
             qs = qs.filter(returned_at__gte=start_dt, returned_at__lt=end_dt)
 
-        # Apply search filter (product name/blend)
+        # Apply product/pack search filter
         query = self.request.GET.get("q", "").strip()
         if query:
             qs = qs.filter(
@@ -406,9 +444,29 @@ class PackReturnListView(InventoryRoleRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["selected_range"] = self.request.GET.get("range", "today")
-        return ctx
+        qs = self.get_queryset()
 
+        # Compute total monetary value of filtered returned packs
+        total_val = qs.aggregate(
+            total=Sum(
+                ExpressionWrapper(
+                    F("packs_returned") * F("release__selling_price"),
+                    output_field=DecimalField()
+                )
+            )
+        )["total"] or 0
+
+        selected_range = (
+            self.request.GET.get("preset") or 
+            self.request.GET.get("range") or 
+            "today"
+        ).strip()
+
+        ctx["total_returns_value"] = total_val
+        ctx["selected_range"] = selected_range
+        ctx["preset"] = selected_range
+        return ctx
+    
 
 def current_user(request):
     return request.user if request.user.is_authenticated else None
@@ -2964,3 +3022,658 @@ class ExpenseListView(RoleRequiredMixin, ListView):
             "categories": categories or [],
         })
         return context
+
+
+### INTERNAL ACCOUNTS VIEW
+class InternalAccountListView(
+    RoleRequiredMixin,
+    ListView,
+):
+
+    model = InternalAccount
+
+    template_name = (
+        "internal_stock/internal_account_list.html"
+    )
+
+    context_object_name = "accounts"
+
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+    )
+
+    def get_queryset(self):
+
+        return (
+            InternalAccount.objects
+            .order_by("name")
+        )
+
+class InternalAccountCreateView(
+    RoleRequiredMixin,
+    CreateView,
+):
+
+    model = InternalAccount
+
+    form_class = InternalAccountForm
+
+    template_name = (
+        "internal_stock/internal_account_form.html"
+    )
+
+    success_url = reverse_lazy(
+        "internal_account_list"
+    )
+
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+    )
+
+    def form_valid(self, form):
+
+        messages.success(
+            self.request,
+            (
+                f"Internal account "
+                f"'{form.instance.name}' "
+                f"created successfully."
+            ),
+        )
+
+        return super().form_valid(form)
+
+
+class InternalStockIssueListView(
+    RoleRequiredMixin,
+    ListView,
+):
+    model = InternalStockIssue
+    template_name = "internal_stock/internal_stock_issue_list.html"
+    context_object_name = "issues"
+    paginate_by = 20
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+    )
+
+    def get_queryset(self):
+        queryset = (
+            InternalStockIssue.objects
+            .select_related("account", "issued_by")
+            .prefetch_related(
+                "items__coffee_stock__variety",
+                "items__packaged_product__blend",
+                "items__packaged_product__pack_size",
+            )
+            .order_by("-issue_date", "-created_at")
+        )
+
+        # 1. Read query parameters sent by date_filters.html
+        self.period = self.request.GET.get("period", "").strip()
+        self.from_date = self.request.GET.get("from_date", "").strip()
+        self.to_date = self.request.GET.get("to_date", "").strip()
+
+        today = timezone.now().date()
+
+        # 2. Filter directly on issue_date
+        if self.period == "today":
+            queryset = queryset.filter(issue_date=today)
+
+        elif self.period == "yesterday":
+            queryset = queryset.filter(issue_date=today - timedelta(days=1))
+
+        elif self.period == "this_week":
+            start_of_week = today - timedelta(days=today.weekday())
+            queryset = queryset.filter(issue_date__gte=start_of_week, issue_date__lte=today)
+
+        elif self.period == "this_month":
+            start_of_month = today.replace(day=1)
+            queryset = queryset.filter(issue_date__gte=start_of_month, issue_date__lte=today)
+
+        elif self.period == "custom" or self.from_date or self.to_date:
+            if self.from_date:
+                queryset = queryset.filter(issue_date__gte=self.from_date)
+            if self.to_date:
+                queryset = queryset.filter(issue_date__lte=self.to_date)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Pass filter state to template
+        context["period"] = getattr(self, "period", "")
+        context["from_date"] = getattr(self, "from_date", "")
+        context["to_date"] = getattr(self, "to_date", "")
+
+        # Preserve query string across pagination links
+        query_params = self.request.GET.copy()
+        if "page" in query_params:
+            del query_params["page"]
+        context["extra_qs"] = query_params.urlencode()
+
+        return context
+    
+
+class InternalStockIssueCreateView(
+    RoleRequiredMixin,
+    View,
+):
+
+    template_name = (
+        "internal_stock/internal_stock_issue_form.html"
+    )
+
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+    )
+
+    def get(self, request):
+
+        return render(
+            request,
+            self.template_name,
+            self.get_context_data(),
+        )
+
+    def post(self, request):
+
+        account_id = request.POST.get(
+            "account"
+        )
+
+        account = get_object_or_404(
+            InternalAccount,
+            pk=account_id,
+            is_active=True,
+        )
+
+        issue_date = request.POST.get(
+            "issue_date"
+        )
+
+        reason = request.POST.get(
+            "reason",
+            "",
+        ).strip()
+
+        notes = request.POST.get(
+            "notes",
+            "",
+        ).strip()
+
+        item_types = request.POST.getlist(
+            "item_type"
+        )
+
+        coffee_stock_ids = request.POST.getlist(
+            "coffee_stock"
+        )
+
+        stock_stages = request.POST.getlist(
+            "stock_stage"
+        )
+
+        quantity_kg_list = request.POST.getlist(
+            "quantity_kg"
+        )
+
+        packaged_product_ids = request.POST.getlist(
+            "packaged_product"
+        )
+
+        packs_list = request.POST.getlist(
+            "packs"
+        )
+
+        unit_cost_list = request.POST.getlist(
+            "unit_cost"
+        )
+
+        items = []
+
+        for index, item_type in enumerate(
+            item_types
+        ):
+
+            if item_type == "non_packaged":
+
+                items.append({
+                    "type": "non_packaged",
+
+                    "coffee_stock_id": (
+                        coffee_stock_ids[index]
+                        if index <
+                        len(coffee_stock_ids)
+                        else None
+                    ),
+
+                    "stock_stage": (
+                        stock_stages[index]
+                        if index <
+                        len(stock_stages)
+                        else None
+                    ),
+
+                    "quantity_kg": (
+                        quantity_kg_list[index]
+                        if index <
+                        len(quantity_kg_list)
+                        else None
+                    ),
+
+                    "unit_cost": (
+                        unit_cost_list[index]
+                        if index <
+                        len(unit_cost_list)
+                        and unit_cost_list[index]
+                        else None
+                    ),
+                })
+
+            elif item_type == "packaged":
+
+                items.append({
+                    "type": "packaged",
+
+                    "packaged_product_id": (
+                        packaged_product_ids[index]
+                        if index <
+                        len(packaged_product_ids)
+                        else None
+                    ),
+
+                    "packs": (
+                        packs_list[index]
+                        if index <
+                        len(packs_list)
+                        else None
+                    ),
+
+                    "unit_cost": (
+                        unit_cost_list[index]
+                        if index <
+                        len(unit_cost_list)
+                        and unit_cost_list[index]
+                        else None
+                    ),
+                })
+
+        try:
+
+            if not issue_date:
+
+                issue_date = timezone.localdate()
+
+            issue = create_internal_stock_issue(
+                account=account,
+                issue_date=issue_date,
+                reason=reason,
+                notes=notes,
+                user=request.user,
+                items=items,
+            )
+
+            messages.success(
+                request,
+                (
+                    f"Internal stock issue "
+                    f"#{issue.pk} recorded successfully."
+                ),
+            )
+
+            return redirect(
+                "internal_stock_issue_detail",
+                pk=issue.pk,
+            )
+
+        except (
+            ValidationError,
+            ValueError,
+        ) as exc:
+
+            messages.error(
+                request,
+                str(exc),
+            )
+
+            context = self.get_context_data()
+
+            context["submitted"] = request.POST
+
+            return render(
+                request,
+                self.template_name,
+                context,
+            )
+
+    def get_context_data(self):
+
+        stocks = list(
+            CoffeeStock.objects
+            .select_related("variety")
+            .order_by(
+                "batch_number"
+            )
+        )
+
+        stock_options = []
+
+        for stock in stocks:
+
+            for stage_value, stage_label in (
+                (
+                    StockStage.GREEN,
+                    "Green Coffee",
+                ),
+                (
+                    StockStage.ROASTED,
+                    "Roasted Coffee",
+                ),
+                (
+                    StockStage.GROUND,
+                    "Ground Coffee",
+                ),
+            ):
+
+                available = (
+                    get_stage_inventory(
+                        stock,
+                        stage_value,
+                    )
+                )
+
+                if available <= 0:
+                    continue
+
+                stock_options.append({
+                    "value": (
+                        f"{stock.pk}|"
+                        f"{stage_value}"
+                    ),
+                    "stock_id": stock.pk,
+                    "stage": stage_value,
+                    "stage_label": stage_label,
+                    "available": available,
+                    "batch_number": (
+                        stock.batch_number
+                    ),
+                    "variety": (
+                        stock.variety.name
+                    ),
+                })
+
+        packaged_products = []
+
+        products = (
+            PackagedProduct.objects
+            .filter(is_active=True)
+            .select_related(
+                "blend",
+                "pack_size",
+            )
+            .order_by(
+                "blend__name",
+                "pack_size__grams",
+                "form",
+            )
+        )
+
+        for product in products:
+
+            available = (
+                get_packaged_internal_available(
+                    product
+                )
+            )
+
+            if available <= 0:
+                continue
+
+            packaged_products.append({
+                "id": product.pk,
+                "label": str(product),
+                "available": available,
+            })
+
+        return {
+            "accounts": (
+                InternalAccount.objects
+                .filter(is_active=True)
+                .order_by("name")
+            ),
+
+            "stock_options": stock_options,
+
+            "packaged_products": (
+                packaged_products
+            ),
+
+            "today": timezone.localdate(),
+
+            "stock_stages": (
+                (
+                    StockStage.GREEN,
+                    "Green Coffee",
+                ),
+                (
+                    StockStage.ROASTED,
+                    "Roasted Coffee",
+                ),
+                (
+                    StockStage.GROUND,
+                    "Ground Coffee",
+                ),
+            ),
+        }
+
+
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal
+from django.utils import timezone
+from django.utils.dateparse import parse_date
+from django.views.generic import DetailView
+
+
+class InternalAccountDetailView(
+    RoleRequiredMixin,
+    DetailView,
+):
+  model = InternalAccount
+  template_name = "internal_stock/internal_account_detail.html"
+  context_object_name = "account"
+  allowed_roles = (
+      User.Role.ADMIN,
+      User.Role.MANAGER,
+      User.Role.ACCOUNTS,
+  )
+
+  def get_context_data(self, **kwargs):
+    context = super().get_context_data(**kwargs)
+    account = self.object
+
+    issues = (
+        account.stock_issues.select_related(
+            "account",
+            "issued_by",
+        )
+        .prefetch_related(
+            "items__coffee_stock__variety",
+            "items__packaged_product__blend",
+            "items__packaged_product__pack_size",
+        )
+        .order_by(
+            "-issue_date",
+            "-created_at",
+        )
+    )
+
+    # ---------------------------------------------
+    # DATE FILTER & PERIOD HANDLING
+    # ---------------------------------------------
+    selected_period = self.request.GET.get("period", "all")
+    from_date_raw = self.request.GET.get("from_date", "").strip()
+    to_date_raw = self.request.GET.get("to_date", "").strip()
+
+    today = timezone.now().date()
+    from_date = None
+    to_date = None
+
+    if selected_period == "today":
+      from_date = today
+      to_date = today
+    elif selected_period == "yesterday":
+      from_date = today - timedelta(days=1)
+      to_date = today - timedelta(days=1)
+    elif selected_period == "this_week":
+      from_date = today - timedelta(days=today.weekday())  # Monday start
+      to_date = today
+    elif selected_period == "this_month":
+      from_date = today.replace(day=1)
+      to_date = today
+    elif selected_period == "custom" or (from_date_raw or to_date_raw):
+      selected_period = "custom"
+      if from_date_raw:
+        from_date = parse_date(from_date_raw)
+      if to_date_raw:
+        to_date = parse_date(to_date_raw)
+    else:
+      selected_period = "all"
+
+    # Filter QuerySet
+    if from_date:
+      issues = issues.filter(issue_date__gte=from_date)
+
+    if to_date:
+      # Use 23:59:59 end-of-day cutoff if issue_date is a DateTimeField
+      end_datetime = datetime.combine(to_date, time.max)
+      issues = issues.filter(issue_date__lte=end_datetime)
+
+    issues = list(issues)
+
+    # ---------------------------------------------
+    # TOTALS
+    # ---------------------------------------------
+    total_issues = len(issues)
+    total_value = sum(
+        (item.total_value for issue in issues for item in issue.items.all()),
+        Decimal("0.00"),
+    )
+    total_kg = sum(
+        (
+            item.quantity_kg or Decimal("0.00")
+            for issue in issues
+            for item in issue.items.all()
+        ),
+        Decimal("0.00"),
+    )
+    total_packs = sum(
+        (item.packs or 0 for issue in issues for item in issue.items.all()),
+        0,
+    )
+
+    context.update({
+        "issues": issues,
+        "total_issues": total_issues,
+        "total_value": total_value,
+        "total_kg": total_kg,
+        "total_packs": total_packs,
+        "selected_period": selected_period,
+        "from_date": from_date.strftime("%Y-%m-%d") if from_date else "",
+        "to_date": to_date.strftime("%Y-%m-%d") if to_date else "",
+    })
+    return context
+
+class InternalStockIssueDetailView(
+    RoleRequiredMixin,
+    DetailView,
+):
+    model = InternalStockIssue
+
+    template_name = (
+        "internal_stock/internal_stock_issue_detail.html"
+    )
+
+    context_object_name = "issue"
+
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+    )
+
+    def get_queryset(self):
+
+        return (
+            InternalStockIssue.objects
+            .select_related(
+                "account",
+                "issued_by",
+            )
+            .prefetch_related(
+                "items__coffee_stock__variety",
+                "items__packaged_product__blend",
+                "items__packaged_product__pack_size",
+            )
+        )
+
+    def get_context_data(self, **kwargs):
+
+        context = super().get_context_data(**kwargs)
+
+        items = list(
+            self.object.items.all()
+        )
+
+        context["items"] = items
+
+        context["total_value"] = sum(
+            (
+                item.total_value
+                for item in items
+            ),
+            Decimal("0.00"),
+        )
+
+        return context
+
+from datetime import timedelta
+from django.utils import timezone
+
+def apply_date_filter(queryset, request, date_field='issue_date'):
+    period = request.GET.get('period', 'all')
+    from_date = request.GET.get('from_date', '')
+    to_date = request.GET.get('to_date', '')
+    today = timezone.now().date()
+
+    if period == 'today':
+        queryset = queryset.filter(**{f"{date_field}": today})
+    elif period == 'yesterday':
+        queryset = queryset.filter(**{f"{date_field}": today - timedelta(days=1)})
+    elif period == 'this_week':
+        start_of_week = today - timedelta(days=today.weekday())
+        queryset = queryset.filter(**{f"{date_field}__gte": start_of_week, f"{date_field}__lte": today})
+    elif period == 'this_month':
+        start_of_month = today.replace(day=1)
+        queryset = queryset.filter(**{f"{date_field}__gte": start_of_month, f"{date_field}__lte": today})
+    elif period == 'custom' or from_date or to_date:
+        period = 'custom'
+        if from_date:
+            queryset = queryset.filter(**{f"{date_field}__gte": from_date})
+        if to_date:
+            queryset = queryset.filter(**{f"{date_field}__lte": to_date})
+
+    context_data = {
+        'selected_period': period,
+        'from_date': from_date,
+        'to_date': to_date,
+    }
+    return queryset, context_data

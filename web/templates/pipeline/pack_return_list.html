@@ -11,17 +11,18 @@
 </p>
 {% endblock %}
 
-{% block header_action %}
-<div class="flex items-center gap-2">
-    <a href="{% url 'credit_control_ledger' %}"
-       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 transition shadow-sm">
-        Credit Ledger
-    </a>
-</div>
-{% endblock %}
-
 {% block content %}
 <div class="max-w-6xl mx-auto space-y-3">
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="bg-white border border-[#E4DECB] rounded-xl p-3.5 shadow-sm">
+            <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Total Value Returned</p>
+            <p class="font-bold text-xl mt-1 text-slate-800">
+                {{ total_returns_value|default:"0"|floatformat:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">UGX</span>
+            </p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Gross worth of inventory returned to warehouse</p>
+        </div>
+    </div>
 
     <!-- MAIN LOG CARD -->
     <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
@@ -30,10 +31,9 @@
             <form id="filterForm" method="get" class="flex flex-wrap items-center justify-between gap-3 mb-4 bg-white p-3 rounded-lg border border-slate-100 shadow-sm">
     <!-- Quick Date Filter Pills -->
     <div class="flex items-center gap-1 overflow-x-auto py-0.5">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Entry:</span>
-        <a href="?range=all{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
-           class="px-2.5 py-1 rounded text-xs font-semibold transition {% if selected_range == 'all' %}bg-slate-800 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
-            All
+                <a href="?range=this_week{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
+           class="px-2.5 py-1 rounded text-xs font-semibold transition {% if selected_range == 'this_week' %}bg-slate-800 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+            This Week
         </a>
         <a href="?range=today{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
            class="px-2.5 py-1 rounded text-xs font-semibold transition {% if selected_range == 'today' %}bg-slate-800 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">

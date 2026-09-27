@@ -19,12 +19,24 @@ def yesterday_range(today):
     y = today - timedelta(days=1)
     return y, y
 
+def this_week_range(today):
+    # Calculates Monday of the current week through today
+    start = today - timedelta(days=today.weekday())
+    return start, today
+
+def last_7_days_range(today):
+    # Calculates the last 7 rolling days including today
+    return today - timedelta(days=6), today
+
 def this_month_range(today):
     return today.replace(day=1), today
+
 
 PRESETS = {
     "today": today_range,
     "yesterday": yesterday_range,
+    "this_week": this_week_range,
+    "last_7_days": last_7_days_range,  # Aliased to handle ?preset=last_7_days
     "this_month": this_month_range,
 }
 DEFAULT_PRESET = "this_month"
