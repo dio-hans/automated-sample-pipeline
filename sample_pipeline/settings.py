@@ -82,7 +82,8 @@ WSGI_APPLICATION = 'sample_pipeline.wsgi.application'
 # Database configuration
 # Uses DATABASE_URL from environment when hosted on Render (PostgreSQL),
 # and falls back to local SQLite for local development on Windows.
-
+import dj_database_url
+import os
 DATABASES = {
     'default': dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
@@ -133,9 +134,6 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # Set your active template pack
 CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"  # or "bootstrap5"
 CRISPY_TEMPLATE_PACK = "tailwind"
-
-import dj_database_url
-import os
 
 
 # Replace 'web' with the actual app name where your custom User model lives
