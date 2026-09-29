@@ -1,0 +1,43 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}Profitability | Nonda{% endblock %}
+{% block breadcrumb %}Management / Reports / Profitability{% endblock %}
+{% block page_title %}Profitability{% endblock %}
+
+{% block page_subtitle %}
+Product costing, gross profit, and margin analytics module.
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4 text-xs text-gray-700">
+  <!-- Navigation Component -->
+  {% include "reports/components/report_nav.html" %}
+
+  <!-- Compact Status Banner / Placeholder Container -->
+  <div class="p-6 bg-white border border-gray-200 rounded shadow-sm text-center max-w-2xl mx-auto my-8">
+    <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 text-amber-700 mb-3">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    </div>
+
+    <span class="inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 rounded mb-2">
+      Coming Soon — R7
+    </span>
+
+    <h3 class="text-sm font-bold text-gray-900 uppercase tracking-wider mb-2">
+      Product Costing & Profitability
+    </h3>
+
+    <p class="text-xs text-gray-600 leading-relaxed max-w-md mx-auto mb-4">
+      This report will be enabled once verified product costs, stock valuation, and cost of goods sold (COGS) are available. Gross profit, net profit, and margins are intentionally withheld until then.
+    </p>
+
+    <div class="pt-2 border-t border-gray-100">
+      <a href="{% url 'web:reports-executive' %}" class="inline-block px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-white font-medium text-xs rounded transition">
+        Return to Executive Overview
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

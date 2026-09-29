@@ -1,0 +1,217 @@
+{% extends 'pipeline/base.html' %}
+{% load humanize %}
+
+{% block title %}Operations | Nonda{% endblock %}
+{% block breadcrumb %}Management / Reports / Operations{% endblock %}
+{% block page_title %}Operations Report{% endblock %}
+
+{% block page_subtitle %}
+Completed processing and packaging activity for {{ period_label }}; open work is live.
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4 text-xs text-gray-700">
+  <!-- Navigation & Filters -->
+  {% include 'reports/components/report_nav.html' %}
+  {% include 'reports/components/report_filters.html' %}
+
+  <!-- Top KPI Summary Bar (4 Columns) -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
+      <span class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Processing Completed</span>
+      <div class="mt-1 text-lg font-bold text-gray-900">{{ processing.runs|intcomma }} <span class="text-xs font-normal text-gray-500">runs</span></div>
+    </div>
+
+    <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
+      <span class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Processing Yield</span>
+      <div class="mt-1 text-lg font-bold text-emerald-600">{{ processing.yield_pct }}%</div>
+    </div>
+
+    <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
+      <span class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Processing Loss</span>
+      <div class="mt-1 text-lg font-bold text-amber-600">{{ processing.loss_kg|floatformat:2|intcomma }} <span class="text-xs font-normal text-gray-500">kg</span></div>
+    </div>
+
+    <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
+      <span class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Packs Produced</span>
+      <div class="mt-1 text-lg font-bold text-gray-900">{{ packaging.packs_produced|intcomma }}</div>
+    </div>
+  </div>
+
+  <!-- Processing Performance Table -->
+  <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
+    <div class="flex justify-between items-center mb-2 border-b pb-1.5">
+      <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider">Processing Performance</h3>
+      <span class="text-[10px] text-gray-400">Sorting yield includes good output & quakers; loss shown separately.</span>
+    </div>
+    <div class="overflow-x-auto max-h-56 overflow-y-auto">
+      <table class="w-full text-left text-xs text-gray-600">
+        <thead class="text-[11px] uppercase bg-gray-50 text-gray-500 sticky top-0">
+          <tr>
+            <th class="py-1.5 px-3">Process</th>
+            <th class="py-1.5 px-3 text-center">Runs</th>
+            <th class="py-1.5 px-3 text-right">Input (kg)</th>
+            <th class="py-1.5 px-3 text-right">Primary Out (kg)</th>
+            <th class="py-1.5 px-3 text-right">Secondary Out (kg)</th>
+            <th class="py-1.5 px-3 text-right">Loss (kg)</th>
+            <th class="py-1.5 px-3 text-right">Yield</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for row in process_rows %}
+            <tr class="hover:bg-gray-50">
+              <td class="py-1.5 px-3 font-medium text-gray-900">{{ row.name }}</td>
+              <td class="py-1.5 px-3 text-center">{{ row.runs }}</td>
+              <td class="py-1.5 px-3 text-right">{{ row.input_kg|floatformat:2|intcomma }}</td>
+              <td class="py-1.5 px-3 text-right text-emerald-700 font-medium">{{ row.primary_kg|floatformat:2|intcomma }}</td>
+              <td class="py-1.5 px-3 text-right">{{ row.secondary_kg|floatformat:2|intcomma }}</td>
+              <td class="py-1.5 px-3 text-right text-amber-700">{{ row.loss_kg|floatformat:2|intcomma }}</td>
+              <td class="py-1.5 px-3 text-right font-semibold text-gray-900">{{ row.yield_pct }}%</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" class="py-3 px-3 text-center text-gray-400">No processing runs in this period.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 2-Column Section: Packaging Summary & Live WIP -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+    
+    <!-- Packaging Metrics Grid -->
+    <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
+      <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider mb-2 border-b pb-1.5">Packaging Summary</h3>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div class="p-2 bg-gray-50 rounded border border-gray-100">
+          <span class="text-[10px] text-gray-500 uppercase">Completed Runs</span>
+          <div class="text-xs font-bold text-gray-900 mt-0.5">{{ packaging.runs }}</div>
+        </div>
+        <div class="p-2 bg-gray-50 rounded border border-gray-100">
+          <span class="text-[10px] text-gray-500 uppercase">Total Input</span>
+          <div class="text-xs font-bold text-gray-900 mt-0.5">{{ packaging.input_kg|floatformat:2|intcomma }} kg</div>
+        </div>
+        <div class="p-2 bg-gray-50 rounded border border-gray-100">
+          <span class="text-[10px] text-gray-500 uppercase">Coffee in Packs</span>
+          <div class="text-xs font-bold text-gray-900 mt-0.5">{{ packaging.coffee_used_kg|floatformat:2|intcomma }} kg</div>
+        </div>
+        <div class="p-2 bg-gray-50 rounded border border-gray-100">
+          <span class="text-[10px] text-gray-500 uppercase">Packaging Loss</span>
+          <div class="text-xs font-bold text-amber-600 mt-0.5">{{ packaging.loss_kg|floatformat:2|intcomma }} kg</div>
+        </div>
+        <div class="p-2 bg-gray-50 rounded border border-gray-100">
+          <span class="text-[10px] text-gray-500 uppercase">Packaging Yield</span>
+          <div class="text-xs font-bold text-emerald-600 mt-0.5">{{ packaging.yield_pct }}%</div>
+        </div>
+        <div class="p-2 bg-gray-50 rounded border border-gray-100">
+          <span class="text-[10px] text-gray-500 uppercase">Unaccounted</span>
+          <div class="text-xs font-bold text-red-600 mt-0.5">{{ packaging.unaccounted_kg|floatformat:2|intcomma }} kg</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Work in Progress -->
+    <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
+      <div class="flex justify-between items-center mb-2 border-b pb-1.5">
+        <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider">Live Work In Progress</h3>
+        <span class="text-[10px] text-gray-500">
+          Proc: <strong>{{ open_processing_count }}</strong> | Pack: <strong>{{ open_packaging_count }}</strong>
+        </span>
+      </div>
+      <div class="space-y-1.5 max-h-44 overflow-y-auto divide-y divide-gray-100">
+        {% for run in open_processing %}
+          <div class="pt-1.5 flex justify-between items-center text-xs">
+            <span class="font-medium text-gray-900">{{ run.stock.batch_number }}</span>
+            <span class="text-gray-500">{{ run.get_process_type_display }}</span>
+            <span class="font-semibold text-gray-700">{{ run.input_quantity|floatformat:2 }} kg</span>
+          </div>
+        {% endfor %}
+        {% for run in open_packaging %}
+          <div class="pt-1.5 flex justify-between items-center text-xs">
+            <span class="font-medium text-gray-900">{{ run.stock.batch_number }}</span>
+            <span class="text-blue-600 font-medium">Packaging</span>
+            <span class="font-semibold text-gray-700">{{ run.input_kg|floatformat:2 }} kg</span>
+          </div>
+        {% endfor %}
+        {% if not open_processing and not open_packaging %}
+          <p class="text-xs text-gray-400 py-2 text-center">No active work in progress.</p>
+        {% endif %}
+      </div>
+      {% if open_processing_count > 20 or open_packaging_count > 20 %}
+        <p class="mt-2 text-[10px] text-gray-400 italic">Showing first 20 open runs of each category.</p>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- 2-Column Section: Stock Movement Ledger & Reconciliation Exceptions -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+    
+    <!-- Stock Movement Ledger Summary -->
+    <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
+      <div class="mb-2 border-b pb-1.5">
+        <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider">Stock Movement Ledger</h3>
+        <p class="text-[10px] text-gray-400">Do not sum quantities across types; coffee may move multiple times.</p>
+      </div>
+      <div class="overflow-x-auto max-h-48 overflow-y-auto">
+        <table class="w-full text-left text-xs text-gray-600">
+          <thead class="text-[11px] uppercase bg-gray-50 text-gray-500 sticky top-0">
+            <tr>
+              <th class="py-1.5 px-3">Movement Type</th>
+              <th class="py-1.5 px-3 text-center">Entries</th>
+              <th class="py-1.5 px-3 text-right">Quantity (kg)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for row in movement_rows %}
+              <tr class="hover:bg-gray-50">
+                <td class="py-1.5 px-3 font-medium text-gray-900">{{ row.label }}</td>
+                <td class="py-1.5 px-3 text-center">{{ row.count }}</td>
+                <td class="py-1.5 px-3 text-right font-semibold text-gray-900">{{ row.kg|floatformat:2|intcomma }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="3" class="py-3 px-3 text-center text-gray-400">No stock movements recorded in this period.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Reconciliation Exceptions -->
+    <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
+      <div class="flex justify-between items-center mb-2 border-b pb-1.5">
+        <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider">Reconciliation Exceptions</h3>
+        <span class="text-[10px] px-2 py-0.5 rounded font-bold {% if exception_count > 0 %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">
+          {{ exception_count }} Exceptions
+        </span>
+      </div>
+      <p class="text-[10px] text-gray-400 mb-2">Completed runs where input does not equal output plus recorded loss.</p>
+      <div class="space-y-1.5 max-h-40 overflow-y-auto divide-y divide-gray-100">
+        {% for item in exceptions %}
+          <div class="pt-1.5 flex justify-between items-center text-xs">
+            <span class="font-medium text-red-600">{{ item.kind }} #{{ item.id }}</span>
+            <span class="text-gray-500">{{ item.batch }}</span>
+            <span class="font-semibold text-red-700">Var: {{ item.variance_kg|floatformat:2 }} kg</span>
+          </div>
+        {% empty %}
+          <p class="text-xs text-gray-400 py-3 text-center">No reconciliation exceptions for completed runs.</p>
+        {% endfor %}
+      </div>
+      {% if exception_count > 50 %}
+        <p class="mt-2 text-[10px] text-gray-400 italic">Showing first 50 exceptions.</p>
+      {% endif %}
+    </div>
+
+  </div>
+
+</div>
+
+<!-- JSON Scripts for Charts/Trends -->
+{{ trend_labels|json_script:'ops-labels' }}
+{{ trend_processing_inputs|json_script:'ops-inputs' }}
+{{ trend_processing_losses|json_script:'ops-losses' }}
+{% endblock %}

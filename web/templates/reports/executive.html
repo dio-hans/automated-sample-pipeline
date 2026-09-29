@@ -1,0 +1,191 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}Executive Overview | Nonda{% endblock %}
+{% block breadcrumb %}Management / Reports / Executive Overview{% endblock %}
+{% block page_title %}Executive Overview{% endblock %}
+
+{% block page_subtitle %}
+Management summary for {{ period_label }}. Debt and open runs are live snapshots.
+{% endblock %}
+
+{% block content %}
+<div class="space-y-5 text-xs text-gray-700 pb-20">
+  
+  <!-- 1. Date Filters Bar at Top -->
+  {% include "reports/components/report_filters.html" %}
+
+  <!-- 2. Action Toolbar: Right-Aligned Print / Download Buttons -->
+  <div class="flex items-center justify-end gap-2 print:hidden my-2">
+    <a href="{% url 'reports_executive_print' %}?{{ request.GET.urlencode }}" 
+       class="px-3 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-xs font-semibold text-gray-700 shadow-sm transition">
+      Print report
+    </a>
+    <a href="{% url 'reports_executive_pdf' %}?{{ request.GET.urlencode }}" 
+       class="px-3 py-1.5 rounded bg-olive hover:bg-olive/90 text-xs font-semibold text-white shadow-sm transition">
+      Download PDF
+    </a>
+  </div>
+
+  <!-- 3. Executive KPI Cards Grid (4 Columns x 2 Rows with generous spacing) -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    
+    <!-- Confirmed Sales -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col justify-between">
+      <span class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">Confirmed Sales</span>
+      <div class="text-lg font-bold text-gray-900">
+        {% if sales_comparison.current is not None %}
+          UGX {{ sales_comparison.current|floatformat:0|intcomma }}
+        {% else %}
+          <span class="text-xs font-normal text-amber-600">R3 mapping pending</span>
+        {% endif %}
+      </div>
+      {% if sales_comparison.previous is not None %}
+        <p class="mt-2 text-[11px] text-gray-400">Prev: UGX {{ sales_comparison.previous|floatformat:0|intcomma }}</p>
+      {% endif %}
+    </div>
+
+    <!-- Collections -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col justify-between">
+      <span class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">Collections</span>
+      <div class="text-lg font-bold text-emerald-600">
+        UGX {{ executive_finance.collections_total|floatformat:0|intcomma }}
+      </div>
+      {% if collections_comparison.previous is not None %}
+        <p class="mt-2 text-[11px] text-gray-400">
+          Prev: UGX {{ collections_comparison.previous|floatformat:0|intcomma }}
+          {% if collections_comparison.percent is not None %} · <strong class="text-emerald-700">{{ collections_comparison.percent }}%</strong>{% endif %}
+        </p>
+      {% endif %}
+    </div>
+
+    <!-- Expenses -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col justify-between">
+      <span class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">Expenses</span>
+      <div class="text-lg font-bold text-red-600">
+        UGX {{ executive_finance.expense_total|floatformat:0|intcomma }}
+      </div>
+      {% if expenses_comparison.previous is not None %}
+        <p class="mt-2 text-[11px] text-gray-400">Prev: UGX {{ expenses_comparison.previous|floatformat:0|intcomma }}</p>
+      {% endif %}
+    </div>
+
+    <!-- Live Receivables -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col justify-between">
+      <span class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">Live Packaged Receivables</span>
+      <div class="text-lg font-bold text-gray-900">
+        UGX {{ executive_finance.outstanding_receivables|floatformat:0|intcomma }}
+      </div>
+      <p class="mt-2 text-[10px] text-gray-400">Excludes bulk sales</p>
+    </div>
+
+    <!-- Coffee Consumption -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col justify-between">
+      <span class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">Coffee Consumption</span>
+      <div class="text-lg font-bold text-gray-900">
+        {{ executive_consumption.total_consumed_kg|floatformat:2|intcomma }} <span class="text-xs font-normal text-gray-500">kg</span>
+      </div>
+      {% if consumption_comparison.previous is not None %}
+        <p class="mt-2 text-[11px] text-gray-400">Prev: {{ consumption_comparison.previous|floatformat:2 }} kg</p>
+      {% endif %}
+    </div>
+
+    <!-- Processing Yield -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col justify-between">
+      <span class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">Processing Yield</span>
+      <div class="text-lg font-bold text-emerald-600">
+        {{ executive_operations.processing.yield_pct }}%
+      </div>
+      <p class="mt-2 text-[10px] text-gray-400">Completed runs in period</p>
+    </div>
+
+    <!-- Packaging Output -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col justify-between">
+      <span class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">Packaging Output</span>
+      <div class="text-lg font-bold text-gray-900">
+        {{ executive_operations.packaging.packs_produced|intcomma }} <span class="text-xs font-normal text-gray-500">packs</span>
+      </div>
+      <p class="mt-2 text-[10px] text-gray-400">Total output recorded</p>
+    </div>
+
+    <!-- Open Work / Exceptions -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col justify-between">
+      <span class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">Open Work / Exceptions</span>
+      <div class="text-lg font-bold text-amber-600">
+        {{ executive_operations.open_processing_count|add:executive_operations.open_packaging_count }} <span class="text-xs font-normal text-gray-500">runs</span> / {{ executive_operations.exception_count }} <span class="text-xs font-normal text-red-600">errs</span>
+      </div>
+      <p class="mt-2 text-[10px] text-gray-400">Open runs / period exceptions</p>
+    </div>
+
+  </div>
+
+  <!-- 4. 2-Column Middle Section (Alerts & Detailed Exploration) -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 pt-2">
+    
+    <!-- Management Alerts (2 Columns) -->
+    <div class="lg:col-span-2 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+      <div class="flex justify-between items-center mb-3 border-b pb-2">
+        <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider">Management Alerts</h3>
+        <span class="text-[10px] px-2 py-0.5 rounded font-semibold bg-amber-100 text-amber-800">
+          Rule-Based Monitor
+        </span>
+      </div>
+      <div class="space-y-3 max-h-56 overflow-y-auto divide-y divide-gray-100 pr-1">
+        {% for alert in executive_alerts %}
+          <div class="pt-2.5 first:pt-0">
+            <h4 class="text-xs font-bold text-gray-900 flex items-center">
+              <span class="w-2 h-2 rounded-full bg-amber-500 mr-2 inline-block"></span>
+              {{ alert.title }}
+            </h4>
+            <p class="text-xs text-gray-600 mt-1 pl-4 leading-relaxed">{{ alert.detail }}</p>
+          </div>
+        {% empty %}
+          <div class="py-6 text-center text-xs text-gray-400">
+            No current rule-based alerts. All system metrics operating within normal parameters.
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Exploration & Accounting Note (1 Column) -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col justify-between space-y-4">
+      <div>
+        <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2">Explore Detailed Reports</h3>
+        <div class="grid grid-cols-2 gap-2">
+          <a href="{% url 'reports_stock' %}" class="py-2 px-3 text-center bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded font-semibold text-gray-700 text-xs transition shadow-sm">
+            Consumption
+          </a>
+          <a href="{% url 'reports_sales' %}" class="py-2 px-3 text-center bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded font-semibold text-gray-700 text-xs transition shadow-sm">
+            Sales
+          </a>
+          <a href="{% url 'reports_finance' %}" class="py-2 px-3 text-center bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded font-semibold text-gray-700 text-xs transition shadow-sm">
+            Finance
+          </a>
+          <a href="{% url 'reports_operations' %}" class="py-2 px-3 text-center bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded font-semibold text-gray-700 text-xs transition shadow-sm">
+            Operations
+          </a>
+        </div>
+      </div>
+
+      <!-- Accounting Footnote -->
+      <div class="p-3 bg-gray-50 border border-gray-100 rounded text-[11px] text-gray-500 leading-relaxed">
+        <strong>Accounting Note:</strong> Collections use settlement timestamps. Processing input represents throughput, not unique stock. Comparisons benchmark against equal preceding range.
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- 5. Fixed/Sticky Bottom Nav Dock with Standout Green Brand Theme -->
+<div class="sticky bottom-3 z-30 mt-6 mx-auto">
+  {% include "reports/components/report_nav.html" %}
+</div>
+
+<!-- JSON Scripts for Executive Charts -->
+{{ executive_chart_labels|json_script:"executive-collection-labels" }}
+{{ executive_chart_collections|json_script:"executive-collection-values" }}
+{{ executive_operations_labels|json_script:"executive-operation-labels" }}
+{{ executive_operations_input|json_script:"executive-operation-input" }}
+{{ executive_operations_loss|json_script:"executive-operation-loss" }}
+{% endblock %}

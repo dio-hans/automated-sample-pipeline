@@ -110,7 +110,6 @@ path("accounting/credit-ledger/",views.CreditControlLedgerView.as_view(),name="c
 path("cashier/requests/<int:pk>/collect-payment/",views.record_card_payment_view,name="record_card_payment",),
 
 path("stock-requests/<int:pk>/add-item/",views.add_item_to_request_view,name="stock_request_add_item",),
-path("reports/",ManagementReportsView.as_view(),name="reports",),
 
 #account holder urls
 path('accounts/', views.account_holder_list, name='account_holder_list'),
@@ -131,11 +130,7 @@ path("returns/pending/", views.PendingReturnApprovalListView.as_view(), name="pe
 path("returns/<int:pk>/approve/", views.PackReturnApproveView.as_view(), name="pack_return_approve"),
     #  expense tracker
 path('expenses/', views.ExpenseTrackerView.as_view(), name='expense_tracker'),
-path(
-    "expenses/",
-    views.ExpenseTrackerView.as_view(),
-    name="expense_tracker",
-),
+path("expenses/",views.ExpenseTrackerView.as_view(),name="expense_tracker",),
 
 path("expenses/history/",views.ExpenseListView.as_view(),name="expense_list",),
 
@@ -155,4 +150,19 @@ path("internal-stock/create/",views.InternalStockIssueCreateView.as_view(),name=
 path("internal-stock/<int:pk>/",views.InternalStockIssueDetailView.as_view(),name="internal_stock_issue_detail",),
 path("internal-accounts/<int:pk>/",views.InternalAccountDetailView.as_view(),name="internal_account_detail",),
 
+# reports
+# ============================================================
+# REPORTING CENTRE
+# ============================================================
+
+path("reports/",views.ReportOverviewView.as_view(),name="reports_overview",),
+
+path("reports/stock/",views.StockConsumptionReportView.as_view(),name="reports_stock",),
+path("reports/sales/",views.SalesReportView.as_view(),name="reports_sales",),
+path('reports/finance/', views.FinanceReportView.as_view(), name='reports_finance'),
+path('reports/operations/', views.OperationsReportView.as_view(), name='reports_operations'),
+path("reports/executive/", views.ExecutiveReportView.as_view(), name="reports_executive"),
+path('reports/profitability/', views.ProfitabilityPlaceholderView.as_view(), name='reports_profitability'),
+path('reports/executive/print/', views.ExecutivePrintView.as_view(), name='reports_executive_print'),
+path('reports/executive/pdf/', views.ExecutivePDFView.as_view(), name='reports_executive_pdf'),
 ]

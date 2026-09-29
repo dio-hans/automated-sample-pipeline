@@ -6,25 +6,35 @@ from django.db.models.aggregates import Sum
 from django.forms.formsets import formset_factory
 from django.utils import timezone
 from django.contrib import messages
+
+from .services.reporting.export import pdf_bytes
+
+from .services.reporting.finance import get_finance_report
+from .services.reporting.executive import get_executive_report
+from .services.reporting.operations import get_operations_report
+from .services.reporting.sales import get_sales_report
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
-from .services.internal_stock import create_internal_stock_issue, get_packaged_internal_available
+from .services.reporting.consumption import _decimal, get_stock_consumption_report
+from .services.reporting.periods import resolve_report_period
+
+from .services.internal_stock import ZERO, create_internal_stock_issue, get_packaged_internal_available
 
 from .sales_workflow import approve_existing_pack_return, fulfill_request_item
 from .models import AccountHolder, InternalAccount, InternalStockIssue, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage
 from decimal import Decimal
 from .services.processing import complete_roasting, complete_sorting
 from django.views.generic import TemplateView
-from .models import CoffeeStock, PackagedInventory
+from .models import CoffeeStock, PackagedInventory, RoastedSackSale
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError
 from .services.packaging import execute_pack_return
 from django.db import models, transaction
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import (
@@ -3677,3 +3687,187 @@ def apply_date_filter(queryset, request, date_field='issue_date'):
         'to_date': to_date,
     }
     return queryset, context_data
+
+    # reports
+@method_decorator(login_required, name="dispatch")
+class ReportOverviewView(RoleRequiredMixin, TemplateView):
+    template_name = "reports/overview.html"
+
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+    )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        period = resolve_report_period(self.request)
+
+        consumption = get_stock_consumption_report(
+            period
+        )
+
+        sales = get_sales_report(
+            period
+        )
+
+        context.update({
+            "period": period,
+            "period_label": period.label,
+            "preset": period.preset,
+
+            # First executive report module
+            "consumption": consumption,
+            "sales": sales,
+        })
+
+        return context
+
+
+@method_decorator(login_required, name="dispatch")
+class StockConsumptionReportView(
+    RoleRequiredMixin,
+    TemplateView,
+):
+    template_name = "reports/stock_consumption.html"
+
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+    )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        period = resolve_report_period(self.request)
+
+        report = get_stock_consumption_report(
+            period
+        )
+
+        context.update({
+            "period": period,
+            "period_label": period.label,
+            "preset": period.preset,
+            **report,
+        })
+
+        return context
+
+@method_decorator(login_required, name="dispatch")
+class SalesReportView(
+    RoleRequiredMixin,
+    TemplateView,
+):
+    template_name = "reports/sales.html"
+
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+    )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(
+            **kwargs
+        )
+
+        period = resolve_report_period(
+            self.request
+        )
+
+        report = get_sales_report(
+            period
+        )
+
+        context.update({
+            "period": period,
+            "period_label": period.label,
+            "preset": period.preset,
+            **report,
+        })
+
+        return context
+
+@method_decorator(login_required, name='dispatch')
+class FinanceReportView(RoleRequiredMixin, TemplateView):
+    template_name = 'reports/finance.html'
+    allowed_roles = (User.Role.ADMIN, User.Role.MANAGER, User.Role.ACCOUNTS)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        period = resolve_report_period(self.request)
+        ctx.update(period=period, preset=period.preset, period_label=period.label,
+                   **get_finance_report(period))
+        return ctx
+    
+@method_decorator(login_required, name='dispatch')
+class OperationsReportView(RoleRequiredMixin, TemplateView):
+    template_name = 'reports/operations.html'
+    allowed_roles = (User.Role.ADMIN, User.Role.MANAGER, User.Role.ACCOUNTS)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        period = resolve_report_period(self.request)
+        ctx.update(period=period, preset=period.preset, period_label=period.label,
+                   **get_operations_report(period))
+        return ctx
+
+@method_decorator(login_required, name="dispatch")
+class ExecutiveReportView(RoleRequiredMixin, TemplateView):
+    template_name = "reports/executive.html"
+    allowed_roles = (User.Role.ADMIN, User.Role.MANAGER, User.Role.ACCOUNTS)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        period = resolve_report_period(self.request)
+        ctx.update(period=period, preset=period.preset, period_label=period.label,
+                   **get_executive_report(period))
+        return ctx
+
+
+@method_decorator(login_required, name='dispatch')
+class ProfitabilityPlaceholderView(RoleRequiredMixin, TemplateView):
+    template_name = 'reports/profitability.html'
+    allowed_roles = (User.Role.ADMIN, User.Role.MANAGER, User.Role.ACCOUNTS)
+
+
+class ExecutiveExportMixin(RoleRequiredMixin):
+    allowed_roles = (User.Role.ADMIN, User.Role.MANAGER, User.Role.ACCOUNTS)
+
+    def export_context(self):
+        period = resolve_report_period(self.request)
+        report = get_executive_report(period)
+        return period, report
+
+
+@method_decorator(login_required, name='dispatch')
+class ExecutivePrintView(ExecutiveExportMixin, TemplateView):
+    template_name = 'reports/executive_print.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        period, report = self.export_context()
+        context.update(period=period, period_label=period.label, preset=period.preset, **report)
+        context['comparison_rows'] = [
+            ('Sales (UGX)', report['sales_comparison']),
+            ('Collections (UGX)', report['collections_comparison']),
+            ('Expenses (UGX)', report['expenses_comparison']),
+            ('Consumption (kg)', report['consumption_comparison']),
+        ]
+        for row in context['executive_operations']['process_rows']:
+            row['output_kg'] = row['primary_kg'] + row['secondary_kg']
+        return context
+
+
+@method_decorator(login_required, name='dispatch')
+class ExecutivePDFView(ExecutiveExportMixin, TemplateView):
+    def get(self, request, *args, **kwargs):
+        period, report = self.export_context()
+        pdf = pdf_bytes(period, report)
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="nonda-executive-{period.preset}.pdf"'
+        response['Cache-Control'] = 'private, no-store'
+        return response
