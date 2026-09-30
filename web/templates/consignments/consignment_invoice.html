@@ -1,0 +1,35 @@
+{% extends 'pipeline/base.html' %} {% load humanize %} {% block title %}Invoice {{ invoice.number }} | Nonda{% endblock %} {% block breadcrumb %}Sales / Consignments / {{ invoice.number }}{% endblock %} {% block page_title %}Consignment invoice{% endblock %} {% block header_action %}Print invoice{% endblock %} {% block content %}
+NONDA COMMODITIES
+
+Consignment sales invoice
+
+{{ invoice.number }}
+
+Issued {{ invoice.issued_at|date:'d M Y' }}
+
+Audit #{{ invoice.audit.pk }}
+
+Bill to
+
+{{ company.name }}
+
+{{ company.address }}
+
+{{ company.city }}, {{ company.country }}
+
+Delivery location
+
+{{ branch.branch_name }}
+
+{{ branch.address }}
+
+Approved {{ invoice.audit.approved_at|date:'d M Y, H:i' }}
+
+{% for item in items %}{% if item.quantity_sold %}{% endif %}{% endfor %}
+Product	Confirmed sold	Price / pack	Amount · UGX
+{{ item.product }}	{{ item.quantity_sold }}	{{ item.selling_price|floatformat:0|intcomma }}	{{ item.calculated_amount_due|floatformat:0|intcomma }}
+Invoice amount · UGX{{ invoice.total_amount|floatformat:0|intcomma }}
+Generated only from approved branch audit #{{ invoice.audit.pk }}. Payment receipts and allocations are managed against the related display releases. This invoice does not represent a cash collection.
+
+← Back to audit
+{% endblock %}

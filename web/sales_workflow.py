@@ -76,7 +76,7 @@ def execute_stock_request_fulfillment(request_item, packs_to_issue, user, notes=
 
     # 1. Deduct main warehouse inventory
     product = request_item.product
-    if product.current_stock < packs_to_issue:
+    if product.PackagedInventory < packs_to_issue:
         raise ValidationError(
             f"Insufficient store stock! Available: {product.current_stock}, Requested: {packs_to_issue}."
         )
@@ -111,6 +111,12 @@ def execute_stock_request_fulfillment(request_item, packs_to_issue, user, notes=
         stock_request.status = "partially_fulfilled"
     
     stock_request.save(update_fields=["status", "fulfilled_at"])
+
+    if stock_request.purpose == "display":
+        raise ValidationError(
+            "Use the branch-specific Consignment Delivery page "
+            "for supermarket display stock."
+        )
 
     return release
 
@@ -185,14 +191,11 @@ def fulfill_request_item(*, item, quantity, selling_price, manager, notes=""):
 
     # Supermarket / display stock becomes physical stock on the customer's
     # display, not an immediate sale.
-    if request.purpose == "display" and request.company_id:
-        consignment, _ = ConsignmentInventory.objects.select_for_update().get_or_create(
-            company=request.company,
-            product=product,
-            defaults={"current_display_quantity": 0},
+    if stock_request.purpose == "display":
+        raise ValidationError(
+            "Use the branch-specific Consignment Delivery page "
+            "for supermarket display stock."
         )
-        consignment.current_display_quantity += quantity
-        consignment.save(update_fields=["current_display_quantity", "last_audited_at"])
 
     items = list(request.items.all())
     if all(i.outstanding_quantity == 0 for i in items):
@@ -372,7 +375,7 @@ def record_payment(
 
     settlement = PackSettlement.objects.create(
         release=release,
-        packs_sold=release.billable_quantity,
+        packs_sold=0,
         amount_paid=amount,
         payment_method=method,
         payment_reference=payment_reference,

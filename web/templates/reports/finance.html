@@ -12,13 +12,9 @@ Collections, expenditure, live receivables and debt ageing · {{ period_label }}
 {% block content %}
 <div class="space-y-4 text-xs text-gray-700">
   <!-- Navigation & Filters -->
-  {% include 'reports/components/report_nav.html' %}
+
   {% include 'reports/components/report_filters.html' %}
 
-  <!-- Warning Banner -->
-  <div class="p-2.5 bg-amber-50 border-l-2 border-amber-500 text-amber-900 rounded-r text-xs">
-    {{ timestamp_warning }} Bulk-sale receivables are excluded pending payment-link verification. {{ ageing_basis }}.
-  </div>
 
   <!-- Compact Top Summary Grid (4 Columns) -->
   <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -154,4 +150,6 @@ Collections, expenditure, live receivables and debt ageing · {{ period_label }}
   </div>
 
 </div>
+
+  {% include 'reports/components/report_nav.html' %}
 {% endblock %}

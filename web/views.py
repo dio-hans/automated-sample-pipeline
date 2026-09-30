@@ -1061,25 +1061,25 @@ class CompleteProcessingRunView(RoleRequiredMixin, View):
 
         try:
             if run.process_type == "roasting":
-                # Accept good_quantity from form (or output_quantity)
-                output_qty = request.POST.get("good_quantity") or request.POST.get("output_quantity") or "0"
-                bad_qty = request.POST.get("bad_quantity") or request.POST.get("quaker_quantity") or "0"
+                # Roasting outputs bulk roasted coffee; roasting loss (chaff/moisture) is calculated automatically
+                output_qty = request.POST.get("output_quantity") or request.POST.get("good_quantity") or "0"
                 
-                completed_run, process_loss = complete_roasting(
+                completed_run, roasting_loss = complete_roasting(
                     processing_run=run,
-                    good_quantity=output_qty,
-                    bad_quantity=bad_qty,
+                    output_quantity=output_qty,
                     user=user,
                     notes=notes,
                 )
                 messages.success(
                     request,
-                    f"Roasting complete: {completed_run.output_quantity} kg roasted output registered."
+                    f"Roasting complete: {completed_run.output_quantity} kg roasted output registered "
+                    f"({roasting_loss:.2f} kg roasting loss)."
                 )
 
             elif run.process_type == "sorting":
+                # Sorting is where quakers (bad beans) are separated from good roasted coffee
                 good_qty = request.POST.get("good_quantity") or request.POST.get("output_quantity") or "0"
-                quaker_qty = request.POST.get("bad_quantity") or request.POST.get("quaker_quantity") or "0"
+                quaker_qty = request.POST.get("quaker_quantity") or request.POST.get("bad_quantity") or "0"
                 
                 completed_run = complete_sorting(
                     processing_run=run,
@@ -1088,7 +1088,11 @@ class CompleteProcessingRunView(RoleRequiredMixin, View):
                     user=user,
                     notes=notes,
                 )
-                messages.success(request, "Sorting run completed successfully.")
+                messages.success(
+                    request, 
+                    f"Sorting complete: {completed_run.output_quantity} kg good coffee & "
+                    f"{completed_run.secondary_output_quantity} kg quakers registered."
+                )
 
             elif run.process_type == "grinding":
                 output_qty = request.POST.get("output_quantity") or "0"
@@ -1098,7 +1102,10 @@ class CompleteProcessingRunView(RoleRequiredMixin, View):
                     user=user,
                     notes=notes,
                 )
-                messages.success(request, f"Grinding complete: {completed_run.output_quantity} kg ground coffee produced.")
+                messages.success(
+                    request, 
+                    f"Grinding complete: {completed_run.output_quantity} kg ground coffee produced."
+                )
 
         except Exception as exc:
             messages.error(request, str(exc))
@@ -1529,36 +1536,22 @@ class RecordInstallmentPaymentView(RoleRequiredMixin, CreateView):
 
     # 🛡️ THE CRITICAL INTERCEPTION STEP: This method must be named EXACTLY form_valid
     def form_valid(self, form):
-        # 1. Fetch the target release record lot matching our URL parameter
-        release = get_object_or_404(PackRelease, pk=self.kwargs["pk"])
-        
-        # 2. Extract form contents into memory without committing to the database yet
-        payment = form.save(commit=False)
-        
-        # 3. ✅ BIND THE FOREIGN KEYS SECURELY (Resolves the NOT NULL constraint crash)
-        payment.release = release
-        payment.collected_by = self.request.user
-
-        # 4. 🦺 OVERPAYMENT GUARD RAIL
-        if payment.amount > release.outstanding_balance:
-            messages.error(
-                self.request, 
-                f"Overpayment rejected! The maximum outstanding balance for "
-                f"{release.released_to.name} is {release.outstanding_balance:,.0f} UGX."
+        with transaction.atomic():
+            release = get_object_or_404(
+                PackRelease.objects.select_for_update(), pk=self.kwargs['pk']
             )
-            return self.form_invalid(form)
-
-        # 5. Safe to commit to the database now that all fields are complete
-        payment.save()
-        
-        # Refresh the database values to clear cached quantities instantly
-        release.refresh_from_db()
-        
-        messages.success(
-            self.request, 
-            f"Successfully recorded UGX {payment.amount:,.0f} via "
-            f"{payment.get_method_display()} from {release.released_to.name}."
-        )
+            payment = form.save(commit=False)
+            payment.release = release
+            payment.collected_by = self.request.user
+            balance = release.outstanding_balance
+            if payment.amount <= 0:
+                form.add_error('amount', 'Payment must be greater than zero.')
+                return self.form_invalid(form)
+            if payment.amount > balance:
+                form.add_error('amount', f'Maximum outstanding balance: UGX {balance:,.0f}.')
+                return self.form_invalid(form)
+            payment.save()
+        messages.success(self.request, f'Installment of UGX {payment.amount:,.0f} recorded.')
         return redirect(self.success_url)
 
 

@@ -1,3 +1,4 @@
+from . import consignment_views
 from .views import ManagementReportsView
 from django.urls import path
 from . import sales_views, views
@@ -102,7 +103,6 @@ path("processing/issue/<int:pk>/", views.IssueProcessingRunView.as_view(), name=
 path("processing/complete/<int:pk>/", views.CompleteProcessingRunView.as_view(), name="complete_processing"),
 path("releases/<int:pk>/collect-payment/",views.RecordInstallmentPaymentView.as_view(),name="record_installment"),
 path("cash-book/", views.CashLedgerListView.as_view(), name="cash_ledger_list"),
-path("releases/<int:pk>/collect-payment/",views.RecordInstallmentPaymentView.as_view(),name="record_installment",),
 path("processing-workspace/", views.ProcessingWorkspaceView.as_view(), name="processing_workspace"),
 path("accounting/credit-ledger/",views.CreditControlLedgerView.as_view(),name="credit_control_ledger"),
 
@@ -115,12 +115,6 @@ path("stock-requests/<int:pk>/add-item/",views.add_item_to_request_view,name="st
 path('accounts/', views.account_holder_list, name='account_holder_list'),
 path('accounts/create/', views.account_holder_create, name='account_holder_create'),
 path('accounts/<int:pk>/', views.account_holder_detail, name='account_holder_detail'),
-
-# # Add these to web/urls.py
-
-path("sales/consignments/", sales_views.ConsignmentListView.as_view(), name="consignment_list"),
-path("sales/consignments/<int:pk>/", sales_views.ConsignmentDetailView.as_view(), name="consignment_detail"),
-path("sales/consignments/<int:pk>/audit/", sales_views.ConsignmentAuditView.as_view(), name="consignment_audit"),
 
 
 # urls.py additions
@@ -165,4 +159,31 @@ path("reports/executive/", views.ExecutiveReportView.as_view(), name="reports_ex
 path('reports/profitability/', views.ProfitabilityPlaceholderView.as_view(), name='reports_profitability'),
 path('reports/executive/print/', views.ExecutivePrintView.as_view(), name='reports_executive_print'),
 path('reports/executive/pdf/', views.ExecutivePDFView.as_view(), name='reports_executive_pdf'),
+
+# CONSIGNMENTS — branch-first workflow
+path('sales/consignments/',
+     consignment_views.ConsignmentListView.as_view(), name='consignment_list'),
+path('sales/consignments/<int:pk>/',
+     consignment_views.ConsignmentDetailView.as_view(), name='consignment_detail'),
+path('sales/consignments/<int:pk>/branches/new/',
+     consignment_views.ConsignmentBranchCreateView.as_view(), name='consignment_branch_create'),
+path('sales/consignments/<int:pk>/branches/<int:branch_pk>/',
+     consignment_views.ConsignmentBranchDetailView.as_view(), name='consignment_branch_detail'),
+path('sales/consignments/<int:pk>/branches/<int:branch_pk>/delivery/',
+     consignment_views.ConsignmentDeliveryView.as_view(), name='consignment_delivery'),
+path('sales/consignments/<int:pk>/branches/<int:branch_pk>/transfer/',
+     consignment_views.ConsignmentShelfTransferView.as_view(), name='consignment_shelf_transfer'),
+path('sales/consignments/<int:pk>/branches/<int:branch_pk>/return/',
+     consignment_views.ConsignmentBranchReturnView.as_view(), name='consignment_branch_return'),
+path('sales/consignments/<int:pk>/branches/<int:branch_pk>/audit/',
+     consignment_views.ConsignmentAuditView.as_view(), name='consignment_branch_audit'),
+path('sales/consignments/<int:pk>/branches/<int:branch_pk>/audits/<int:audit_pk>/',
+     consignment_views.ConsignmentAuditDetailView.as_view(), name='consignment_audit_detail'),
+path('sales/consignments/<int:pk>/branches/<int:branch_pk>/audits/<int:audit_pk>/decision/',
+     consignment_views.ConsignmentAuditDecisionView.as_view(), name='consignment_audit_decision'),
+path('sales/consignments/<int:pk>/branches/<int:branch_pk>/invoices/<int:invoice_pk>/',
+     consignment_views.ConsignmentInvoiceView.as_view(), name='consignment_invoice'),
+# An older link used company-only audit/<pk>/; route it to branch selection.
+path('sales/consignments/<int:pk>/audit/',
+     consignment_views.ConsignmentLegacyAuditRedirectView.as_view(), name='consignment_audit'),
 ]

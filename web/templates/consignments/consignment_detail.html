@@ -1,0 +1,39 @@
+{% extends "pipeline/base.html" %} {% load humanize %} {% block title %}{{ company.name }} | Consignments{% endblock %} {% block breadcrumb %}Sales / Consignments / {{ company.name }}{% endblock %} {% block page_title %}{{ company.name }}{% endblock %} {% block page_subtitle %}
+Branch stock, approved audit sales and company receivables.
+
+{% endblock %} {% block header_action %}+ Add branch{% endblock %} {% block content %}
+{% if legacy_release_count %}
+{{ legacy_release_count }} older display release(s) have no branch assigned. Reconcile them before relying on branch totals.
+{% endif %}
+Packs at branches
+
+{{ display_on_hand|intcomma }}
+
+Confirmed billed · UGX
+
+{{ display_value|floatformat:0|intcomma }}
+
+Collected · UGX
+
+{{ display_paid|floatformat:0|intcomma }}
+
+Outstanding · UGX
+
+{{ display_outstanding|floatformat:0|intcomma }}
+
+Branches
+Each branch has its own shelf, backroom and audit ledger.
+
+{% for row in branch_rows %}{% empty %}{% endfor %}
+Branch	SKUs	On-site packs	Outstanding · UGX	Audit	
+{{ row.branch.branch_name }}
+{{ row.branch.address|default:'—' }}
+
+{{ row.sku_count }}	{{ row.on_hand|intcomma }}	{{ row.outstanding|floatformat:0|intcomma }}	{% if row.pending %}Pending approval{% else %}Clear{% endif %}	Manage →
+No branches yet. Create the first branch to begin consignment deliveries.
+Recent audits
+{% for audit in audits %}{% empty %}{% endfor %}
+Date	Branch	Auditor	Status	
+{{ audit.audit_date|date:'d M Y, H:i' }}	{{ audit.branch.branch_name|default:'Legacy / unassigned' }}	{{ audit.audited_by }}	{{ audit.get_status_display }}	{% if audit.branch_id %}Review →{% else %}Reconcile{% endif %}
+No audits yet.
+{% endblock %}

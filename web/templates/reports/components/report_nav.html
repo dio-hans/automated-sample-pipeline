@@ -1,10 +1,10 @@
-<div class="flex flex-wrap items-center gap-1.5 p-1.5 bg-lime-500 border border-gray-200 rounded shadow-md max-w-full overflow-x-auto">
+<div class="flex flex-wrap items-center gap-1.5 p-1.5 bg-white border border-gray-200 rounded shadow-md max-w-full overflow-x-auto">
 
   <!-- Overview -->
   <a href="{% url 'reports_overview' %}?period={{ preset }}"
      class="px-2.5 py-1 rounded border text-[11px] font-semibold transition
      {% if request.resolver_match.url_name == 'reports_overview' %}
-         bg-olive text-white border-olive
+         bg-olive-500 text-white border-olive
      {% else %}
          bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100
      {% endif %}">

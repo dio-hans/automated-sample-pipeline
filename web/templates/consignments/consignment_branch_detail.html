@@ -1,0 +1,52 @@
+{% extends 'pipeline/base.html' %} {% load humanize %} {% block title %}{{ branch.branch_name }} | Consignments{% endblock %} {% block breadcrumb %}Sales / Consignments / {{ company.name }} / {{ branch.branch_name }}{% endblock %} {% block page_title %}{{ branch.branch_name }}{% endblock %} {% block page_subtitle %}
+{{ company.name }} · Shelf, backroom, dispatch and audit ledger
+
+{% endblock %} {% block header_action %}
+{% if can_edit %}+ DeliveryNew audit{% endif %}
+{% endblock %} {% block content %}
+{% if pending_audit %}Audit #{{ pending_audit.pk }} awaiting approval. Stock deliveries, transfers and returns are paused until it is reviewed. Open audit →{% endif %}
+Packs physically on site
+
+{{ on_hand|intcomma }}
+
+Approved billed · UGX
+
+{{ billed|floatformat:0|intcomma }}
+
+Outstanding · UGX
+
+{{ outstanding|floatformat:0|intcomma }}
+
+On-site inventory
+Location-level counts. Transfers move packs, not total stock.
+
+{% for inv in inventories %}{% empty %}{% endfor %}
+Product	Shelf	Backroom	Total	Restock shelf
+{{ inv.product }}	{{ inv.current_shelf_quantity|intcomma }}	{{ inv.current_backroom_quantity|intcomma }}	{{ inv.total_consignment_stock|intcomma }}	{% if can_edit and inv.current_backroom_quantity and not pending_audit %}
+{% csrf_token %}
+Packs
+Transfer
+{% else %}—{% endif %}
+No branch inventory. Record a delivery first.
+Audit history
+{% for audit in audits %}{% empty %}{% endfor %}
+Date	Status	
+{{ audit.audit_date|date:'d M Y H:i' }}	{% if audit.status == 'approved' %}Approved{% elif audit.status == 'pending_approval' %}Pending{% elif audit.status == 'rejected' %}Rejected{% else %}Legacy{% endif %}	View →
+No audits submitted.
+Recent stock movements
+{% for entry in recent_ledger %}{% empty %}{% endfor %}
+Product	Movement	Location	Packs
+{{ entry.product }}	{{ entry.get_transaction_type_display }}	{{ entry.get_stock_location_display }}	{{ entry.quantity }}
+No movements recorded.
+Branch deliveries & collection balances
+{% for release in releases %}{% empty %}{% endfor %}
+Release	Product	Dispatched	Billable	Paid · UGX	Owed · UGX	Warehouse return
+#{{ release.pk }}
+{{ release.released_at|date:'d M Y' }}
+{{ release.product }}	{{ release.packs_out }}	{{ release.billable_packs }}	{{ release.total_amount_paid|floatformat:0|intcomma }}	{{ release.outstanding_balance|floatformat:0|intcomma }}	{% if can_manage and not pending_audit %}
+Good packs
+{% else %}—{% endif %}
+No branch-linked display releases.
+Only managers can approve good, unsold returns to the central warehouse. Damaged stock belongs in the audit's shrinkage count.
+
+{% endblock %}

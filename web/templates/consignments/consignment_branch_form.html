@@ -1,0 +1,12 @@
+{% extends 'pipeline/base.html' %} {% block title %}Add branch | Consignments{% endblock %} {% block breadcrumb %}{{ company.name }} / Add branch{% endblock %} {% block page_title %}New consignment branch{% endblock %} {% block content %}
+{% csrf_token %}{% if form.non_field_errors %}
+{{ form.non_field_errors }}
+{% endif %}
+{% for field in form %}
+{{ field.label }}{{ field }}{% for error in field.errors %}
+{{ error }}
+
+{% endfor %}
+{% endfor %}
+Create branchCancel
+{% endblock %}

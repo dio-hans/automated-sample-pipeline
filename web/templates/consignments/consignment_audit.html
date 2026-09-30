@@ -1,0 +1,34 @@
+{% extends 'pipeline/base.html' %} {% load humanize %} {% block title %}New branch audit | Nonda{% endblock %} {% block breadcrumb %}{{ company.name }} / {{ branch.branch_name }} / Audit{% endblock %} {% block page_title %}New branch stock audit{% endblock %} {% block page_subtitle %}
+{{ branch.branch_name }} · Verify shelf and backroom stock before manager approval.
+
+{% endblock %} {% block content %}
+{% if pending_audit %}
+A pending audit already exists for this branch. Review audit #{{ pending_audit.pk }} before starting another.
+{% endif %} {% if error %}
+{{ error }}
+{% endif %}
+Expected stock is prefilled from the ledger. Enter the physical counts and separate any missing/damaged units by location. Remaining shortages become proposed sales. Nothing becomes billable until approval.
+{% csrf_token %}
+{% for inv in inventories %}{% empty %}{% endfor %}
+Product	Expected	Actual count	Damaged / Missing	Unit price · UGX	Proposed sale
+Shelf	Backroom	Shelf	Backroom	Shelf	Backroom
+{{ inv.product }}	{{ inv.current_shelf_quantity }}	{{ inv.current_backroom_quantity }}	
+0
+0
+—
+Review line
+
+Invalid counts
+
+No inventory to audit. Record a branch delivery first.
+Audit notes
+Differences, damaged stock, shelf checks…
+
+Proposed bill · UGX
+
+0
+
+Submit for approvalCancel
+If actual shelf stock exceeds expected stock, record an authorized transfer first. Mixed historical delivery prices require reconciliation before billing.
+
+{% endblock %}

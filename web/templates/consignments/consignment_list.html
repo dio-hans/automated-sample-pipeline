@@ -1,0 +1,26 @@
+{% extends "pipeline/base.html" %} {% load humanize %} {% block title %}Consignments | Nonda{% endblock %} {% block breadcrumb %}Sales / Consignments{% endblock %} {% block page_title %}Consignment Accounts{% endblock %} {% block page_subtitle %}
+Company-level overview of all supermarket branches and confirmed receivables.
+
+{% endblock %} {% block content %}
+Branches
+{{ total_branches|intcomma }}
+Packs on consignment
+{{ total_on_hand|intcomma }}
+Confirmed outstanding · UGX
+{{ total_outstanding|floatformat:0|intcomma }}
+Approved audits only
+
+Company accounts
+Select a company to inspect its branches.
+
+{{ query }}
+Search
+{% for row in rows %}{% empty %}{% endfor %}
+Company	Branches	On-site packs	Billed · UGX	Paid · UGX	Outstanding · UGX	Audit	
+{{ row.company.name }}
+{{ row.company.city }}
+{{ row.branch_count }}	{{ row.on_hand|intcomma }}	{{ row.billed|floatformat:0|intcomma }}	{{ row.paid|floatformat:0|intcomma }}	{{ row.outstanding|floatformat:0|intcomma }}	{% if row.pending %}{{ row.pending }} pending{% else %}—{% endif %}	Open →
+No consignment companies found.
+Stock dispatched is not revenue. Outstanding balances appear only after a branch audit is approved.
+
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends 'pipeline/base.html' %} {% load humanize %} {% block title %}Audit #{{ audit.pk }} | Nonda{% endblock %} {% block breadcrumb %}{{ company.name }} / {{ branch.branch_name }} / Audit #{{ audit.pk }}{% endblock %} {% block page_title %}Audit #{{ audit.pk }}{% endblock %} {% block page_subtitle %}
+{{ branch.branch_name }} · Submitted {{ audit.audit_date|date:'d M Y, H:i' }} by {{ audit.audited_by }}
+
+{% endblock %} {% block header_action %}{% if invoice %}View invoice ↗{% endif %}{% endblock %} {% block content %}
+Approval status
+
+{% if audit.status == 'approved' %}Approved{{ audit.approved_at|date:'d M Y, H:i' }}{% elif audit.status == 'pending_approval' %}Awaiting manager approval{% elif audit.status == 'rejected' %}Rejected{% else %}Legacy / unreviewed{% endif %}
+Proposed invoice · UGX
+
+{{ audit_total|floatformat:0|intcomma }}
+
+{% if audit.rejection_reason %}
+Rejection reason: {{ audit.rejection_reason }}
+{% endif %}
+Count reconciliation
+Sold = expected − actual − damaged/missing. Allocations appear after approval.
+
+{% for item in items %}{% empty %}{% endfor %}
+Product	Expected (S / B)	Actual (S / B)	Shrinkage (S / B)	Sold	Unit price	Amount · UGX
+{{ item.product }}{% if audit.status == 'approved' %}
+{% for allocation in item.consignment_allocations.all %}Release #{{ allocation.release_id }} × {{ allocation.quantity }}{% if not forloop.last %} · {% endif %}{% endfor %}
+
+{% endif %}	{{ item.expected_shelf }} / {{ item.expected_backroom }}	{{ item.actual_shelf }} / {{ item.actual_backroom }}	{{ item.shrinkage_shelf }} / {{ item.shrinkage_backroom }}	{{ item.quantity_sold }}	{{ item.selling_price|floatformat:0|intcomma }}	{{ item.calculated_amount_due|floatformat:0|intcomma }}
+No audit lines.
+{% if audit.notes %}
+Auditor notes
+
+{{ audit.notes }}
+
+{% endif %} {% if audit.status == 'pending_approval' and can_manage %}
+Manager decision
+Approval checks current stock, branch-specific deliveries, prices and FIFO availability; then it creates one invoice and posts ledger movements. It cannot be approved twice.
+
+{% csrf_token %}Approve & post invoice
+{% csrf_token %}
+Reason for rejection
+Reject audit
+{% endif %} ← Back to branch
+{% endblock %}
