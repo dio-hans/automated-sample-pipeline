@@ -7,6 +7,8 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import DetailView, ListView, TemplateView
 from django.forms import formset_factory
+from .sales_forms import PaymentReceiptForm
+from .sales_workflow import record_installment_payment
 from .sales_forms import PackReturnForm
 from .models import  AccountHolder, ConsignmentInventory, PackagedProduct
 from .models import (
@@ -23,12 +25,6 @@ from .sales_forms import (
     SettlementForm,
     StockRequestForm,
     StockRequestItemFormSet,
-)
-from .sales_workflow import (
-    create_stock_request,
-    fulfill_request_item,
-    return_packs,
-    settle_release,
 )
 
 

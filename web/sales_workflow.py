@@ -1,5 +1,13 @@
- 
-from decimal import Decimal
+"""Stock-request, ordinary-sale, return, and payment workflows.
+
+Branch-level consignments live in ``web.services.consignments``.  In particular,
+no function here may deliver, audit, or return branch-controlled display stock.
+
+Money: PackSettlement and PaymentReceipt are BOTH legitimate payment records, but
+ONE real transaction must be entered into only ONE of them.  Settlement.packs_sold
+is an *incremental* sale-event quantity, always zero on payment-only entries.
+"""
+from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -7,19 +15,54 @@ from django.utils import timezone
 
 from .models import (
     AccountHolder,
-    BranchStockLedger,
-    ConsignmentInventory,
+    PackagedInventory,
+    PackagedProduct,
     PackRelease,
     PackReturn,
     PackSettlement,
-    PackagedProduct,
-    PackagedInventory,
     PaymentReceipt,
-    StockAudit,
-    StockAuditItem,
     StockRequest,
     StockRequestItem,
 )
+
+ZERO = Decimal("0.00")
+
+
+def _money(value, label="Amount"):
+    try:
+        result = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValidationError(f"{label} must be a valid number.")
+    if not result.is_finite() or result.as_tuple().exponent < -2:
+        raise ValidationError(f"{label} must be a finite amount with at most two decimal places.")
+    return result
+
+
+def _positive_int(value, label="Quantity"):
+    if isinstance(value, bool) or str(value).strip().lstrip("+").isdigit() is False:
+        raise ValidationError(f"{label} must be a positive whole number.")
+    n = int(value)
+    if n <= 0:
+        raise ValidationError(f"{label} must be greater than zero.")
+    return n
+
+
+def _valid_method(method, choices):
+    if method not in dict(choices):
+        raise ValidationError("Select a valid payment method.")
+    return method
+
+
+def _forbid_generic_display(release):
+    if release.purpose == "display":
+        if release.branch_id is not None:
+            raise ValidationError(
+                "Branch consignment stock must use the verified branch return workflow."
+            )
+        raise ValidationError(
+            "This is a legacy display release without a branch. Reconcile it to a "
+            "branch before processing returns."
+        )
 
 
 def _available(product):
@@ -29,148 +72,100 @@ def _available(product):
         return 0
 
 
-@transaction.atomic
-def create_stock_request(*, user, purpose, destination_type="agent_float", items, account_holder=None, company=None, notes=""):
-    """Create one internal stock request containing one or more products."""
-    if not items:
-        raise ValidationError("Add at least one product to the request.")
-
-    request = StockRequest.objects.create(
-        requested_by=user,
-        company=company,
-        purpose=purpose,
-        notes=notes,
-        account_holder=account_holder,
-        destination_type=destination_type,
-    )
-
-    seen = set()
-    for product, quantity in items:
-        quantity = int(quantity)
-        if quantity <= 0:
-            raise ValidationError("Requested quantities must be greater than zero.")
-        if product.pk in seen:
-            raise ValidationError("The same product cannot be added twice to one request.")
-        seen.add(product.pk)
-        StockRequestItem.objects.create(
-            request=request,
-            product=product,
-            quantity_requested=quantity,
-        )
-
-    return request
-
-
-@transaction.atomic
-def execute_stock_request_fulfillment(request_item, packs_to_issue, user, notes=""):
-    """
-    Fulfills stock directly from store to Field Agent or Company.
-    Stock remains tracked under PackRelease as 'released' until returned or paid for.
-    """
-    stock_request = request_item.request
-
-    if packs_to_issue > request_item.outstanding_quantity:
-        raise ValidationError(
-            f"Cannot issue {packs_to_issue} units. Outstanding quantity is {request_item.outstanding_quantity}."
-        )
-
-    # 1. Deduct main warehouse inventory
-    product = request_item.product
-    if product.PackagedInventory < packs_to_issue:
-        raise ValidationError(
-            f"Insufficient store stock! Available: {product.current_stock}, Requested: {packs_to_issue}."
-        )
-    
-    product.current_stock -= packs_to_issue
-    product.save(update_fields=["current_stock"])
-
-    # 2. Assign responsible Account Holder
-    target_account = stock_request.account_holder
-    if not target_account and stock_request.company and hasattr(stock_request.company, 'account_holder'):
-        target_account = stock_request.company.account_holder
-
-    # 3. Create PackRelease (Tracks physical custody until paid or returned)
-    release = PackRelease.objects.create(
-        product=product,
-        request_item=request_item,
-        released_to=target_account,
-        company=stock_request.company,
-        purpose=stock_request.purpose,
-        packs_out=packs_to_issue,
-        selling_price=getattr(product, 'default_selling_price', Decimal("0.00")),
-        status="released",
-        created_by=user,
-        notes=notes,
-    )
-
-    # 4. Update Stock Request status
+def _refresh_request_status(stock_request):
+    """Only called after releases are saved; it must not touch warehouse stock."""
     if stock_request.is_fully_issued:
         stock_request.status = "fulfilled"
         stock_request.fulfilled_at = timezone.now()
     else:
         stock_request.status = "partially_fulfilled"
-    
+        stock_request.fulfilled_at = None
     stock_request.save(update_fields=["status", "fulfilled_at"])
 
-    if stock_request.purpose == "display":
-        raise ValidationError(
-            "Use the branch-specific Consignment Delivery page "
-            "for supermarket display stock."
-        )
 
-    return release
+@transaction.atomic
+def create_stock_request(*, user, purpose, destination_type="agent_float", items,
+                         account_holder=None, company=None, notes=""):
+    """Create a request. Display requests cannot be fulfilled by ordinary dispatch."""
+    if not items:
+        raise ValidationError("Add at least one product to the request.")
+    validated = []
+    seen = set()
+    for product, quantity in items:
+        quantity = _positive_int(quantity, "Requested quantity")
+        if product.pk in seen:
+            raise ValidationError("The same product cannot be added twice to one request.")
+        seen.add(product.pk)
+        validated.append((product, quantity))
+
+    request = StockRequest.objects.create(
+        requested_by=user, company=company, purpose=purpose, notes=notes,
+        account_holder=account_holder, destination_type=destination_type,
+    )
+    for product, quantity in validated:
+        StockRequestItem.objects.create(
+            request=request, product=product, quantity_requested=quantity,
+        )
+    return request
+
+
+@transaction.atomic
+def execute_stock_request_fulfillment(request_item, packs_to_issue, user, notes=""):
+    """Compatibility entry point. Delegate to the one authoritative issue service."""
+    item = StockRequestItem.objects.select_related("request", "product").get(pk=request_item.pk)
+    if item.request.purpose == "display":
+        raise ValidationError(
+            "Use the branch-specific Consignment Delivery page for supermarket display stock."
+        )
+    return fulfill_request_item(
+        item=item,
+        quantity=packs_to_issue,
+        selling_price=item.product.selling_price,
+        manager=user,
+        notes=notes,
+    )
+
 
 @transaction.atomic
 def fulfill_request_item(*, item, quantity, selling_price, manager, notes=""):
-    """
-    Issue packaged stock against one request item atomically,
-    preserving target account holder and company relationships.
-    """
-    item = (
-        StockRequestItem.objects.select_for_update()
-        .select_related("request", "request__company", "product")
-        .get(pk=item.pk)
-    )
-
+    """Issue ordinary stock exactly once; PackagedInventory.available is ledger-derived."""
+    item = (StockRequestItem.objects.select_for_update()
+            .select_related("request", "request__company", "product")
+            .get(pk=item.pk))
     request = item.request
-    quantity = int(quantity)
-    selling_price = Decimal(selling_price)
 
-    if request.status == "cancelled":
-        raise ValidationError("This stock request is cancelled.")
-    if quantity <= 0:
-        raise ValidationError("Issue quantity must be greater than zero.")
-    if selling_price < 0:
-        raise ValidationError("Price per pack cannot be negative.")
-    if quantity > item.outstanding_quantity:
+    # IMPORTANT: Must be BEFORE the warehouse check and PackRelease.objects.create().
+    if request.purpose == "display":
         raise ValidationError(
-            f"Only {item.outstanding_quantity} packs remain to fulfil this item."
+            "Use the branch-specific Consignment Delivery page for supermarket display stock."
         )
+    if request.status in ("cancelled", "fulfilled"):
+        raise ValidationError("This stock request is already cancelled or fulfilled.")
 
+    quantity = _positive_int(quantity, "Issue quantity")
+    selling_price = _money(selling_price, "Price per pack")
+    if selling_price < ZERO or (request.purpose == "sale" and selling_price == ZERO):
+        raise ValidationError("Sale releases require a positive price per pack.")
+    if quantity > item.outstanding_quantity:
+        raise ValidationError(f"Only {item.outstanding_quantity} packs remain on this item.")
 
     product = PackagedProduct.objects.select_for_update().get(pk=item.product_id)
-    try:
-        inventory = PackagedInventory.objects.select_for_update().get(product=product)
-    except PackagedInventory.DoesNotExist:
-        raise ValidationError(f"No packaged stock exists for {product}.")
+    inventory = (PackagedInventory.objects.select_for_update()
+                 .filter(product=product).first())
+    if inventory is None:
+        raise ValidationError(f"No packaged inventory record exists for {product}.")
+    if quantity > inventory.available:
+        raise ValidationError(f"Only {inventory.available} packs of {product} are in the warehouse.")
 
-    available = inventory.available
-    if quantity > available:
-        raise ValidationError(f"Only {available} packs of {product} are currently available.")
-
-    # ---------------------------------------------------------
-    # RESOLVE ACCOUNTHOLDER & COMPANY FOR PACKRELEASE CONTEXT
-    # ---------------------------------------------------------
     target_account = request.account_holder
-    if not target_account and request.company and request.company.account_holder:
+    if target_account is None and request.company_id:
         target_account = request.company.account_holder
-
-    if not target_account:
-        request_user = request.requested_by
+    if target_account is None:
+        owner = request.requested_by
         target_account, _ = AccountHolder.objects.get_or_create(
-            system_user=request_user,
+            system_user=owner,
             defaults={
-                "name": request_user.get_full_name() or request_user.username,
+                "name": owner.get_full_name() or owner.username,
                 "account_type": "salesperson",
                 "is_active": True,
             },
@@ -188,93 +183,41 @@ def fulfill_request_item(*, item, quantity, selling_price, manager, notes=""):
         created_by=manager,
         notes=notes,
     )
-
-    # Supermarket / display stock becomes physical stock on the customer's
-    # display, not an immediate sale.
-    if stock_request.purpose == "display":
-        raise ValidationError(
-            "Use the branch-specific Consignment Delivery page "
-            "for supermarket display stock."
-        )
-
-    items = list(request.items.all())
-    if all(i.outstanding_quantity == 0 for i in items):
-        request.status = "fulfilled"
-        request.fulfilled_at = timezone.now()
-    else:
-        request.status = "partially_fulfilled"
-        request.fulfilled_at = None
-
-    request.save(update_fields=["status", "fulfilled_at"])
+    # Do NOT also subtract product.current_stock: warehouse stock is derived
+    # from produced - released + approved, resalable returned packs.
+    _refresh_request_status(request)
     return release
 
 
-
-
 @transaction.atomic
-def return_packs(
-    *,
-    release,
-    packs_returned,
-    condition,
-    disposition,
-    reason="",
-    notes="",
-    user=None,
-):
-    release = (
-        PackRelease.objects
-        .select_for_update()
-        .select_related("company", "product")
-        .get(pk=release.pk)
+def return_packs(*, release, packs_returned, condition, disposition,
+                 reason="", notes="", user=None):
+    """Submit a PENDING ordinary return; stock is restored only after approval."""
+    release = (PackRelease.objects.select_for_update()
+               .prefetch_related("returns", "settlements")
+               .get(pk=release.pk))
+    _forbid_generic_display(release)
+
+    quantity = _positive_int(packs_returned, "Return quantity")
+    sold = sum(s.packs_sold for s in release.settlements.all())
+    available = max(
+        release.packs_out - sold - release.packs_returned - release.packs_pending_return,
+        0,
     )
+    if quantity > available:
+        raise ValidationError(f"Only {available} unsold packs remain eligible for return.")
 
-    packs_returned = int(packs_returned)
-    if packs_returned <= 0:
-        raise ValidationError("Must return at least one pack.")
-    if packs_returned > release.packs_outstanding:
-        raise ValidationError(
-            f"Only {release.packs_outstanding} packs remain outstanding on this release."
-        )
-
-    returned = PackReturn.objects.create(
+    return PackReturn.objects.create(
         release=release,
-        packs_returned=packs_returned,
+        packs_returned=quantity,
         condition=condition,
         disposition=disposition,
         reason=reason,
         notes=notes,
         received_by=user,
+        submitted_by=user,
+        status="pending_approval",
     )
-
-    # Returned supermarket display stock leaves the supermarket display
-    # whenever Nonda accepts the physical return. It does not create financial
-    # credit because unsold display units were never billed.
-    if (
-        release.purpose == "display"
-        and release.company_id
-        and returned.counts_against_release
-    ):
-        consignment = (
-            ConsignmentInventory.objects
-            .select_for_update()
-            .filter(company=release.company, product=release.product)
-            .first()
-        )
-        if consignment:
-            consignment.current_display_quantity = max(
-                consignment.current_display_quantity - packs_returned,
-                0,
-            )
-            consignment.save(update_fields=["current_display_quantity"])
-
-    if release.packs_outstanding == 0:
-        release.status = "fully_returned"
-    elif returned.counts_against_release:
-        release.status = "partially_returned"
-
-    release.save(update_fields=["status", "updated_at"])
-    return returned
 
 
 @transaction.atomic
@@ -288,63 +231,195 @@ def settle_release(
     cashier=None,
     notes="",
 ):
-    """Record money received for coffee sold from a physical release."""
-    release = PackRelease.objects.select_for_update().select_related(
-        "product", "request_item__request"
-    ).get(pk=release.pk)
+    """
+    Confirm a NEW sale event from an ordinary sale release.
 
-    if not release.request_item_id or release.request_item.request.purpose != "sale":
-        raise ValidationError("Only stock released for sale can be cleared through the cashier queue.")
+    PackSettlement records the actual sale quantity and any money
+    received at the moment of that sale.
 
-    packs_sold = int(packs_sold)
-    amount_paid = Decimal(amount_paid)
-    returned = release.packs_returned
-    max_sold = release.packs_out - returned
+    Later installment payments must use PaymentReceipt instead.
+    """
 
-    if packs_sold < 0:
-        raise ValidationError("Sold quantity cannot be negative.")
-    if packs_sold > max_sold:
-        raise ValidationError(
-            f"At most {max_sold} packs can be recorded as sold on this release."
+    # FIX 1: Kept prefetch_related so that Python can evaluate related sets instantly
+    release = (
+        PackRelease.objects
+        .select_for_update()
+        .select_related(
+            "product",
+            "request_item__request",
         )
-    if amount_paid < 0:
-        raise ValidationError("Amount paid cannot be negative.")
-
-    amount_due = Decimal(packs_sold) * release.selling_price
-    if amount_paid > amount_due:
-        raise ValidationError(
-            f"Amount paid cannot exceed the amount due ({amount_due:,.2f})."
-        )
-
-    settlement, _ = PackSettlement.objects.select_for_update().get_or_create(
-        release=release,
-        defaults={
-            "packs_sold": packs_sold,
-            "amount_paid": amount_paid,
-            "payment_method": payment_method,
-            "payment_reference": payment_reference,
-            "status": "cleared" if amount_paid == amount_due else "partial",
-            "cleared_by": cashier,
-            "notes": notes,
-        },
+        .prefetch_related("returns", "settlements")
+        .get(pk=release.pk)
     )
 
-    if settlement.pk and settlement.release_id == release.pk:
-        settlement.packs_sold = packs_sold
-        settlement.amount_paid = amount_paid
-        settlement.payment_method = payment_method
-        settlement.payment_reference = payment_reference
-        settlement.status = "cleared" if amount_paid == amount_due else "partial"
-        settlement.cleared_by = cashier
-        settlement.notes = notes
-        settlement.save()
+    if (
+        not release.request_item_id
+        or release.request_item.request.purpose != "sale"
+    ):
+        raise ValidationError(
+            "Only ordinary sale stock can be cleared through "
+            "the cashier sale workflow."
+        )
+
+    if release.purpose == "display":
+        raise ValidationError(
+            "Consignment sales are confirmed through approved stock audits."
+        )
+
+    if cashier is None:
+        raise ValidationError("A cashier is required to record a sale.")
+
+    # FIX 3: Re-add your choice validation if _valid_method is defined in your file
+    payment_method = _valid_method(payment_method, PackSettlement.PAYMENT_CHOICES)
+
+    packs_sold = int(packs_sold)
+    amount_paid = Decimal(str(amount_paid))
+
+    if packs_sold <= 0:
+        raise ValidationError(
+            "Sold quantity must be greater than zero."
+        )
+
+    if release.selling_price <= Decimal("0.00"):
+        raise ValidationError(
+            "This release does not have a valid selling price."
+        )
+
+    # ---------------------------------------------------------
+    # QUANTITIES ALREADY ACCOUNTED FOR
+    # ---------------------------------------------------------
+
+    already_sold = sum(
+        (
+            settlement.packs_sold
+            for settlement in release.settlements.all()
+        ),
+        0,
+    )
+
+    # FIX 2: Filter using Python instead of .filter() to utilize the prefetched data
+    all_returns = list(release.returns.all())
+    
+    approved_returns = sum(
+        (item.packs_returned for item in all_returns if item.status == "approved"),
+        0,
+    )
+
+    pending_returns = sum(
+        (item.packs_returned for item in all_returns if item.status == "pending_approval"),
+        0,
+    )
+
+    available_to_sell = max(
+        release.packs_out
+        - already_sold
+        - approved_returns
+        - pending_returns,
+        0,
+    )
+
+    if packs_sold > available_to_sell:
+        raise ValidationError(
+            f"Only {available_to_sell} additional pack(s) "
+            "remain available to sell."
+        )
+
+    amount_due = (
+        Decimal(packs_sold)
+        * release.selling_price
+    )
+
+    if amount_paid < Decimal("0.00"):
+        raise ValidationError(
+            "Amount paid cannot be negative."
+        )
+
+    if amount_paid > amount_due:
+        raise ValidationError(
+            f"Amount paid cannot exceed UGX {amount_due:,.2f} "
+            "for this sale."
+        )
+
+    # ---------------------------------------------------------
+    # CREATE A NEW SALE EVENT
+    # NEVER overwrite an earlier transaction.
+    # ---------------------------------------------------------
+
+    balance_before_payment = release.outstanding_balance
+
+    if amount_paid > balance_before_payment:
+        raise ValidationError(
+            f"Payment exceeds the release's outstanding balance "
+            f"of UGX {balance_before_payment:,.2f}."
+        )
+    settlement = PackSettlement.objects.create(
+    release=release,
+    packs_sold=packs_sold,
+    amount_paid=amount_paid,
+    payment_method=payment_method,
+    payment_reference=payment_reference,
+    status=(
+        "cleared"
+        if amount_paid == balance_before_payment
+        else "partial"
+    ),
+    cleared_by=cashier,
+    notes=notes,
+)
 
     return settlement
+
+
+@transaction.atomic
+def record_payment(*, release, amount, method, payment_reference="",
+                   collected_by=None, notes=""):
+    """Payment-only PackSettlement for an existing release: packs_sold is ZERO."""
+    release = PackRelease.objects.select_for_update().get(pk=release.pk)
+    if collected_by is None:
+        raise ValidationError("A cashier is required to record this payment.")
+    amount = _money(amount)
+    if amount <= ZERO:
+        raise ValidationError("Payment amount must be greater than zero.")
+    method = _valid_method(method, PackSettlement.PAYMENT_CHOICES)
+    owed = release.outstanding_balance  # Includes BOTH payment models.
+    if owed <= ZERO:
+        raise ValidationError("This release has already been fully cleared.")
+    if amount > owed:
+        raise ValidationError(f"Payment exceeds the outstanding balance of UGX {owed:,.2f}.")
+    return PackSettlement.objects.create(
+        release=release, packs_sold=0, amount_paid=amount,
+        payment_method=method, payment_reference=payment_reference,
+        status="cleared" if amount == owed else "partial",
+        cleared_by=collected_by, notes=notes,
+    )
 
 
 
 
 @transaction.atomic
+def record_installment_payment(*, release, amount, method, payment_reference="",
+                               collected_by=None, notes=""):
+    """Payment-only PaymentReceipt for the dedicated installment form.
+
+    Do NOT create a matching PackSettlement for this same payment.
+    """
+    release = PackRelease.objects.select_for_update().get(pk=release.pk)
+    amount = _money(amount)
+    if amount <= ZERO:
+        raise ValidationError("Payment amount must be greater than zero.")
+    method = _valid_method(method, PaymentReceipt.PAYMENT_METHOD_CHOICES)
+    owed = release.outstanding_balance
+    if owed <= ZERO:
+        raise ValidationError("This release is fully cleared or not yet billable.")
+    if amount > owed:
+        raise ValidationError(f"Payment exceeds the outstanding balance of UGX {owed:,.2f}.")
+    return PaymentReceipt.objects.create(
+        release=release, amount=amount, method=method,
+        payment_reference=payment_reference, collected_by=collected_by, notes=notes,
+    )
+
+
+
 def record_payment(
     *,
     release,
@@ -355,266 +430,81 @@ def record_payment(
     notes="",
 ):
     """
-    Records a payment settlement against a single, specific PackRelease.
+    Backward-compatible name for legacy views.
+
+    All payment-only transactions now go through PaymentReceipt.
     """
-    # Lock the specific release record to prevent race conditions
-    release = PackRelease.objects.select_for_update().get(pk=release.pk)
 
-    amount = Decimal(str(amount))
-    if amount <= Decimal("0.00"):
-        raise ValidationError("Payment amount must be greater than zero.")
-
-    owed = release.outstanding_balance
-    if owed <= Decimal("0.00"):
-        raise ValidationError("This release has already been fully cleared.")
-
-    if amount > owed:
-        raise ValidationError(
-            f"Payment exceeds the outstanding balance of UGX {owed:,.2f}."
-        )
-
-    settlement = PackSettlement.objects.create(
+    return record_installment_payment(
         release=release,
-        packs_sold=0,
-        amount_paid=amount,
-        payment_method=method,
+        amount=amount,
+        method=method,
         payment_reference=payment_reference,
-        status="cleared" if amount == owed else "partial",
-        cleared_by=collected_by,
+        collected_by=collected_by,
         notes=notes,
     )
 
-    return settlement
-
-
-@transaction.atomic
-def process_branch_audit(*, branch, user, audit_counts_data):
-    """
-    audit_counts_data format:
-    [
-      {
-        'product': product_obj,
-        'shelf_count': 5,
-        'backroom_count': 30,
-        'selling_price': Decimal('15000.00')
-      },
-      ...
-    ]
-    """
-    audit = StockAudit.objects.create(
-        company=branch.company,
-        branch=branch,
-        audited_by=user,
-    )
-
-    total_amount_billed = 0
-
-    for data in audit_counts_data:
-        product = data['product']
-        actual_shelf = data['shelf_count']
-        actual_backroom = int(data["backroom_count"])
-
-        selling_price = Decimal(data['selling_price'])
-
-        # 1. Fetch exact current baseline from ledger
-        expected_shelf = branch.get_stock_level(product, stock_location='shelf')
-        expected_backroom = branch.get_stock_level(product, stock_location='backroom')
-
-        # 2. Calculate sold quantities
-        total_expected = expected_shelf + expected_backroom
-        actual_total = actual_shelf + actual_backroom
-        shelf_sold = max(expected_shelf - actual_shelf, 0)
-        backroom_sold = max(expected_backroom - actual_backroom, 0)
-        total_sold = shelf_sold + backroom_sold
-        amount_due = Decimal(total_sold) * selling_price
-
-        total_amount_billed += amount_due
-
-        # 3. Create Audit Record
-        StockAuditItem.objects.create(
-            audit=audit,
-            product=product,
-            expected_quantity=total_expected,
-            actual_physical_count=actual_total,
-            quantity_sold=total_sold,
-            selling_price=selling_price,
-            calculated_amount_due=amount_due,
-
-        )
-
-        # 4. Write negative adjustments to ledger to bring system baseline 
-        # EXACTLY in sync with physical count for next time
-        if shelf_sold > 0:
-            BranchStockLedger.objects.create(
-                branch=branch,
-                product=product,
-                stock_location='shelf',
-                transaction_type='audit_sale',
-                quantity=-shelf_sold, # Deducts sold quantity from shelf
-                audit=audit,
-                created_by=user,
-            )
-
-        if backroom_sold > 0:
-            BranchStockLedger.objects.create(
-                branch=branch,
-                product=product,
-                stock_location='backroom',
-                transaction_type='audit_sale',
-                quantity=-backroom_sold, # Deducts sold quantity from backroom
-                audit=audit,
-                created_by=user,
-            )
-
-    return audit, total_amount_billed
-
-
-@transaction.atomic
-def process_supermarket_audit(*, company, user, audit_items_data, notes=""):
-    audit = StockAudit.objects.create(
-        company=company,
-        audited_by=user,
-        notes=notes,
-    )
-
-    total_invoice_amount = Decimal("0.00")
-
-    for item_data in audit_items_data:
-        product = item_data["product"]
-        actual_count = int(item_data["actual_count"])
-        selling_price = Decimal(item_data["selling_price"])
-
-        if actual_count < 0:
-            raise ValidationError("Physical count cannot be negative.")
-
-        consignment, _ = ConsignmentInventory.objects.select_for_update().get_or_create(
-            company=company,
-            product=product,
-            defaults={"current_display_quantity": 0},
-        )
-
-        expected_qty = consignment.current_display_quantity
-
-        audit_item = StockAuditItem.objects.create(
-            audit=audit,
-            product=product,
-            expected_quantity=expected_qty,
-            actual_physical_count=actual_count,
-            selling_price=selling_price,
-            calculated_amount_due=(
-                max(expected_qty - actual_count, 0) * selling_price
-            ),
-        )
-
-        sold = audit_item.quantity_sold
-        total_invoice_amount += audit_item.calculated_amount_due
-
-        # Allocate newly confirmed sales against the oldest display releases
-        # for this company/product. This makes consignment sales billable while
-        # keeping the original physical release intact.
-        remaining_sold = sold
-        display_releases = list(
-            PackRelease.objects
-            .select_for_update()
-            .filter(company=company, product=product, purpose="display")
-            .order_by("released_at", "pk")
-        )
-
-        for release in display_releases:
-            if remaining_sold <= 0:
-                break
-            already_physical_returned = release.packs_returned
-            available_to_bill = max(
-                release.packs_out - already_physical_returned - release.billable_packs,
-                0,
-            )
-            if available_to_bill <= 0:
-                continue
-
-            allocation = min(available_to_bill, remaining_sold)
-            release.billable_packs += allocation
-            release.selling_price = selling_price
-            release.save(update_fields=["billable_packs", "selling_price", "updated_at"])
-            remaining_sold -= allocation
-
-        consignment.current_display_quantity = actual_count
-        consignment.last_audited_at = timezone.now()
-        consignment.save(
-            update_fields=["current_display_quantity", "last_audited_at"]
-        )
-
-    if company.pipeline_stage != "recurring_supply":
-        company.pipeline_stage = "recurring_supply"
-        company.save(update_fields=["pipeline_stage"])
-
-    return audit, total_invoice_amount
 
 @transaction.atomic
 def approve_existing_pack_return(*, return_item, user):
-    """
-    Approve the EXISTING pending PackReturn row.
-    Never creates another PackReturn.
-    """
-    locked_return = (
-        PackReturn.objects
-        .select_for_update()
-        .select_related("release__product")
-        .get(pk=return_item.pk)
-    )
-
-    if locked_return.status != "pending_approval":
+    """Approve an existing ordinary return; never create another return slip."""
+    pending = PackReturn.objects.select_for_update().get(pk=return_item.pk)
+    if pending.status != "pending_approval":
         raise ValidationError("This return has already been processed.")
+    release = (PackRelease.objects.select_for_update()
+               .prefetch_related("returns", "settlements")
+               .get(pk=pending.release_id))
+    _forbid_generic_display(release)
 
-    release = (
-        PackRelease.objects
-        .select_for_update()
-        .select_related("product")
-        .get(pk=locked_return.release_id)
-    )
-
-    # Re-check eligibility at approval time.
-    approved_returned = sum(
-        ret.packs_returned
-        for ret in release.returns.filter(status="approved")
-    )
+    approved = sum(r.packs_returned for r in release.returns.all() if r.status == "approved")
     other_pending = sum(
-        ret.packs_returned
-        for ret in release.returns.filter(status="pending_approval")
-        .exclude(pk=locked_return.pk)
+        r.packs_returned for r in release.returns.all()
+        if r.status == "pending_approval" and r.pk != pending.pk
     )
-
-    sold = 0
-    try:
-        sold = sum(settlement.packs_sold for settlement in release.settlements.all())
-    except PackSettlement.DoesNotExist:
-        sold = 0
-
-    available_to_approve = max(
-        release.packs_out - sold - approved_returned - other_pending,
-        0,
-    )
-
-    if locked_return.packs_returned > available_to_approve:
+    sold = sum(s.packs_sold for s in release.settlements.all())
+    available = release.packs_out - sold - approved - other_pending
+    if available < 0:
         raise ValidationError(
-            f"Only {available_to_approve} packs remain eligible for return. "
-            "Some units may already have been sold or reserved by another pending return."
+            "This release has inconsistent historical sold/return data; reconcile it first."
         )
+    if pending.packs_returned > available:
+        raise ValidationError(f"Only {available} packs remain eligible for approval.")
 
-    locked_return.status = "approved"
-    locked_return.approved_by = user
-    locked_return.approved_at = timezone.now()
-    locked_return.received_by = user
-    locked_return.disposition = "accepted"
-    locked_return.save(
-        update_fields=[
-            "status",
-            "approved_by",
-            "approved_at",
-            "received_by",
-            "disposition",
-        ]
+    pending.status = "approved"
+    pending.approved_by = user
+    pending.approved_at = timezone.now()
+    pending.received_by = user
+    pending.disposition = "accepted"
+    pending.save(update_fields=[
+        "status", "approved_by", "approved_at", "received_by", "disposition",
+    ])
+    return pending
+
+
+def process_branch_audit(*, branch, user, audit_counts_data):
+    """Backward-compatible, NON-BILLING adapter for the new branch audit service.
+
+    Prior callers expect (audit, amount). Amount is ALWAYS zero until approval.
+    """
+    from .services.consignments import submit_branch_audit
+
+    rows = []
+    for data in audit_counts_data:
+        product = data["product"]
+        rows.append({
+            "product_id": product.pk,
+            "actual_shelf": data["shelf_count"],
+            "actual_backroom": data["backroom_count"],
+            "shrinkage_shelf": data.get("shrinkage_shelf", 0),
+            "shrinkage_backroom": data.get("shrinkage_backroom", 0),
+            "selling_price": data["selling_price"],
+        })
+    return submit_branch_audit(branch=branch, user=user, rows=rows), ZERO
+
+
+def process_supermarket_audit(*, company, user, audit_items_data, notes=""):
+    """DISABLED: company-level audits cannot safely bill multi-branch inventory."""
+    raise ValidationError(
+        "Company-level audit is retired. Open the supermarket's branch and submit "
+        "a branch audit. Only manager approval may create an invoice."
     )
-
-    # PackagedInventory is ledger-derived in Nonda. Once the return is approved,
-    # its packs_returned calculation automatically includes this row.
-    return locked_return

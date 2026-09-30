@@ -1,4 +1,4 @@
-from .models import AccountHolder, PackReturn
+from .models import AccountHolder, PackReturn, PaymentReceipt
 from decimal import Decimal
 
 from django import forms
@@ -297,3 +297,41 @@ class SingleItemReturnForm(forms.Form):
         initial="good",
         widget=forms.Select(attrs={"class": FIELD_CLASS}),
     )
+
+class PaymentReceiptForm(forms.ModelForm):
+    class Meta:
+        model = PaymentReceipt
+
+        fields = [
+            "amount",
+            "method",
+            "payment_reference",
+            "notes",
+        ]
+
+        widgets = {
+            "amount": forms.NumberInput(
+                attrs={
+                    "class": "form-input",
+                    "min": "0.01",
+                    "step": "0.01",
+                }
+            ),
+            "method": forms.Select(
+                attrs={
+                    "class": "form-select",
+                }
+            ),
+            "payment_reference": forms.TextInput(
+                attrs={
+                    "class": "form-input",
+                    "placeholder": "MoMo / bank / receipt reference",
+                }
+            ),
+            "notes": forms.Textarea(
+                attrs={
+                    "class": "form-textarea",
+                    "rows": 3,
+                }
+            ),
+        }

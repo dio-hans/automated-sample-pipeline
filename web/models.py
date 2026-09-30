@@ -1440,6 +1440,7 @@ class PackagedInventory(models.Model):
             ret.packs_returned
             for release in self.product.releases.all()
             for ret in release.returns.all()
+            if ret.status == 'approved' and ret.condition == 'good'
         )
 
     @property
@@ -1719,16 +1720,30 @@ class PackRelease(models.Model):
 
     @property
     def total_amount_paid(self):
-        settlement_total = sum((s.amount_paid for s in self.settlements.all()), Decimal('0.00'))
-        installment_total = sum((p.amount for p in self.payments.all()), Decimal('0.00'))
+        settlement_total = sum(
+            (
+                settlement.amount_paid
+                for settlement in self.settlements.all()
+            ),
+            Decimal("0.00"),
+        )
+
+        installment_total = sum(
+            (
+                payment.amount
+                for payment in self.payments.all()
+            ),
+            Decimal("0.00"),
+        )
+
         return settlement_total + installment_total
     
     @property
     def outstanding_balance(self):
-        """
-        The remaining unpaid debt value left on this delivery batch.
-        """
-        return max(self.net_amount_due - self.total_amount_paid, Decimal("0.00"))
+        return max(
+            self.net_amount_due - self.total_amount_paid,
+            Decimal("0.00"),
+        )
 
     @property
     def packs_returned(self):
@@ -2026,7 +2041,11 @@ class PackSettlement(models.Model):
         on_delete=models.PROTECT,
         related_name="pack_settlements",
     )
-    cleared_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
+    cleared_at = models.DateTimeField(
+    default=timezone.now,
+    editable=False,
+    db_index=True,
+)
     notes = models.TextField(blank=True)
 
     class Meta:

@@ -1,3 +1,5 @@
+from platform import release
+
 from django.utils.decorators import method_decorator
 from datetime import datetime, time, timezone
 from django import forms
@@ -14,7 +16,7 @@ from .services.reporting.executive import get_executive_report
 from .services.reporting.operations import get_operations_report
 from .services.reporting.sales import get_sales_report
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, PermissionDenied
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
@@ -1216,15 +1218,26 @@ class PackReturnCreateView(InventoryRoleRequiredMixin, TemplateView):
     template_name = "pipeline/pack_return_form.html"
 
     def get_release_from_url(self):
-        return get_object_or_404(
+        release = get_object_or_404(
             PackRelease.objects.select_related(
                 "product__blend",
                 "product__pack_size",
                 "released_to",
                 "request_item__request",
+                "branch",
             ),
             pk=self.kwargs["pk"],
         )
+
+    # Consignment/display stock must never use the ordinary
+    # warehouse return workflow.
+        if release.purpose == "display":
+            raise PermissionDenied(
+                "Consignment stock must be returned through the "
+                "verified branch consignment return workflow."
+            )
+
+        return release
 
     def get_order(self):
         release = self.get_release_from_url()
@@ -1240,6 +1253,7 @@ class PackReturnCreateView(InventoryRoleRequiredMixin, TemplateView):
             .select_related("product__blend", "product__pack_size", "released_to")
             .order_by("product__blend__name", "product__pack_size__grams", "pk")
         )
+    
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1390,6 +1404,12 @@ class PackReturnConfirmationView(InventoryRoleRequiredMixin, TemplateView):
                     request_item__request_id=order_id,
                 )
 
+                if release.purpose == "display":
+                    raise PermissionDenied(
+                        "Display/consignment stock cannot be returned through "
+                        "the ordinary warehouse return workflow."
+                    )
+
                 # Revalidate against sold + approved + pending quantities immediately
                 # before creating the pending row.
                 if item["quantity"] > release.packs_returnable:
@@ -1488,7 +1508,9 @@ class PendingReturnApprovalListView(InventoryRoleRequiredMixin, ListView):
 
     def get_queryset(self):
         return (
-            PackReturn.objects.filter(status="pending_approval")
+            PackReturn.objects
+            .filter(status="pending_approval")
+            .exclude(release__purpose="display")
             .select_related(
                 "release__product__blend",
                 "release__product__pack_size",
