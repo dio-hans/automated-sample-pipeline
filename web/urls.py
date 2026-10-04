@@ -51,6 +51,7 @@ path('register/', views.register_user, name='register'),
 path("users/<int:user_id>/toggle-status/",views.toggle_user_status,name="toggle_user_status",),# more inventory urls
 # --- Auth ---
 path('logout/', views.user_logout, name='logout'),
+path('forgot-password/', views.forgot_password_view, name='forgot_password'),
 
 # --- Processing ---
 # --- Packaged Inventory & Products ---

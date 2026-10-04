@@ -140,3 +140,5 @@ CRISPY_TEMPLATE_PACK = "tailwind"
 AUTH_USER_MODEL = 'web.User'
 
 CONSIGNMENT_AUDIT_INTERVAL_DAYS = 14
+# settings.py
+LOGIN_URL = 'login'

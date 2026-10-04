@@ -4202,3 +4202,11 @@ class OperationsDetailReportView(
     OperationsReportView
 ):
     template_name = "reports/operations_detail.html"
+
+
+# views.py
+from django.shortcuts import render
+
+def forgot_password_view(request):
+    """Temporary placeholder for password reset workflow."""
+    return render(request, 'auth/forgot_password.html')
