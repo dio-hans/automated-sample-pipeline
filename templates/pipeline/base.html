@@ -365,25 +365,25 @@
                 {% block page_header %}{% endblock %}
                 
                 {% block messages %}
-                    {% if messages %}
-                        <div id="messages" class="w-full space-y-2">
-                            {% for message in messages %}
-                                <div class="p-3.5 rounded-lg text-sm font-medium border shadow-sm flex items-center justify-between
-                                    {% if message.tags == 'success' %}
-                                        bg-emerald-50 text-emerald-800 border-emerald-200
-                                    {% elif message.tags == 'error' or message.tags == 'warning' %}
-                                        bg-amber-50 text-amber-800 border-amber-200
-                                    {% else %}
-                                        bg-slate-50 text-slate-800 border-slate-200
-                                    {% endif %}
-                                ">
-                                    <span>{{ message }}</span>
-                                    <button onclick="this.parentElement.remove()" class="text-xs opacity-60 hover:opacity-100">&times;</button>
-                                </div>
-                            {% endfor %}
-                        </div>
+    {% if messages %}
+        <div id="messages" class="fixed top-4 right-4 z-50 space-y-2 max-w-sm pointer-events-none">
+            {% for message in messages %}
+                <div class="pointer-events-auto p-3 px-4 rounded-xl text-xs font-medium border shadow-lg flex items-center gap-3 transition-all duration-300
+                    {% if message.tags == 'success' %}
+                        bg-emerald-50 text-emerald-800 border-emerald-200
+                    {% elif message.tags == 'error' or message.tags == 'warning' %}
+                        bg-amber-50 text-amber-800 border-amber-200
+                    {% else %}
+                        bg-slate-50 text-slate-800 border-slate-200
                     {% endif %}
-                {% endblock messages %}
+                ">
+                    <span>{{ message }}</span>
+                    <button onclick="this.parentElement.remove()" class="text-base font-bold opacity-60 hover:opacity-100 leading-none ml-auto cursor-pointer">&times;</button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock messages %}
 
                 {% block content %}{% endblock %}
             </div>
