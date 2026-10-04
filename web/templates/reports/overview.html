@@ -1,4 +1,4 @@
-{% extends "pipeline/base.html" %}
+{% extends "reports/base_report.html" %}
 {% load humanize %}
 
 {% block title %}
@@ -15,21 +15,22 @@ Management Reports
 
 {% block page_subtitle %}
 <p class="mt-1 text-sm text-slate-500">
-    Business performance overview and access to detailed management reports.
+    Business reporting, management analysis and printable reports.
 </p>
 {% endblock %}
 
 
 {% block header_action %}
-<button
-    onclick="window.print()"
+
+<a
+    href="{% url 'reports_executive_print' %}?{{ request.GET.urlencode }}"
     class="px-3 py-2 rounded-lg border border-line
-           bg-white text-[11px] font-semibold text-slate-700
-           hover:bg-slate-50"
+           bg-white text-[10px] font-semibold text-slate-700"
 >
     <i class="fa-solid fa-print mr-1"></i>
-    Print Overview
-</button>
+    Print Executive Report
+</a>
+
 {% endblock %}
 
 
@@ -37,25 +38,26 @@ Management Reports
 
 <div class="space-y-3 pb-4">
 
+
     <!-- =====================================================
-         FILTERS
+         REPORT PERIOD
          ===================================================== -->
     {% include "reports/components/report_filters.html" %}
 
 
     <!-- =====================================================
-         CURRENT STOCK / CONSUMPTION SNAPSHOT
+         QUICK BUSINESS SNAPSHOT
          ===================================================== -->
     <section class="bg-white border border-line
                     rounded-lg shadow-sm overflow-hidden">
 
-        <div class="px-3 py-2.5 border-b border-line
+        <div class="px-3 py-2 border-b border-line
                     flex items-center justify-between gap-3">
 
             <div>
 
                 <h2 class="text-xs font-bold text-slate-800">
-                    Stock & Consumption
+                    Business Snapshot
                 </h2>
 
                 <p class="text-[9px] text-slate-400 mt-0.5">
@@ -64,13 +66,12 @@ Management Reports
 
             </div>
 
-
             <a
-                href="{% url 'reports_stock' %}?{{ request.GET.urlencode }}"
-                class="text-[9px] font-semibold text-olive
-                       hover:underline whitespace-nowrap"
+                href="{% url 'reports_executive' %}?{{ request.GET.urlencode }}"
+                class="text-[9px] font-semibold
+                       text-olive hover:underline"
             >
-                Open report →
+                Executive overview →
             </a>
 
         </div>
@@ -78,88 +79,62 @@ Management Reports
 
         <div class="grid grid-cols-2 lg:grid-cols-4">
 
-            <!-- TOTAL -->
-            <div class="p-2.5 border-b lg:border-b-0
-                        border-r border-line">
+            <div class="p-2.5 border-r border-b
+                        lg:border-b-0 border-line">
 
-                <p class="text-[8px] uppercase tracking-wider
-                          font-bold text-slate-400">
-                    Total Consumed
+                <p class="text-[8px] uppercase
+                          font-bold tracking-wider text-slate-400">
+                    Coffee Consumed
                 </p>
 
-                <p class="font-display text-base sm:text-lg
-                          font-bold text-slate-800 mt-1">
+                <p class="text-base font-bold text-slate-800 mt-1">
                     {{ consumption.total_consumed_kg|floatformat:2|intcomma }}
-
-                    <span class="text-[9px] text-slate-400">
-                        kg
-                    </span>
+                    <span class="text-[9px] text-slate-400">kg</span>
                 </p>
 
             </div>
 
 
-            <!-- SALES -->
-            <div class="p-2.5 border-b lg:border-b-0
-                        lg:border-r border-line">
+            <div class="p-2.5 border-b
+                        lg:border-b-0 lg:border-r border-line">
 
-                <p class="text-[8px] uppercase tracking-wider
-                          font-bold text-slate-400">
-                    Sales
+                <p class="text-[8px] uppercase
+                          font-bold tracking-wider text-slate-400">
+                    Coffee Sold
                 </p>
 
-                <p class="font-display text-base sm:text-lg
-                          font-bold text-emerald-700 mt-1">
+                <p class="text-base font-bold text-emerald-700 mt-1">
                     {{ consumption.sales_kg|floatformat:2|intcomma }}
-
-                    <span class="text-[9px] text-slate-400">
-                        kg
-                    </span>
+                    <span class="text-[9px] text-slate-400">kg</span>
                 </p>
 
             </div>
 
 
-            <!-- INTERNAL -->
             <div class="p-2.5 border-r border-line">
 
-                <p class="text-[8px] uppercase tracking-wider
-                          font-bold text-slate-400">
+                <p class="text-[8px] uppercase
+                          font-bold tracking-wider text-slate-400">
                     Internal Usage
                 </p>
 
-                <p class="font-display text-base sm:text-lg
-                          font-bold text-amber-700 mt-1">
+                <p class="text-base font-bold text-amber-700 mt-1">
                     {{ consumption.internal_kg|floatformat:2|intcomma }}
-
-                    <span class="text-[9px] text-slate-400">
-                        kg
-                    </span>
+                    <span class="text-[9px] text-slate-400">kg</span>
                 </p>
 
             </div>
 
 
-            <!-- LOSS -->
             <div class="p-2.5">
 
-                <p class="text-[8px] uppercase tracking-wider
-                          font-bold text-slate-400">
-                    Recorded Loss
+                <p class="text-[8px] uppercase
+                          font-bold tracking-wider text-slate-400">
+                    Confirmed Sales
                 </p>
 
-                <p class="font-display text-base sm:text-lg
-                          font-bold text-rose-700 mt-1">
-
-                    {% if consumption.total_loss_kg is not None %}
-                        {{ consumption.total_loss_kg|floatformat:2|intcomma }}
-                    {% else %}
-                        {{ consumption.processing_loss_kg|floatformat:2|intcomma }}
-                    {% endif %}
-
-                    <span class="text-[9px] text-slate-400">
-                        kg
-                    </span>
+                <p class="text-base font-bold text-slate-800 mt-1">
+                    UGX {{ sales.total_sales_value|floatformat:0|intcomma }}
                 </p>
 
             </div>
@@ -174,52 +149,267 @@ Management Reports
          ===================================================== -->
     <section>
 
-        <div class="flex items-end justify-between gap-3 mb-2">
+        <div class="mb-2">
 
-            <div>
+            <h2 class="text-xs font-bold text-slate-800">
+                Available Reports
+            </h2>
 
-                <h2 class="text-xs font-bold text-slate-800">
-                    Reports
-                </h2>
-
-                <p class="text-[9px] text-slate-400 mt-0.5">
-                    Open a report for detailed analysis and printing.
-                </p>
-
-            </div>
+            <p class="text-[9px] text-slate-400 mt-0.5">
+                Open for analysis or generate a presentation-ready print report.
+            </p>
 
         </div>
 
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+
+
+            <!-- STOCK -->
+            <div class="bg-white border border-line
+                        rounded-lg shadow-sm p-3">
+
+                <div class="flex items-start gap-2.5">
+
+                    <div class="w-8 h-8 rounded-lg
+                                bg-green-50 text-green-700
+                                flex items-center justify-center shrink-0">
+
+                        <i class="fa-solid fa-boxes-stacked"></i>
+
+                    </div>
+
+                    <div>
+
+                        <h3 class="text-[11px] font-bold text-slate-800">
+                            Stock & Consumption
+                        </h3>
+
+                        <p class="text-[9px] text-slate-400 mt-1">
+                            Sales consumption, internal use,
+                            processing and packaging losses.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="flex gap-1.5 mt-3">
+
+                    <a
+                        href="{% url 'reports_stock' %}?{{ request.GET.urlencode }}"
+                        class="px-2.5 py-1 rounded
+                               bg-slate-800 text-white
+                               text-[9px] font-semibold"
+                    >
+                        Open
+                    </a>
+
+                    <a
+                        href="{% url 'reports_stock_print' %}?{{ request.GET.urlencode }}"
+                        class="px-2.5 py-1 rounded
+                               border border-line
+                               text-[9px] font-semibold text-slate-600"
+                    >
+                        Print
+                    </a>
+
+                </div>
+
+            </div>
+
+
+            <!-- SALES -->
+            <div class="bg-white border border-line
+                        rounded-lg shadow-sm p-3">
+
+                <div class="flex items-start gap-2.5">
+
+                    <div class="w-8 h-8 rounded-lg
+                                bg-emerald-50 text-emerald-700
+                                flex items-center justify-center shrink-0">
+
+                        <i class="fa-solid fa-chart-line"></i>
+
+                    </div>
+
+                    <div>
+
+                        <h3 class="text-[11px] font-bold text-slate-800">
+                            Sales & Revenue
+                        </h3>
+
+                        <p class="text-[9px] text-slate-400 mt-1">
+                            Revenue, product performance,
+                            salespeople and bulk coffee.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="flex gap-1.5 mt-3">
+
+                    <a
+                        href="{% url 'reports_sales' %}?{{ request.GET.urlencode }}"
+                        class="px-2.5 py-1 rounded
+                               bg-slate-800 text-white
+                               text-[9px] font-semibold"
+                    >
+                        Open
+                    </a>
+
+                    <a
+                        href="{% url 'reports_sales_print' %}?{{ request.GET.urlencode }}"
+                        class="px-2.5 py-1 rounded
+                               border border-line
+                               text-[9px] font-semibold text-slate-600"
+                    >
+                        Print
+                    </a>
+
+                </div>
+
+            </div>
+
+
             <!-- FINANCE -->
+            <div class="bg-white border border-line
+                        rounded-lg shadow-sm p-3">
+
+                <div class="flex items-start gap-2.5">
+
+                    <div class="w-8 h-8 rounded-lg
+                                bg-blue-50 text-blue-700
+                                flex items-center justify-center shrink-0">
+
+                        <i class="fa-solid fa-coins"></i>
+
+                    </div>
+
+                    <div>
+
+                        <h3 class="text-[11px] font-bold text-slate-800">
+                            Finance & Credit
+                        </h3>
+
+                        <p class="text-[9px] text-slate-400 mt-1">
+                            Collections, expenditure,
+                            debtor balances and debt ageing.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="flex gap-1.5 mt-3">
+
+                    <a
+                        href="{% url 'reports_finance' %}?{{ request.GET.urlencode }}"
+                        class="px-2.5 py-1 rounded
+                               bg-slate-800 text-white
+                               text-[9px] font-semibold"
+                    >
+                        Open
+                    </a>
+
+                    <a
+                        href="{% url 'reports_finance_print' %}?{{ request.GET.urlencode }}"
+                        class="px-2.5 py-1 rounded
+                               border border-line
+                               text-[9px] font-semibold text-slate-600"
+                    >
+                        Print
+                    </a>
+
+                </div>
+
+            </div>
+
+
+            <!-- OPERATIONS -->
+            <div class="bg-white border border-line
+                        rounded-lg shadow-sm p-3">
+
+                <div class="flex items-start gap-2.5">
+
+                    <div class="w-8 h-8 rounded-lg
+                                bg-amber-50 text-amber-700
+                                flex items-center justify-center shrink-0">
+
+                        <i class="fa-solid fa-gears"></i>
+
+                    </div>
+
+                    <div>
+
+                        <h3 class="text-[11px] font-bold text-slate-800">
+                            Operations
+                        </h3>
+
+                        <p class="text-[9px] text-slate-400 mt-1">
+                            Processing, packaging,
+                            yields and reconciliation exceptions.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="flex gap-1.5 mt-3">
+
+                    <a
+                        href="{% url 'reports_operations' %}?{{ request.GET.urlencode }}"
+                        class="px-2.5 py-1 rounded
+                               bg-slate-800 text-white
+                               text-[9px] font-semibold"
+                    >
+                        Open
+                    </a>
+
+                    <a
+                        href="{% url 'reports_operations_print' %}?{{ request.GET.urlencode }}"
+                        class="px-2.5 py-1 rounded
+                               border border-line
+                               text-[9px] font-semibold text-slate-600"
+                    >
+                        Print
+                    </a>
+
+                </div>
+
+            </div>
 
 
             <!-- EXECUTIVE -->
             <div class="bg-white border border-line
-                        rounded-lg shadow-sm p-3">
+                        rounded-lg shadow-sm p-3
+                        md:col-span-2 xl:col-span-1">
 
-                <div class="flex items-start justify-between gap-3">
+                <div class="flex items-start gap-2.5">
 
-                    <div class="flex items-start gap-2.5">
+                    <div class="w-8 h-8 rounded-lg
+                                bg-slate-100 text-slate-700
+                                flex items-center justify-center shrink-0">
 
-                        <div class="w-8 h-8 rounded-lg
-                                    bg-slate-100 text-slate-700
-                                    flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-briefcase"></i>
 
-                            <i class="fa-solid fa-briefcase text-xs"></i>
+                    </div>
 
-                        </div>
+                    <div>
 
-                        <div>
+                        <h3 class="text-[11px] font-bold text-slate-800">
+                            Executive Report
+                        </h3>
 
-                            <h3 class="text-[11px] font-bold text-slate-800">
-                                Executive Overview
-                            </h3>
-
-                            <p class="text-[9px] text-slate-400 mt-1 leading-relaxed">
-                                Management-level summary across all reports.
-                            </p>
-
-                        </div>
+                        <p class="text-[9px] text-slate-400 mt-1">
+                            Combined management summary
+                            across the reporting system.
+                        </p>
 
                     </div>
 
@@ -230,7 +420,7 @@ Management Reports
 
                     <a
                         href="{% url 'reports_executive' %}?{{ request.GET.urlencode }}"
-                        class="px-2 py-1 rounded
+                        class="px-2.5 py-1 rounded
                                bg-slate-800 text-white
                                text-[9px] font-semibold"
                     >
@@ -239,7 +429,7 @@ Management Reports
 
                     <a
                         href="{% url 'reports_executive_print' %}?{{ request.GET.urlencode }}"
-                        class="px-2 py-1 rounded
+                        class="px-2.5 py-1 rounded
                                border border-line
                                text-[9px] font-semibold text-slate-600"
                     >
@@ -248,7 +438,7 @@ Management Reports
 
                     <a
                         href="{% url 'reports_executive_pdf' %}?{{ request.GET.urlencode }}"
-                        class="px-2 py-1 rounded
+                        class="px-2.5 py-1 rounded
                                border border-line
                                text-[9px] font-semibold text-slate-600"
                     >
@@ -259,9 +449,6 @@ Management Reports
 
             </div>
 
-
-           
-
         </div>
 
     </section>
@@ -269,20 +456,3 @@ Management Reports
 </div>
 
 {% endblock content %}
-
-
-{% block footer %}
-
-<footer
-    class="sticky bottom-0 z-30
-           bg-paper border-t border-line
-           flex-shrink-0 print:hidden"
->
-    <div class="w-full max-w-7xl mx-auto px-2 sm:px-4 py-2">
-
-        {% include "reports/components/report_nav.html" %}
-
-    </div>
-</footer>
-
-{% endblock footer %}

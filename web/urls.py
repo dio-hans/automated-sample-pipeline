@@ -239,6 +239,42 @@ path(
     name="reports_sales_details",
 ),
 
+path(
+    "reports/stock/print/",
+    views.StockConsumptionPrintView.as_view(),
+    name="reports_stock_print",
+),
+
+path(
+    "reports/sales/print/",
+    views.SalesPrintView.as_view(),
+    name="reports_sales_print",
+),
+
+path(
+    "reports/finance/print/",
+    views.FinancePrintView.as_view(),
+    name="reports_finance_print",
+),
+
+path(
+    "reports/operations/print/",
+    views.OperationsPrintView.as_view(),
+    name="reports_operations_print",
+),
+
+path(
+    "reports/operations/",
+    views.OperationsReportView.as_view(),
+    name="reports_operations",
+),
+
+path(
+    "reports/operations/details/",
+    views.OperationsDetailReportView.as_view(),
+    name="reports_operations_detail",
+),
+
 
 # CONSIGNMENTS — branch-first workflow
 path('sales/consignments/',

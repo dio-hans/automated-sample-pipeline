@@ -1,0 +1,484 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}
+Operations Detail | Nonda
+{% endblock %}
+
+{% block breadcrumb %}
+Management / Reports / Operations / Detail
+{% endblock %}
+
+{% block page_title %}
+Operations Detail
+{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Supporting operational records for {{ period_label }}.
+</p>
+{% endblock %}
+
+
+{% block header_action %}
+<a
+    href="{% url 'reports_operations' %}?{{ request.GET.urlencode }}"
+    class="px-3 py-2 rounded-lg border border-line
+           bg-white text-[10px] font-semibold text-slate-700"
+>
+    ← Operations
+</a>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="space-y-3 pb-4">
+
+    {% include "reports/components/report_filters.html" %}
+
+
+    <!-- QUICK SECTION NAV -->
+    <div class="flex flex-wrap gap-1">
+
+        <a href="#packaging"
+           class="px-2 py-1 rounded border border-line
+                  bg-white text-[9px] font-semibold text-slate-600">
+            Packaging
+        </a>
+
+        <a href="#live-work"
+           class="px-2 py-1 rounded border border-line
+                  bg-white text-[9px] font-semibold text-slate-600">
+            Live Work
+        </a>
+
+        <a href="#movement-ledger"
+           class="px-2 py-1 rounded border border-line
+                  bg-white text-[9px] font-semibold text-slate-600">
+            Movements
+        </a>
+
+        <a href="#exceptions"
+           class="px-2 py-1 rounded border border-line
+                  bg-white text-[9px] font-semibold text-slate-600">
+            Exceptions
+        </a>
+
+    </div>
+
+
+    <!-- =====================================================
+         PACKAGING
+         ===================================================== -->
+    <section id="packaging"
+             class="bg-white border border-line
+                    rounded-lg shadow-sm overflow-hidden">
+
+        <div class="px-3 py-2 border-b border-line">
+
+            <h2 class="text-[10px] font-bold
+                       uppercase tracking-wider text-slate-800">
+                Packaging Performance
+            </h2>
+
+        </div>
+
+
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-px bg-line">
+
+            <div class="bg-white p-2.5">
+
+                <p class="text-[8px] uppercase
+                          font-bold text-slate-400">
+                    Runs
+                </p>
+
+                <p class="text-sm font-bold text-slate-800 mt-0.5">
+                    {{ packaging.runs }}
+                </p>
+
+            </div>
+
+
+            <div class="bg-white p-2.5">
+
+                <p class="text-[8px] uppercase
+                          font-bold text-slate-400">
+                    Input
+                </p>
+
+                <p class="text-sm font-bold text-slate-800 mt-0.5">
+                    {{ packaging.input_kg|floatformat:2 }} kg
+                </p>
+
+            </div>
+
+
+            <div class="bg-white p-2.5">
+
+                <p class="text-[8px] uppercase
+                          font-bold text-slate-400">
+                    Coffee Packed
+                </p>
+
+                <p class="text-sm font-bold text-slate-800 mt-0.5">
+                    {{ packaging.coffee_used_kg|floatformat:2 }} kg
+                </p>
+
+            </div>
+
+
+            <div class="bg-white p-2.5">
+
+                <p class="text-[8px] uppercase
+                          font-bold text-slate-400">
+                    Packs Produced
+                </p>
+
+                <p class="text-sm font-bold text-slate-800 mt-0.5">
+                    {{ packaging.packs_produced|intcomma }}
+                </p>
+
+            </div>
+
+
+            <div class="bg-white p-2.5">
+
+                <p class="text-[8px] uppercase
+                          font-bold text-slate-400">
+                    Loss
+                </p>
+
+                <p class="text-sm font-bold text-amber-700 mt-0.5">
+                    {{ packaging.loss_kg|floatformat:2 }} kg
+                </p>
+
+            </div>
+
+
+            <div class="bg-white p-2.5">
+
+                <p class="text-[8px] uppercase
+                          font-bold text-slate-400">
+                    Yield
+                </p>
+
+                <p class="text-sm font-bold text-emerald-700 mt-0.5">
+                    {{ packaging.yield_pct }}%
+                </p>
+
+                {% if packaging.unaccounted_kg %}
+                    <p class="text-[8px] text-red-500 mt-0.5">
+                        {{ packaging.unaccounted_kg|floatformat:2 }}
+                        kg unaccounted
+                    </p>
+                {% endif %}
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         LIVE WORK
+         ===================================================== -->
+    <section id="live-work"
+             class="bg-white border border-line
+                    rounded-lg shadow-sm overflow-hidden">
+
+        <div class="px-3 py-2 border-b border-line
+                    flex items-center justify-between">
+
+            <h2 class="text-[10px] font-bold
+                       uppercase tracking-wider text-slate-800">
+                Live Work in Progress
+            </h2>
+
+            <span class="text-[9px] text-slate-400">
+                {{ open_processing_count|add:open_packaging_count }}
+                open
+            </span>
+
+        </div>
+
+
+        <div class="divide-y divide-line max-h-72 overflow-y-auto">
+
+            {% for run in open_processing %}
+
+                <div class="px-3 py-2
+                            flex items-center justify-between gap-3">
+
+                    <div>
+
+                        <p class="text-[10px] font-semibold text-slate-800">
+                            {{ run.stock.batch_number }}
+                        </p>
+
+                        <p class="text-[8px] text-slate-400">
+                            {{ run.get_process_type_display }}
+                        </p>
+
+                    </div>
+
+                    <span class="text-[10px] font-semibold">
+                        {{ run.input_quantity|floatformat:2 }} kg
+                    </span>
+
+                </div>
+
+            {% endfor %}
+
+
+            {% for run in open_packaging %}
+
+                <div class="px-3 py-2
+                            flex items-center justify-between gap-3">
+
+                    <div>
+
+                        <p class="text-[10px] font-semibold text-slate-800">
+                            {{ run.stock.batch_number }}
+                        </p>
+
+                        <p class="text-[8px] text-blue-600">
+                            Packaging
+                        </p>
+
+                    </div>
+
+                    <span class="text-[10px] font-semibold">
+                        {{ run.input_kg|floatformat:2 }} kg
+                    </span>
+
+                </div>
+
+            {% endfor %}
+
+
+            {% if not open_processing and not open_packaging %}
+
+                <p class="p-6 text-center
+                          text-[10px] text-slate-400">
+                    No active work in progress.
+                </p>
+
+            {% endif %}
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         MOVEMENT LEDGER
+         ===================================================== -->
+    <section id="movement-ledger"
+             class="bg-white border border-line
+                    rounded-lg shadow-sm overflow-hidden">
+
+        <div class="px-3 py-2 border-b border-line">
+
+            <h2 class="text-[10px] font-bold
+                       uppercase tracking-wider text-slate-800">
+                Stock Movement Summary
+            </h2>
+
+            <p class="text-[8px] text-slate-400 mt-0.5">
+                Throughput activity; quantities may represent the
+                same coffee moving through multiple stages.
+            </p>
+
+        </div>
+
+
+        <div class="overflow-x-auto">
+
+            <table class="w-full min-w-[420px]">
+
+                <thead class="bg-slate-50
+                              text-[8px] uppercase text-slate-400">
+
+                    <tr>
+
+                        <th class="px-3 py-2 text-left">
+                            Movement
+                        </th>
+
+                        <th class="px-3 py-2 text-center">
+                            Entries
+                        </th>
+
+                        <th class="px-3 py-2 text-right">
+                            Quantity
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody class="divide-y divide-line">
+
+                    {% for row in movement_rows %}
+
+                        <tr>
+
+                            <td class="px-3 py-2
+                                       text-[10px] font-semibold
+                                       text-slate-700">
+                                {{ row.label }}
+                            </td>
+
+                            <td class="px-3 py-2
+                                       text-[9px] text-center">
+                                {{ row.count }}
+                            </td>
+
+                            <td class="px-3 py-2
+                                       text-[9px] font-semibold
+                                       text-right">
+                                {{ row.kg|floatformat:2|intcomma }} kg
+                            </td>
+
+                        </tr>
+
+                    {% empty %}
+
+                        <tr>
+
+                            <td colspan="3"
+                                class="p-6 text-center
+                                       text-[10px] text-slate-400">
+                                No stock movements in this period.
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         EXCEPTIONS
+         ===================================================== -->
+    <section id="exceptions"
+             class="bg-white border
+                    {% if exception_count > 0 %}
+                        border-red-200
+                    {% else %}
+                        border-line
+                    {% endif %}
+                    rounded-lg shadow-sm overflow-hidden">
+
+        <div class="px-3 py-2 border-b border-line
+                    flex items-center justify-between gap-3">
+
+            <div>
+
+                <h2 class="text-[10px] font-bold
+                           uppercase tracking-wider text-slate-800">
+                    Reconciliation Exceptions
+                </h2>
+
+                <p class="text-[8px] text-slate-400 mt-0.5">
+                    Runs where input does not reconcile with
+                    outputs plus recorded loss.
+                </p>
+
+            </div>
+
+            <span class="text-[9px] font-bold
+                         {% if exception_count > 0 %}
+                             text-red-600
+                         {% else %}
+                             text-emerald-700
+                         {% endif %}">
+                {{ exception_count }}
+            </span>
+
+        </div>
+
+
+        <div class="divide-y divide-line">
+
+            {% for item in exceptions %}
+
+                <div class="px-3 py-2
+                            flex items-center justify-between gap-3">
+
+                    <div>
+
+                        <p class="text-[10px] font-semibold text-red-600">
+                            {{ item.kind }} #{{ item.id }}
+                        </p>
+
+                        <p class="text-[8px] text-slate-400">
+                            Batch {{ item.batch }}
+                        </p>
+
+                    </div>
+
+                    <div class="text-right">
+
+                        <p class="text-[10px] font-bold text-red-700">
+                            {{ item.variance_kg|floatformat:2 }} kg
+                        </p>
+
+                        <p class="text-[7px] uppercase text-slate-400">
+                            variance
+                        </p>
+
+                    </div>
+
+                </div>
+
+            {% empty %}
+
+                <div class="p-6 text-center">
+
+                    <i class="fa-solid fa-circle-check
+                              text-emerald-500"></i>
+
+                    <p class="text-[10px] text-slate-400 mt-1">
+                        No reconciliation exceptions.
+                    </p>
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+</div>
+
+{% endblock content %}
+
+
+{% block footer %}
+
+<footer
+    class="sticky bottom-0 z-30
+           bg-paper border-t border-line
+           flex-shrink-0 print:hidden"
+>
+    <div class="w-full max-w-7xl mx-auto px-2 sm:px-4 py-2">
+
+        {% include "reports/components/report_nav.html" %}
+
+    </div>
+</footer>
+
+{% endblock footer %}

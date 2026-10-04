@@ -4167,3 +4167,38 @@ class SalesBreakdownReportView(
         })
 
         return context
+
+# ============================================================
+# REPORT PRINT VIEWS
+# Reuse the exact same report calculations.
+# Only the presentation/template changes.
+# ============================================================
+
+
+class StockConsumptionPrintView(
+    StockConsumptionReportView
+):
+    template_name = "reports/print/stock_consumption.html"
+
+
+class SalesPrintView(
+    SalesReportView
+):
+    template_name = "reports/print/sales.html"
+
+
+class FinancePrintView(
+    FinanceReportView
+):
+    template_name = "reports/print/finance.html"
+
+
+class OperationsPrintView(
+    OperationsReportView
+):
+    template_name = "reports/print/operations.html"
+
+class OperationsDetailReportView(
+    OperationsReportView
+):
+    template_name = "reports/operations_detail.html"
