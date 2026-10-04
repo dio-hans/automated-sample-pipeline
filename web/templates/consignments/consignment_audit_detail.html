@@ -1,39 +1,361 @@
-{% extends 'pipeline/base.html' %} {% load humanize %} {% block title %}Audit #{{ audit.pk }} | Nonda{% endblock %} {% block breadcrumb %}{{ company.name }} / {{ branch.branch_name }} / Audit #{{ audit.pk }}{% endblock %} {% block page_title %}Audit #{{ audit.pk }}{% endblock %} {% block page_subtitle %}
-{{ branch.branch_name }} · Submitted {{ audit.audit_date|date:'d M Y, H:i' }} by {{ audit.audited_by }}
+{% extends 'pipeline/base.html' %}
+{% load humanize %}
 
-{% endblock %} {% block header_action %}{% if invoice %}View invoice ↗{% endif %}{% endblock %} {% block content %}
-Approval status
+{% block title %}Audit #{{ audit.pk }} | Nonda{% endblock %}
+{% block breadcrumb %}
+{{ company.name }} / {{ branch.branch_name }} / Audit #{{ audit.pk }}
+{% endblock %}
+{% block page_title %}Audit #{{ audit.pk }}{% endblock %}
 
-{% if audit.status == 'approved' %}Approved{{ audit.approved_at|date:'d M Y, H:i' }}{% elif audit.status == 'pending_approval' %}Awaiting manager approval{% elif audit.status == 'rejected' %}Rejected{% else %}Legacy / unreviewed{% endif %}
-Proposed invoice · UGX
+{% block page_subtitle %}
+<p class="mt-0.5 text-xs text-slate-500">
+    {{ branch.branch_name }} · Submitted
+    {{ audit.audit_date|date:'d M Y, H:i' }}
+    by {{ audit.audited_by }}
+</p>
+{% endblock %}
 
-{{ audit_total|floatformat:0|intcomma }}
-
-{% if audit.rejection_reason %}
-Rejection reason: {{ audit.rejection_reason }}
+{% block header_action %}
+{% if invoice %}
+<a
+    href="{% url 'consignment_invoice' company.pk branch.pk invoice.pk %}"
+    class="inline-flex h-8 items-center rounded-md
+           border border-line bg-white px-3
+           text-xs font-medium text-slate-700 hover:bg-slate-50"
+>
+    Invoice {{ invoice.number }} ↗
+</a>
 {% endif %}
-Count reconciliation
-Sold = expected − actual − damaged/missing. Allocations appear after approval.
+{% endblock %}
 
-{% for item in items %}{% empty %}{% endfor %}
-Product	Expected (S / B)	Actual (S / B)	Shrinkage (S / B)	Sold	Unit price	Amount · UGX
-{{ item.product }}{% if audit.status == 'approved' %}
-{% for allocation in item.consignment_allocations.all %}Release #{{ allocation.release_id }} × {{ allocation.quantity }}{% if not forloop.last %} · {% endif %}{% endfor %}
+{% block content %}
 
-{% endif %}	{{ item.expected_shelf }} / {{ item.expected_backroom }}	{{ item.actual_shelf }} / {{ item.actual_backroom }}	{{ item.shrinkage_shelf }} / {{ item.shrinkage_backroom }}	{{ item.quantity_sold }}	{{ item.selling_price|floatformat:0|intcomma }}	{{ item.calculated_amount_due|floatformat:0|intcomma }}
-No audit lines.
-{% if audit.notes %}
-Auditor notes
+<div class="space-y-4">
 
-{{ audit.notes }}
+    <!-- STATUS -->
+    <section class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
 
-{% endif %} {% if audit.status == 'pending_approval' and can_manage %}
-Manager decision
-Approval checks current stock, branch-specific deliveries, prices and FIFO availability; then it creates one invoice and posts ledger movements. It cannot be approved twice.
+        <div class="rounded-lg border border-line bg-white px-3 py-2.5">
 
-{% csrf_token %}Approve & post invoice
-{% csrf_token %}
-Reason for rejection
-Reject audit
-{% endif %} ← Back to branch
+            <p class="text-[10px] uppercase tracking-wide text-slate-400">
+                Approval status
+            </p>
+
+            <div class="mt-1">
+
+                {% if audit.status == 'approved' %}
+
+                <span class="inline-flex rounded-full bg-emerald-50
+                             px-2 py-0.5 text-[11px]
+                             font-semibold text-emerald-700">
+                    Approved
+                </span>
+
+                <span class="ml-2 text-[10px] text-slate-400">
+                    {{ audit.approved_at|date:'d M Y, H:i' }}
+                </span>
+
+                {% elif audit.status == 'pending_approval' %}
+
+                <span class="inline-flex rounded-full bg-amber-50
+                             px-2 py-0.5 text-[11px]
+                             font-semibold text-amber-700">
+                    Awaiting manager approval
+                </span>
+
+                {% elif audit.status == 'rejected' %}
+
+                <span class="inline-flex rounded-full bg-rose-50
+                             px-2 py-0.5 text-[11px]
+                             font-semibold text-rose-700">
+                    Rejected
+                </span>
+
+                {% else %}
+
+                <span class="inline-flex rounded-full bg-slate-100
+                             px-2 py-0.5 text-[11px]
+                             font-semibold text-slate-600">
+                    Legacy / unreviewed
+                </span>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+        <div class="rounded-lg border border-line bg-white px-3 py-2.5">
+
+            <p class="text-[10px] uppercase tracking-wide text-slate-400">
+                Proposed invoice · UGX
+            </p>
+
+            <p class="mt-0.5 text-lg font-semibold text-slate-800">
+                {{ audit_total|floatformat:0|intcomma }}
+            </p>
+
+        </div>
+
+    </section>
+
+    {% if audit.rejection_reason %}
+    <div class="rounded-md border border-rose-200 bg-rose-50
+                px-3 py-2 text-xs text-rose-700">
+
+        <strong>Rejection reason:</strong>
+        {{ audit.rejection_reason }}
+
+    </div>
+    {% endif %}
+
+    <!-- RECONCILIATION -->
+    <section class="rounded-lg border border-line bg-white
+                    shadow-sm overflow-hidden">
+
+        <div class="border-b border-line px-3 py-2.5">
+
+            <h2 class="text-sm font-semibold text-slate-800">
+                Count reconciliation
+            </h2>
+
+            <p class="text-[11px] text-slate-400">
+                Sold = expected − actual − shrinkage.
+                FIFO release allocations appear after approval.
+            </p>
+
+        </div>
+
+        <div class="overflow-x-auto">
+
+            <table class="min-w-[900px] w-full text-xs">
+
+                <thead class="bg-slate-50/80 text-[10px]
+                              uppercase tracking-wide text-slate-500">
+
+                    <tr>
+                        <th class="px-3 py-2 text-left">Product</th>
+                        <th class="px-3 py-2 text-right">Expected S / B</th>
+                        <th class="px-3 py-2 text-right">Actual S / B</th>
+                        <th class="px-3 py-2 text-right">Shrinkage S / B</th>
+                        <th class="px-3 py-2 text-right">Sold</th>
+                        <th class="px-3 py-2 text-right">Unit price</th>
+                        <th class="px-3 py-2 text-right">Amount · UGX</th>
+                    </tr>
+
+                </thead>
+
+                <tbody class="divide-y divide-slate-100">
+
+                    {% for item in items %}
+
+                    <tr>
+
+                        <td class="px-3 py-2.5">
+
+                            <p class="font-medium text-slate-800">
+                                {{ item.product }}
+                            </p>
+
+                            {% if audit.status == 'approved' %}
+
+                            <p class="mt-0.5 text-[10px] text-slate-400">
+
+                                {% for allocation in item.consignment_allocations.all %}
+
+                                Release #{{ allocation.release_id }}
+                                × {{ allocation.quantity }}
+
+                                {% if not forloop.last %}
+                                ·
+                                {% endif %}
+
+                                {% empty %}
+                                No allocation
+                                {% endfor %}
+
+                            </p>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right tabular-nums">
+                            {{ item.expected_shelf }} /
+                            {{ item.expected_backroom }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right tabular-nums">
+                            {{ item.actual_shelf }} /
+                            {{ item.actual_backroom }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right tabular-nums">
+                            {{ item.shrinkage_shelf }} /
+                            {{ item.shrinkage_backroom }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right
+                                   font-semibold tabular-nums">
+                            {{ item.quantity_sold }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right tabular-nums">
+                            {{ item.selling_price|floatformat:0|intcomma }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right
+                                   font-semibold tabular-nums">
+                            {{ item.calculated_amount_due|floatformat:0|intcomma }}
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="7"
+                            class="px-3 py-7 text-center text-xs text-slate-400">
+                            No audit lines.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+    {% if audit.notes %}
+
+    <section class="rounded-lg border border-line bg-white px-3 py-2.5">
+
+        <p class="text-[10px] uppercase tracking-wide text-slate-400">
+            Auditor notes
+        </p>
+
+        <p class="mt-1 text-xs leading-5 text-slate-700">
+            {{ audit.notes }}
+        </p>
+
+    </section>
+
+    {% endif %}
+
+    {% if audit.status == 'pending_approval' and can_manage %}
+
+    <section class="rounded-lg border border-line bg-white shadow-sm">
+
+        <div class="border-b border-line px-3 py-2.5">
+
+            <h2 class="text-sm font-semibold text-slate-800">
+                Manager decision
+            </h2>
+
+            <p class="text-[11px] text-slate-400">
+                Approval rechecks inventory, branch releases,
+                prices and FIFO availability before posting stock
+                movements and the invoice.
+            </p>
+
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 p-3 lg:grid-cols-2">
+
+            <form
+                method="post"
+                action="{% url 'consignment_audit_decision' company.pk branch.pk audit.pk %}"
+                class="rounded-md border border-emerald-200
+                       bg-emerald-50/40 p-3"
+            >
+
+                {% csrf_token %}
+
+                <input
+                    type="hidden"
+                    name="action"
+                    value="approve"
+                >
+
+                <p class="text-xs font-semibold text-emerald-800">
+                    Approve audit
+                </p>
+
+                <p class="mt-0.5 text-[10px] leading-4
+                          text-emerald-700/80">
+                    Posts confirmed sales, shrinkage,
+                    allocations and one consignment invoice.
+                </p>
+
+                <button
+                    class="mt-2 h-8 rounded-md bg-emerald-700
+                           px-3 text-xs font-semibold text-white
+                           hover:bg-emerald-800"
+                >
+                    Approve & post invoice
+                </button>
+
+            </form>
+
+            <form
+                method="post"
+                action="{% url 'consignment_audit_decision' company.pk branch.pk audit.pk %}"
+                class="rounded-md border border-rose-200
+                       bg-rose-50/40 p-3"
+            >
+
+                {% csrf_token %}
+
+                <input
+                    type="hidden"
+                    name="action"
+                    value="reject"
+                >
+
+                <label class="block text-xs font-semibold text-rose-800">
+                    Reject audit
+                </label>
+
+                <textarea
+                    name="reason"
+                    required
+                    rows="2"
+                    placeholder="Reason for rejection"
+                    class="mt-1.5 w-full rounded-md
+                           border border-rose-200 bg-white
+                           px-2.5 py-1.5 text-xs outline-none
+                           focus:border-rose-400"
+                ></textarea>
+
+                <button
+                    class="mt-2 h-8 rounded-md
+                           border border-rose-300 bg-white
+                           px-3 text-xs font-semibold text-rose-700
+                           hover:bg-rose-50"
+                >
+                    Reject audit
+                </button>
+
+            </form>
+
+        </div>
+
+    </section>
+
+    {% endif %}
+
+    <a
+        href="{% url 'consignment_branch_detail' company.pk branch.pk %}"
+        class="inline-flex h-8 items-center text-xs
+               font-medium text-slate-500 hover:text-olive"
+    >
+        ← Back to branch
+    </a>
+
+</div>
+
 {% endblock %}

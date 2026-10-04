@@ -139,3 +139,4 @@ CRISPY_TEMPLATE_PACK = "tailwind"
 # Replace 'web' with the actual app name where your custom User model lives
 AUTH_USER_MODEL = 'web.User'
 
+CONSIGNMENT_AUDIT_INTERVAL_DAYS = 14

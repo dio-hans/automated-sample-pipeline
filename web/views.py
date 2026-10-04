@@ -3886,3 +3886,284 @@ class ExecutivePDFView(ExecutiveExportMixin, TemplateView):
         response['Content-Disposition'] = f'attachment; filename="nonda-executive-{period.preset}.pdf"'
         response['Cache-Control'] = 'private, no-store'
         return response
+
+
+# ============================================================
+# REPORT — INTERNAL USAGE DETAIL
+# ============================================================
+
+@method_decorator(login_required, name="dispatch")
+class InternalUsageReportDetailView(
+    RoleRequiredMixin,
+    TemplateView,
+):
+    template_name = "reports/internal_usage_detail.html"
+
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+    )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        period = resolve_report_period(self.request)
+
+        issues = (
+            InternalStockIssue.objects
+            .select_related(
+                "account",
+                "issued_by",
+            )
+            .prefetch_related(
+                "items__coffee_stock",
+                "items__packaged_product__blend",
+                "items__packaged_product__pack_size",
+            )
+        )
+
+        issues = period.filter_date(
+            issues,
+            "issue_date",
+        )
+
+        rows = []
+        account_totals = {}
+        total_kg = Decimal("0.00")
+
+        for issue in issues:
+
+            issue_total = Decimal("0.00")
+            item_rows = []
+
+            for item in issue.items.all():
+
+                if item.packaged_product_id:
+
+                    kg = (
+                        Decimal(item.packs or 0)
+                        * Decimal(
+                            str(
+                                item.packaged_product.kg_per_pack
+                            )
+                        )
+                    )
+
+                    item_name = str(
+                        item.packaged_product
+                    )
+
+                    quantity_label = (
+                        f"{item.packs} packs"
+                    )
+
+                else:
+
+                    kg = Decimal(
+                        str(item.quantity_kg or 0)
+                    )
+
+                    item_name = str(
+                        item.coffee_stock
+                    )
+
+                    if item.stock_stage:
+                        item_name += (
+                            f" · "
+                            f"{item.get_stock_stage_display()}"
+                        )
+
+                    quantity_label = (
+                        f"{item.quantity_kg} kg"
+                    )
+
+                issue_total += kg
+
+                item_rows.append({
+                    "name": item_name,
+                    "quantity": quantity_label,
+                    "kg": kg,
+                })
+
+            total_kg += issue_total
+
+            account_name = issue.account.name
+
+            account_totals[account_name] = (
+                account_totals.get(
+                    account_name,
+                    Decimal("0.00"),
+                )
+                + issue_total
+            )
+
+            rows.append({
+                "issue": issue,
+                "kg": issue_total,
+                "items": item_rows,
+            })
+
+        summary = [
+            {
+                "name": name,
+                "kg": kg,
+            }
+            for name, kg in account_totals.items()
+        ]
+
+        summary.sort(
+            key=lambda row: row["kg"],
+            reverse=True,
+        )
+
+        context.update({
+            "period": period,
+            "period_label": period.label,
+            "preset": period.preset,
+            "total_kg": total_kg,
+            "summary": summary,
+            "rows": rows,
+        })
+
+        return context
+
+
+# ============================================================
+# REPORT — PRODUCTION LOSS DETAIL
+# ============================================================
+
+@method_decorator(login_required, name="dispatch")
+class ProductionLossReportDetailView(
+    RoleRequiredMixin,
+    TemplateView,
+):
+    template_name = "reports/production_loss_detail.html"
+
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+    )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        period = resolve_report_period(self.request)
+
+        processing_runs = (
+            ProcessingRun.objects
+            .filter(
+                status="completed",
+                loss_quantity__gt=0,
+            )
+            .select_related(
+                "stock",
+                "stock__variety",
+                "completed_by",
+            )
+        )
+
+        processing_runs = period.filter_datetime(
+            processing_runs,
+            "completed_at",
+        ).order_by(
+            "-loss_quantity",
+            "-completed_at",
+        )
+
+
+        packaging_runs = (
+            PackagingRun.objects
+            .filter(
+                status="completed",
+                loss_kg__gt=0,
+            )
+            .select_related(
+                "stock",
+                "stock__variety",
+                "product",
+                "product__blend",
+                "product__pack_size",
+                "completed_by",
+            )
+        )
+
+        packaging_runs = period.filter_datetime(
+            packaging_runs,
+            "completed_at",
+        ).order_by(
+            "-loss_kg",
+            "-completed_at",
+        )
+
+
+        processing_total = sum(
+            (
+                run.loss_quantity
+                for run in processing_runs
+            ),
+            Decimal("0.00"),
+        )
+
+        packaging_total = sum(
+            (
+                run.loss_kg
+                for run in packaging_runs
+            ),
+            Decimal("0.00"),
+        )
+
+        context.update({
+            "period": period,
+            "period_label": period.label,
+            "preset": period.preset,
+            "processing_runs": processing_runs,
+            "packaging_runs": packaging_runs,
+            "processing_total": processing_total,
+            "packaging_total": packaging_total,
+            "total_loss": (
+                processing_total
+                + packaging_total
+            ),
+        })
+
+        return context
+
+
+# ============================================================
+# REPORT — SALES DETAIL
+# ============================================================
+
+@method_decorator(login_required, name="dispatch")
+class SalesBreakdownReportView(
+    RoleRequiredMixin,
+    TemplateView,
+):
+    template_name = "reports/sales_detail.html"
+
+    allowed_roles = (
+        User.Role.ADMIN,
+        User.Role.MANAGER,
+        User.Role.ACCOUNTS,
+    )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        period = resolve_report_period(
+            self.request
+        )
+
+        report = get_sales_report(
+            period
+        )
+
+        context.update({
+            "period": period,
+            "period_label": period.label,
+            "preset": period.preset,
+            **report,
+        })
+
+        return context

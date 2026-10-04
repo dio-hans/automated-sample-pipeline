@@ -84,8 +84,17 @@ def _refresh_request_status(stock_request):
 
 
 @transaction.atomic
-def create_stock_request(*, user, purpose, destination_type="agent_float", items,
-                         account_holder=None, company=None, notes=""):
+def create_stock_request(
+    *,
+    user,
+    purpose,
+    destination_type="agent_float",
+    items,
+    account_holder=None,
+    company=None,
+    branch=None,
+    notes="",
+):
     """Create a request. Display requests cannot be fulfilled by ordinary dispatch."""
     if not items:
         raise ValidationError("Add at least one product to the request.")
@@ -100,7 +109,7 @@ def create_stock_request(*, user, purpose, destination_type="agent_float", items
 
     request = StockRequest.objects.create(
         requested_by=user, company=company, purpose=purpose, notes=notes,
-        account_holder=account_holder, destination_type=destination_type,
+        account_holder=account_holder, destination_type=destination_type, branch=None
     )
     for product, quantity in validated:
         StockRequestItem.objects.create(
@@ -127,55 +136,157 @@ def execute_stock_request_fulfillment(request_item, packs_to_issue, user, notes=
 
 
 @transaction.atomic
-def fulfill_request_item(*, item, quantity, selling_price, manager, notes=""):
-    """Issue ordinary stock exactly once; PackagedInventory.available is ledger-derived."""
-    item = (StockRequestItem.objects.select_for_update()
-            .select_related("request", "request__company", "product")
-            .get(pk=item.pk))
+def fulfill_request_item(
+    *,
+    item,
+    quantity,
+    selling_price,
+    manager,
+    notes="",
+):
+    """
+    Issue packaged stock against one request item.
+
+    Ordinary requests:
+        create a normal PackRelease.
+
+    Consignment/display requests:
+        create a branch-linked PackRelease and place the
+        issued packs into the branch backroom ledger.
+    """
+
+    item = (
+        StockRequestItem.objects
+        .select_for_update()
+        .select_related(
+            "request",
+            "request__company",
+            "request__branch",
+            "product",
+        )
+        .get(pk=item.pk)
+    )
+
     request = item.request
 
-    # IMPORTANT: Must be BEFORE the warehouse check and PackRelease.objects.create().
-    if request.purpose == "display":
+    quantity = int(quantity)
+    selling_price = Decimal(str(selling_price))
+
+    if request.status == "cancelled":
         raise ValidationError(
-            "Use the branch-specific Consignment Delivery page for supermarket display stock."
+            "This stock request is cancelled."
         )
-    if request.status in ("cancelled", "fulfilled"):
-        raise ValidationError("This stock request is already cancelled or fulfilled.")
 
-    quantity = _positive_int(quantity, "Issue quantity")
-    selling_price = _money(selling_price, "Price per pack")
-    if selling_price < ZERO or (request.purpose == "sale" and selling_price == ZERO):
-        raise ValidationError("Sale releases require a positive price per pack.")
+    if quantity <= 0:
+        raise ValidationError(
+            "Issue quantity must be greater than zero."
+        )
+
+    if selling_price < 0:
+        raise ValidationError(
+            "Price per pack cannot be negative."
+        )
+
     if quantity > item.outstanding_quantity:
-        raise ValidationError(f"Only {item.outstanding_quantity} packs remain on this item.")
+        raise ValidationError(
+            f"Only {item.outstanding_quantity} packs "
+            f"remain to fulfil this item."
+        )
 
-    product = PackagedProduct.objects.select_for_update().get(pk=item.product_id)
-    inventory = (PackagedInventory.objects.select_for_update()
-                 .filter(product=product).first())
-    if inventory is None:
-        raise ValidationError(f"No packaged inventory record exists for {product}.")
-    if quantity > inventory.available:
-        raise ValidationError(f"Only {inventory.available} packs of {product} are in the warehouse.")
+    product = (
+        PackagedProduct.objects
+        .select_for_update()
+        .get(pk=item.product_id)
+    )
+
+    try:
+        inventory = (
+            PackagedInventory.objects
+            .select_for_update()
+            .get(product=product)
+        )
+    except PackagedInventory.DoesNotExist:
+        raise ValidationError(
+            f"No packaged stock exists for {product}."
+        )
+
+    available = inventory.available
+
+    if quantity > available:
+        raise ValidationError(
+            f"Only {available} packs of {product} "
+            f"are currently available."
+        )
+
+    # ---------------------------------------------------------
+    # ACCOUNT HOLDER
+    # ---------------------------------------------------------
 
     target_account = request.account_holder
-    if target_account is None and request.company_id:
+
+    if (
+        not target_account
+        and request.company
+        and request.company.account_holder
+    ):
         target_account = request.company.account_holder
-    if target_account is None:
-        owner = request.requested_by
+
+    if not target_account:
+        request_user = request.requested_by
+
         target_account, _ = AccountHolder.objects.get_or_create(
-            system_user=owner,
+            system_user=request_user,
             defaults={
-                "name": owner.get_full_name() or owner.username,
+                "name": (
+                    request_user.get_full_name()
+                    or request_user.username
+                ),
                 "account_type": "salesperson",
                 "is_active": True,
             },
         )
+
+
+    # ---------------------------------------------------------
+    # CONSIGNMENT VALIDATION
+    # ---------------------------------------------------------
+
+    release_branch = None
+
+    if request.purpose == "display":
+
+        if not request.branch_id:
+            raise ValidationError(
+                "This consignment request has no destination branch."
+            )
+
+        if request.branch.company_id != request.company_id:
+            raise ValidationError(
+                "The request branch does not belong to the request company."
+            )
+
+        if StockAudit.objects.filter(
+            branch=request.branch,
+            status="pending_approval",
+        ).exists():
+            raise ValidationError(
+                "This branch has a pending audit. "
+                "Approve or reject it before issuing more stock."
+            )
+
+        release_branch = request.branch
+
+
+    # ---------------------------------------------------------
+    # PHYSICAL RELEASE
+    # ---------------------------------------------------------
 
     release = PackRelease.objects.create(
         product=product,
         request_item=item,
         released_to=target_account,
         company=request.company,
+        branch=release_branch,
         purpose=request.purpose,
         packs_out=quantity,
         selling_price=selling_price,
@@ -183,11 +294,78 @@ def fulfill_request_item(*, item, quantity, selling_price, manager, notes=""):
         created_by=manager,
         notes=notes,
     )
-    # Do NOT also subtract product.current_stock: warehouse stock is derived
-    # from produced - released + approved, resalable returned packs.
-    _refresh_request_status(request)
-    return release
 
+
+    # ---------------------------------------------------------
+    # CONSIGNMENT BRANCH STOCK
+    # All new deliveries arrive into BACKROOM first.
+    # ---------------------------------------------------------
+
+    if request.purpose == "display":
+
+        branch_inventory, _ = (
+            ConsignmentInventory.objects
+            .select_for_update()
+            .get_or_create(
+                branch=request.branch,
+                product=product,
+                defaults={
+                    "current_shelf_quantity": 0,
+                    "current_backroom_quantity": 0,
+                },
+            )
+        )
+
+        branch_inventory.current_backroom_quantity += quantity
+
+        branch_inventory.save(
+            update_fields=[
+                "current_backroom_quantity",
+            ]
+        )
+
+        BranchStockLedger.objects.create(
+            branch=request.branch,
+            product=product,
+            stock_location="backroom",
+            transaction_type="delivery",
+            quantity=quantity,
+            release=release,
+            created_by=manager,
+        )
+
+
+    # ---------------------------------------------------------
+    # REQUEST STATUS
+    # ---------------------------------------------------------
+
+    request.refresh_from_db()
+
+    request_items = (
+        request.items
+        .prefetch_related("releases")
+        .all()
+    )
+
+    if all(
+        request_item.outstanding_quantity == 0
+        for request_item in request_items
+    ):
+        request.status = "fulfilled"
+        request.fulfilled_at = timezone.now()
+
+    else:
+        request.status = "partially_fulfilled"
+        request.fulfilled_at = None
+
+    request.save(
+        update_fields=[
+            "status",
+            "fulfilled_at",
+        ]
+    )
+
+    return release
 
 @transaction.atomic
 def return_packs(*, release, packs_returned, condition, disposition,

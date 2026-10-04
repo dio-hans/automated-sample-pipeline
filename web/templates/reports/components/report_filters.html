@@ -1,83 +1,124 @@
-<form method="get" class="bg-white border border-gray-200 rounded shadow-sm p-1.5 px-2.5">
-  <div class="flex flex-wrap items-center gap-1.5">
-    
-    <!-- Left Group: Quick Filter Presets -->
-    <a href="?period=today"
-       class="px-2.5 py-1 rounded border text-[11px] font-semibold transition
-       {% if preset == 'today' %}
-           bg-olive text-white border-olive
-       {% else %}
-           bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100
-       {% endif %}">
-        Today
-    </a>
+<form method="get"
+      class="bg-white border border-line rounded-lg shadow-sm px-2.5 sm:px-3 py-2">
 
-    <a href="?period=yesterday"
-       class="px-2.5 py-1 rounded border text-[11px] font-semibold transition
-       {% if preset == 'yesterday' %}
-           bg-olive text-white border-olive
-       {% else %}
-           bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100
-       {% endif %}">
-        Yesterday
-    </a>
+    <div class="flex flex-wrap items-center gap-1.5">
 
-    <a href="?period=this_week"
-       class="px-2.5 py-1 rounded border text-[11px] font-semibold transition
-       {% if preset == 'this_week' %}
-           bg-olive text-white border-olive
-       {% else %}
-           bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100
-       {% endif %}">
-        This Week
-    </a>
+        <!-- QUICK PRESETS -->
+        <a href="?period=today"
+           class="px-2.5 py-1 rounded-md border text-[10px] font-semibold transition
+           {% if preset == 'today' %}
+               bg-olive text-white border-olive
+           {% else %}
+               bg-slate-50 text-slate-600 border-line hover:bg-slate-100
+           {% endif %}">
+            Today
+        </a>
 
-    <a href="?period=this_month"
-       class="px-2.5 py-1 rounded border text-[11px] font-semibold transition
-       {% if preset == 'this_month' %}
-           bg-olive text-white border-olive
-       {% else %}
-           bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100
-       {% endif %}">
-        This Month
-    </a>
+        <a href="?period=yesterday"
+           class="px-2.5 py-1 rounded-md border text-[10px] font-semibold transition
+           {% if preset == 'yesterday' %}
+               bg-olive text-white border-olive
+           {% else %}
+               bg-slate-50 text-slate-600 border-line hover:bg-slate-100
+           {% endif %}">
+            Yesterday
+        </a>
 
-    <a href="?period=overall"
-       class="px-2.5 py-1 rounded border text-[11px] font-semibold transition
-       {% if preset == 'overall' %}
-           bg-olive text-white border-olive
-       {% else %}
-           bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100
-       {% endif %}">
-        Overall
-    </a>
+        <a href="?period=this_week"
+           class="px-2.5 py-1 rounded-md border text-[10px] font-semibold transition
+           {% if preset == 'this_week' %}
+               bg-olive text-white border-olive
+           {% else %}
+               bg-slate-50 text-slate-600 border-line hover:bg-slate-100
+           {% endif %}">
+            This Week
+        </a>
 
-    <!-- Right Group: Custom Date Filters (Pushed to Far Right with ml-auto) -->
-    <div class="flex items-center gap-1.5 sm:ml-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-gray-100 w-full sm:w-auto">
-      <div class="hidden lg:block h-4 border-r border-gray-200 mr-1"></div>
-      <input type="hidden" name="period" value="custom">
-      
-      <input
-          type="date"
-          name="start_date"
-          value="{{ period.start_date|date:'Y-m-d' }}"
-          class="rounded border border-gray-200 px-2 py-0.5 text-[11px] text-gray-700 focus:outline-none focus:border-gray-400"
-      >
-      <span class="text-[11px] text-gray-400 font-medium">to</span>
-      <input
-          type="date"
-          name="end_date"
-          value="{{ period.end_date|date:'Y-m-d' }}"
-          class="rounded border border-gray-200 px-2 py-0.5 text-[11px] text-gray-700 focus:outline-none focus:border-gray-400"
-      >
-      
-      <button
-          type="submit"
-          class="px-3 py-1 rounded bg-gray-900 hover:bg-gray-800 text-white text-[11px] font-semibold transition"
-      >
-          Apply
-      </button>
+        <a href="?period=this_month"
+           class="px-2.5 py-1 rounded-md border text-[10px] font-semibold transition
+           {% if preset == 'this_month' %}
+               bg-olive text-white border-olive
+           {% else %}
+               bg-slate-50 text-slate-600 border-line hover:bg-slate-100
+           {% endif %}">
+            This Month
+        </a>
+
+        <a href="?period=overall"
+           class="px-2.5 py-1 rounded-md border text-[10px] font-semibold transition
+           {% if preset == 'overall' %}
+               bg-olive text-white border-olive
+           {% else %}
+               bg-slate-50 text-slate-600 border-line hover:bg-slate-100
+           {% endif %}">
+            Overall
+        </a>
+
+
+        <!-- CUSTOM RANGE -->
+        <div class="w-full sm:w-auto sm:ml-auto
+                    flex flex-wrap sm:flex-nowrap items-center gap-1.5
+                    pt-2 sm:pt-0 mt-1 sm:mt-0
+                    border-t sm:border-t-0 border-line">
+
+            <div class="hidden lg:block h-4 border-r border-line mr-1"></div>
+
+            <input type="hidden"
+                   name="period"
+                   value="custom">
+
+            <!-- START DATE -->
+            <div class="flex-1 min-w-[130px] sm:flex-none">
+
+                <input
+                    type="date"
+                    name="start_date"
+                    value="{{ period.start_date|date:'Y-m-d' }}"
+                    class="w-full sm:w-auto h-8
+                           rounded-md border border-line
+                           px-2 text-[10px] sm:text-[11px]
+                           text-slate-700 bg-white
+                           focus:outline-none focus:border-olive"
+                >
+
+            </div>
+
+
+            <span class="text-[10px] text-slate-400 font-medium shrink-0">
+                to
+            </span>
+
+
+            <!-- END DATE -->
+            <div class="flex-1 min-w-[130px] sm:flex-none">
+
+                <input
+                    type="date"
+                    name="end_date"
+                    value="{{ period.end_date|date:'Y-m-d' }}"
+                    class="w-full sm:w-auto h-8
+                           rounded-md border border-line
+                           px-2 text-[10px] sm:text-[11px]
+                           text-slate-700 bg-white
+                           focus:outline-none focus:border-olive"
+                >
+
+            </div>
+
+
+            <!-- APPLY -->
+            <button
+                type="submit"
+                class="h-8 px-3 rounded-md
+                       bg-slate-800 hover:bg-slate-900
+                       text-white text-[10px] sm:text-[11px]
+                       font-semibold transition shrink-0"
+            >
+                Apply
+            </button>
+
+        </div>
+
     </div>
 
-  </div>
 </form>

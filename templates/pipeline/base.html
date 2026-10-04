@@ -103,7 +103,10 @@
         {% endif %}
 
         <!-- MAIN NAVIGATION -->
-        <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-3.5">
+        <nav
+    id="sidebarNav"
+    class="flex-1 overflow-y-auto px-3 py-4 space-y-3.5"
+>
 
             {% if request.user.role == "MANAGER" %}
                 <div>
@@ -183,9 +186,6 @@
                             <span>Account Holders</span>
                         </a>
 
-                        <a href="{% url 'consignment_list' %}" class="nav-link {% if request.resolver_match.url_name == 'internal_account_list' %}active{% endif %}">
-                                <i class="fas fa-sitemap sidebar-icon"></i>
-                                <span>Consignments</span>
 
                         <a href="{% url 'reports_overview' %}" class="nav-link">
                            <i class="fa-solid fa-chart-line nav-icon"></i>
@@ -198,6 +198,46 @@
                     </div>
                 </div>
             {% endif %}
+                    
+
+            {% if request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
+
+<div>
+
+    <p class="nav-section-title">
+        Consignments
+    </p>
+
+    <div class="space-y-0.5">
+
+        <a
+            href="{% url 'consignment_list' %}"
+            class="nav-link
+            {% if request.resolver_match.url_name == 'consignment_list' or request.resolver_match.url_name == 'consignment_detail' or request.resolver_match.url_name == 'consignment_branch_detail' %}
+            active
+            {% endif %}"
+        >
+            <i class="fa-solid fa-store nav-icon"></i>
+            <span>Consignment Accounts</span>
+        </a>
+
+
+        <a
+            href="{% url 'consignment_audit_list' %}"
+            class="nav-link
+            {% if request.resolver_match.url_name == 'consignment_audit_list' or request.resolver_match.url_name == 'consignment_branch_audit' or request.resolver_match.url_name == 'consignment_audit_detail' %}
+            active
+            {% endif %}"
+        >
+            <i class="fa-solid fa-clipboard-check nav-icon"></i>
+            <span>Audit Schedule</span>
+        </a>
+
+    </div>
+
+</div>
+
+{% endif %}
 
             {% if request.user.role == "ADMIN" %}
                 <div>
@@ -373,15 +413,84 @@
 {% block extra_scripts %}{% endblock %}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    const currentPath = window.location.pathname;
-    const navLinks = document.querySelectorAll("#mainSidebar a.nav-link");
 
-    navLinks.forEach(link => {
+    const sidebarNav = document.getElementById("sidebarNav");
+    const navLinks = document.querySelectorAll("#mainSidebar a.nav-link");
+    const currentPath = window.location.pathname;
+
+    /*
+     * =========================================================
+     * 1. RESTORE SIDEBAR SCROLL POSITION
+     * =========================================================
+     */
+    if (sidebarNav) {
+
+        const savedScroll = sessionStorage.getItem(
+            "nondaSidebarScrollPosition"
+        );
+
+        if (savedScroll !== null) {
+            sidebarNav.scrollTop = parseInt(savedScroll, 10) || 0;
+        }
+
+        /*
+         * Continuously remember where the user has scrolled.
+         */
+        sidebarNav.addEventListener(
+            "scroll",
+            function () {
+
+                sessionStorage.setItem(
+                    "nondaSidebarScrollPosition",
+                    sidebarNav.scrollTop
+                );
+
+            },
+            {
+                passive: true
+            }
+        );
+    }
+
+
+    /*
+     * =========================================================
+     * 2. ACTIVE LINK HANDLING
+     * =========================================================
+     */
+    navLinks.forEach(function (link) {
+
         const linkPath = link.getAttribute("href");
-        if (linkPath && linkPath !== "#" && currentPath === linkPath) {
+
+        if (
+            linkPath &&
+            linkPath !== "#" &&
+            currentPath === linkPath
+        ) {
             link.classList.add("active");
         }
+
+
+        /*
+         * =====================================================
+         * 3. SAVE POSITION BEFORE NAVIGATION
+         * =====================================================
+         */
+        link.addEventListener("click", function () {
+
+            if (!sidebarNav) {
+                return;
+            }
+
+            sessionStorage.setItem(
+                "nondaSidebarScrollPosition",
+                sidebarNav.scrollTop
+            );
+
+        });
+
     });
+
 });
 </script>
 </body>

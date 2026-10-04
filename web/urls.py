@@ -158,6 +158,87 @@ path("reports/executive/", views.ExecutiveReportView.as_view(), name="reports_ex
 path('reports/profitability/', views.ProfitabilityPlaceholderView.as_view(), name='reports_profitability'),
 path('reports/executive/print/', views.ExecutivePrintView.as_view(), name='reports_executive_print'),
 path('reports/executive/pdf/', views.ExecutivePDFView.as_view(), name='reports_executive_pdf'),
+# ============================================================
+# REPORTS
+# ============================================================
+
+path(
+    "reports/",
+    views.ReportOverviewView.as_view(),
+    name="reports_overview",
+),
+
+path(
+    "reports/stock/",
+    views.StockConsumptionReportView.as_view(),
+    name="reports_stock",
+),
+
+path(
+    "reports/sales/",
+    views.SalesReportView.as_view(),
+    name="reports_sales",
+),
+
+path(
+    "reports/finance/",
+    views.FinanceReportView.as_view(),
+    name="reports_finance",
+),
+
+path(
+    "reports/operations/",
+    views.OperationsReportView.as_view(),
+    name="reports_operations",
+),
+
+path(
+    "reports/executive/",
+    views.ExecutiveReportView.as_view(),
+    name="reports_executive",
+),
+
+path(
+    "reports/profitability/",
+    views.ProfitabilityPlaceholderView.as_view(),
+    name="reports_profitability",
+),
+
+path(
+    "reports/executive/print/",
+    views.ExecutivePrintView.as_view(),
+    name="reports_executive_print",
+),
+
+path(
+    "reports/executive/pdf/",
+    views.ExecutivePDFView.as_view(),
+    name="reports_executive_pdf",
+),
+
+
+# ============================================================
+# REPORT DRILL-DOWNS
+# ============================================================
+
+path(
+    "reports/stock/internal-usage/",
+    views.InternalUsageReportDetailView.as_view(),
+    name="reports_internal_usage",
+),
+
+path(
+    "reports/stock/production-loss/",
+    views.ProductionLossReportDetailView.as_view(),
+    name="reports_production_loss",
+),
+
+path(
+    "reports/sales/details/",
+    views.SalesBreakdownReportView.as_view(),
+    name="reports_sales_details",
+),
+
 
 # CONSIGNMENTS — branch-first workflow
 path('sales/consignments/',
@@ -185,4 +266,11 @@ path('sales/consignments/<int:pk>/branches/<int:branch_pk>/invoices/<int:invoice
 # An older link used company-only audit/<pk>/; route it to branch selection.
 path('sales/consignments/<int:pk>/audit/',
      consignment_views.ConsignmentLegacyAuditRedirectView.as_view(), name='consignment_audit'),
+path("sales/consignments/new/",consignment_views.ConsigneeCreateView.as_view(),name="consignee_create",),
+path(
+    "sales/consignments/audits/",
+    sales_views.ConsignmentAuditListView.as_view(),
+    name="consignment_audit_list",
+),
+
 ]

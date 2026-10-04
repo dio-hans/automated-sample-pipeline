@@ -1,4 +1,4 @@
-{% extends 'pipeline/base.html' %}
+{% extends "pipeline/base.html" %}
 {% load humanize %}
 
 {% block title %}Finance & Credit | Nonda{% endblock %}
@@ -9,147 +9,303 @@
 Collections, expenditure, live receivables and debt ageing · {{ period_label }}
 {% endblock %}
 
+{% block header_action %}
+
+<button
+    onclick="window.print()"
+    class="px-3 py-2 rounded-lg border border-line
+           bg-white text-[11px] font-semibold text-slate-700
+           hover:bg-slate-50"
+>
+    <i class="fa-solid fa-print mr-1"></i>
+    Print Report
+</button>
+
+{% endblock %}
+
+
 {% block content %}
-<div class="space-y-4 text-xs text-gray-700">
-  <!-- Navigation & Filters -->
 
-  {% include 'reports/components/report_filters.html' %}
+<div class="space-y-4 text-xs text-gray-700 pb-4">
+
+    <!-- DATE FILTERS -->
+    {% include "reports/components/report_filters.html" %}
 
 
-  <!-- Compact Top Summary Grid (4 Columns) -->
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-    <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
-      <span class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Collected in period</span>
-      <div class="mt-1 text-lg font-bold text-gray-900">UGX {{ collections_total|floatformat:0|intcomma }}</div>
-      <p class="mt-0.5 text-[11px] text-gray-500">{{ payment_count }} settlements</p>
-    </div>
+    <!-- SUMMARY -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
 
-    <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
-      <span class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Expenses in period</span>
-      <div class="mt-1 text-lg font-bold text-red-600">UGX {{ expense_total|floatformat:0|intcomma }}</div>
-    </div>
+        <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
 
-    <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
-      <span class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Collections less expenses</span>
-      <div class="mt-1 text-lg font-bold text-emerald-600">UGX {{ cash_less_expenses|floatformat:0|intcomma }}</div>
-      <p class="mt-0.5 text-[11px] text-gray-400">Not net profit</p>
-    </div>
+            <span class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
+                Collected
+            </span>
 
-    <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
-      <span class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Live packaged receivables</span>
-      <div class="mt-1 text-lg font-bold text-gray-900">UGX {{ outstanding_receivables|floatformat:0|intcomma }}</div>
-    </div>
-  </div>
-
-  <!-- 2-Column Split Section 1: Payment Methods & Expenditure -->
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-    
-    <!-- Payment Methods -->
-    <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
-      <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider mb-2 border-b pb-1.5">Collections by payment method</h3>
-      <div class="divide-y divide-gray-100 max-h-48 overflow-y-auto">
-        {% for row in payment_methods %}
-          <div class="py-1.5 flex justify-between items-center text-xs">
-            <span class="text-gray-600">{{ row.label }}</span>
-            <span class="font-semibold text-gray-900">UGX {{ row.amount|floatformat:0|intcomma }}</span>
-          </div>
-        {% empty %}
-          <p class="text-xs text-gray-400 py-1.5">No payment methods recorded.</p>
-        {% endfor %}
-      </div>
-    </div>
-
-    <!-- Expenditure Ranking -->
-    <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
-      <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider mb-2 border-b pb-1.5">Expenditure ranking</h3>
-      <div class="divide-y divide-gray-100 max-h-48 overflow-y-auto">
-        {% for row in expense_ranking %}
-          <div class="py-1.5 flex justify-between items-center text-xs">
-            <span class="text-gray-600">{{ row.label }}</span>
-            <span class="font-semibold text-gray-900">UGX {{ row.total|floatformat:0|intcomma }}</span>
-          </div>
-        {% empty %}
-          <p class="text-xs text-gray-400 py-1.5">No expenses in selected period.</p>
-        {% endfor %}
-      </div>
-    </div>
-
-  </div>
-
-  <!-- 2-Column Split Section 2: Debtors & Debt Ageing -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
-    
-    <!-- Debtors Table (Takes 2 Columns) -->
-    <div class="lg:col-span-2 p-3 bg-white border border-gray-200 rounded shadow-sm">
-      <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider mb-2 border-b pb-1.5">Debtors · Current Balances</h3>
-      <div class="overflow-x-auto max-h-56 overflow-y-auto">
-        <table class="w-full text-left text-xs text-gray-600">
-          <thead class="text-[11px] uppercase bg-gray-50 text-gray-500 sticky top-0">
-            <tr>
-              <th class="py-1.5 px-3">Account</th>
-              <th class="py-1.5 px-3">Releases</th>
-              <th class="py-1.5 px-3 text-right">Balance</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100">
-            {% for row in debtors %}
-              <tr class="hover:bg-gray-50">
-                <td class="py-1.5 px-3 font-medium text-gray-900">{{ row.name }}</td>
-                <td class="py-1.5 px-3">{{ row.invoices }}</td>
-                <td class="py-1.5 px-3 text-right font-semibold text-gray-900">UGX {{ row.balance|floatformat:0|intcomma }}</td>
-              </tr>
-            {% empty %}
-              <tr>
-                <td colspan="3" class="py-3 px-3 text-center text-gray-400">No confirmed packaged receivables.</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Debt Ageing Sidebar (Takes 1 Column) -->
-    <div class="p-3 bg-white border border-gray-200 rounded shadow-sm flex flex-col justify-between">
-      <div>
-        <div class="flex justify-between items-center mb-2 border-b pb-1.5">
-          <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider">Debt Ageing</h3>
-          <span class="text-[10px] text-gray-400">{{ ageing_basis }}</span>
-        </div>
-        <div class="space-y-2">
-          {% for row in ageing %}
-            <div class="p-2 bg-gray-50 rounded border border-gray-100 flex justify-between items-center">
-              <span class="text-[11px] text-gray-500">{{ row.label }}</span>
-              <span class="text-xs font-bold text-gray-900">UGX {{ row.amount|floatformat:0|intcomma }}</span>
+            <div class="mt-1 text-lg font-bold text-gray-900">
+                UGX {{ collections_total|floatformat:0|intcomma }}
             </div>
-          {% endfor %}
-        </div>
-      </div>
 
-      {% if unallocated_credit %}
-        <div class="mt-3 p-2 bg-blue-50 border-l-2 border-blue-400 text-blue-900 rounded-r text-[11px]">
-          Payments > sales: <strong>UGX {{ unallocated_credit|floatformat:0|intcomma }}</strong>.
+            <p class="mt-0.5 text-[11px] text-gray-500">
+                {{ payment_count }} settlements
+            </p>
+
         </div>
-      {% endif %}
+
+
+        <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
+
+            <span class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
+                Total expenses
+            </span>
+
+            <div class="mt-1 text-lg font-bold text-red-600">
+                UGX {{ expense_total|floatformat:0|intcomma }}
+            </div>
+
+        </div>
+
+
+        <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
+
+            <span class="text-[10px] font-medium text-gray-500 uppercase tracking-wide">
+    Outstanding Packaged Debt
+</span>
+
+<p class="mt-0.5 text-[9px] text-gray-400">
+    Current unpaid balance on packaged sales
+</p>
+
+            <div class="mt-1 text-lg font-bold text-gray-900">
+                UGX {{ outstanding_receivables|floatformat:0|intcomma }}
+            </div>
+
+        </div>
+
     </div>
 
-  </div>
 
-  <!-- Daily Collections (Compact Full Width) -->
-  <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
-    <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider mb-2 border-b pb-1.5">Daily Collections</h3>
-    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-40 overflow-y-auto">
-      {% for row in collection_days %}
-        <div class="p-2 bg-gray-50 rounded border border-gray-100 text-center">
-          <div class="text-[10px] text-gray-400">{{ row.date }}</div>
-          <div class="text-xs font-semibold text-gray-900 mt-0.5">UGX {{ row.amount|floatformat:0|intcomma }}</div>
+    <!-- PAYMENT METHODS + EXPENSES -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+        <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
+
+            <h3 class="text-xs font-bold text-gray-800 uppercase
+                       tracking-wider mb-2 border-b pb-1.5">
+                Collections by payment method
+            </h3>
+
+            <div class="divide-y divide-gray-100 max-h-48 overflow-y-auto">
+
+                {% for row in payment_methods %}
+
+                    <div class="py-1.5 flex justify-between items-center text-xs">
+
+                        <span class="text-gray-600">
+                            {{ row.label }}
+                        </span>
+
+                        <span class="font-semibold text-gray-900">
+                            UGX {{ row.amount|floatformat:0|intcomma }}
+                        </span>
+
+                    </div>
+
+                {% empty %}
+
+                    <p class="text-xs text-gray-400 py-1.5">
+                        No payment methods recorded.
+                    </p>
+
+                {% endfor %}
+
+            </div>
+
         </div>
-      {% empty %}
-        <div class="col-span-full text-center text-xs text-gray-400 py-2">No collections in selected period.</div>
-      {% endfor %}
+
+
+        <div class="p-3 bg-white border border-gray-200 rounded shadow-sm">
+
+            <h3 class="text-xs font-bold text-gray-800 uppercase
+                       tracking-wider mb-2 border-b pb-1.5">
+                Expenditure ranking
+            </h3>
+
+            <div class="divide-y divide-gray-100 max-h-48 overflow-y-auto">
+
+                {% for row in expense_ranking %}
+
+                    <div class="py-1.5 flex justify-between items-center text-xs">
+
+                        <span class="text-gray-600">
+                            {{ row.label }}
+                        </span>
+
+                        <span class="font-semibold text-gray-900">
+                            UGX {{ row.total|floatformat:0|intcomma }}
+                        </span>
+
+                    </div>
+
+                {% empty %}
+
+                    <p class="text-xs text-gray-400 py-1.5">
+                        No expenses in selected period.
+                    </p>
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
     </div>
-  </div>
+
+
+    <!-- DEBTORS / AGEING -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+
+        <div class="lg:col-span-2 p-3 bg-white
+                    border border-gray-200 rounded shadow-sm">
+
+            <h3 class="text-xs font-bold text-gray-800 uppercase
+                       tracking-wider mb-2 border-b pb-1.5">
+                Debtors · Current Balances
+            </h3>
+
+            <div class="overflow-x-auto max-h-56 overflow-y-auto">
+
+                <table class="w-full text-left text-xs text-gray-600">
+
+                    <thead class="text-[11px] uppercase bg-gray-50
+                                  text-gray-500 sticky top-0">
+
+                        <tr>
+                            <th class="py-1.5 px-3">Account</th>
+                            <th class="py-1.5 px-3">Releases</th>
+                            <th class="py-1.5 px-3 text-right">Balance</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody class="divide-y divide-gray-100">
+
+                        {% for row in debtors %}
+
+                            <tr class="hover:bg-gray-50">
+
+                                <td class="py-1.5 px-3 font-medium text-gray-900">
+                                    {{ row.name }}
+                                </td>
+
+                                <td class="py-1.5 px-3">
+                                    {{ row.invoices }}
+                                </td>
+
+                                <td class="py-1.5 px-3 text-right
+                                           font-semibold text-gray-900">
+                                    UGX {{ row.balance|floatformat:0|intcomma }}
+                                </td>
+
+                            </tr>
+
+                        {% empty %}
+
+                            <tr>
+                                <td colspan="3"
+                                    class="py-3 px-3 text-center text-gray-400">
+                                    No confirmed packaged receivables.
+                                </td>
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+
+        <div class="p-3 bg-white border border-gray-200
+                    rounded shadow-sm flex flex-col justify-between">
+
+            <div>
+
+                <div class="flex justify-between items-center
+                            mb-2 border-b pb-1.5">
+
+                    <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                        Debt Ageing
+                    </h3>
+
+                    <span class="text-[10px] text-gray-400">
+                        {{ ageing_basis }}
+                    </span>
+
+                </div>
+
+                <div class="space-y-2">
+
+                    {% for row in ageing %}
+
+                        <div class="p-2 bg-gray-50 rounded border
+                                    border-gray-100 flex justify-between items-center">
+
+                            <span class="text-[11px] text-gray-500">
+                                {{ row.label }}
+                            </span>
+
+                            <span class="text-xs font-bold text-gray-900">
+                                UGX {{ row.amount|floatformat:0|intcomma }}
+                            </span>
+
+                        </div>
+
+                    {% endfor %}
+
+                </div>
+
+            </div>
+
+
+            {% if unallocated_credit %}
+
+                <div class="mt-3 p-2 bg-blue-50
+                            border-l-2 border-blue-400
+                            text-blue-900 rounded-r text-[11px]">
+
+                    Payments &gt; sales:
+                    <strong>
+                        UGX {{ unallocated_credit|floatformat:0|intcomma }}
+                    </strong>.
+
+                </div>
+
+            {% endif %}
+
+        </div>
+
+    </div>
 
 </div>
 
-  {% include 'reports/components/report_nav.html' %}
-{% endblock %}
+{% endblock content %}
+
+
+{% block footer %}
+
+<footer
+    class="sticky bottom-0 z-30
+           bg-paper border-t border-line
+           flex-shrink-0 print:hidden"
+>
+    <div class="w-full max-w-7xl mx-auto px-2 sm:px-4 py-2">
+
+        {% include "reports/components/report_nav.html" %}
+
+    </div>
+</footer>
+
+{% endblock footer %} 

@@ -281,7 +281,6 @@ def get_stock_consumption_report(period):
         "processing_loss",
         processing_loss,
     )
-
     # ------------------------------------------------------
     # 4. PACKAGING LOSS
     # ------------------------------------------------------
@@ -295,6 +294,26 @@ def get_stock_consumption_report(period):
     )
 
     # ------------------------------------------------------
+    # TOTAL RECORDED LOSS
+    # ------------------------------------------------------
+
+    total_loss_kg = (
+        processing_loss
+        + packaging_loss
+    ).quantize(
+        Decimal("0.01")
+    )
+
+    # ------------------------------------------------------
+    # TOTAL CONSUMPTION
+    # ------------------------------------------------------
+
+    total_consumed_kg = sum(
+        categories.values(),
+        ZERO,
+    )
+
+    # ------------------------------------------------------
     # TOTAL
     # ------------------------------------------------------
 
@@ -302,6 +321,8 @@ def get_stock_consumption_report(period):
         categories.values(),
         ZERO,
     )
+
+    
 
     # ------------------------------------------------------
     # CATEGORY BREAKDOWN
@@ -422,6 +443,7 @@ def get_stock_consumption_report(period):
             )
         ),
 
+        "total_loss_kg": total_loss_kg,
         "breakdown": breakdown,
         "internal_accounts": internal_accounts,
         "processing_breakdown": processing_breakdown,

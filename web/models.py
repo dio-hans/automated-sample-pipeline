@@ -4,6 +4,7 @@ from django.db import models
 from django.dispatch import receiver
 from decimal import Decimal
 from django.utils import timezone
+
 import uuid
 from django.db import models
 from django.conf import settings
@@ -1238,6 +1239,14 @@ class StockRequest(models.Model):
         max_length=30, 
         choices=DESTINATION_CHOICES, 
         default="agent_float"
+    )
+
+    branch = models.ForeignKey(
+    "CompanyBranch",
+    on_delete=models.PROTECT,
+    null=True,
+    blank=True,
+    related_name="stock_requests",
     )
     company = models.ForeignKey(
         Company,

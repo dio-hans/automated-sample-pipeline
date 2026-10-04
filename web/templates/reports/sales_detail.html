@@ -1,0 +1,357 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}
+Sales Detail | Nonda
+{% endblock %}
+
+{% block breadcrumb %}
+Management / Reports / Sales / Details
+{% endblock %}
+
+{% block page_title %}
+Sales Detail
+{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Salesperson and bulk-sales supporting detail.
+</p>
+{% endblock %}
+
+
+{% block header_action %}
+<a
+    href="{% url 'reports_sales' %}?{{ request.GET.urlencode }}"
+    class="px-3 py-2 rounded-lg border border-line
+           bg-white text-[11px] font-semibold text-slate-700"
+>
+     Sales Report
+</a>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="space-y-3 pb-4">
+
+    {% include "reports/components/report_filters.html" %}
+
+
+    <section class="bg-white border border-line
+                    rounded-lg shadow-sm overflow-hidden">
+
+        <div class="px-3 py-2 border-b border-line
+                    flex flex-wrap items-center
+                    justify-between gap-2">
+
+            <div>
+
+                <h2 class="text-xs font-bold text-slate-800">
+                    Sales Breakdown
+                </h2>
+
+                <p class="text-[9px] text-slate-400 mt-0.5">
+                    {{ period_label }}
+                </p>
+
+            </div>
+
+
+            <div class="flex gap-1
+                        bg-slate-100 rounded-md p-0.5">
+
+                <button
+                    type="button"
+                    id="salespeopleBtn"
+                    class="px-2.5 py-1 rounded
+                           bg-white text-slate-800 shadow-sm
+                           text-[9px] font-semibold"
+                >
+                    Salespeople
+                </button>
+
+                <button
+                    type="button"
+                    id="bulkBtn"
+                    class="px-2.5 py-1 rounded
+                           text-slate-500
+                           text-[9px] font-semibold"
+                >
+                    Bulk Sales
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- SALESPEOPLE -->
+        <div id="salespeoplePanel">
+
+            <div class="divide-y divide-line">
+
+                {% for row in salespeople %}
+
+                    <div class="px-3 py-2.5
+                                flex items-center
+                                justify-between gap-3">
+
+                        <div class="flex items-center gap-2 min-w-0">
+
+                            <span class="w-6 h-6 rounded-full
+                                         bg-slate-100
+                                         flex items-center justify-center
+                                         text-[9px] font-bold text-slate-500
+                                         shrink-0">
+                                {{ forloop.counter }}
+                            </span>
+
+                            <div class="min-w-0">
+
+                                <p class="text-[10px] font-semibold
+                                          text-slate-800 truncate">
+                                    {{ row.name }}
+                                </p>
+
+                                <p class="text-[9px] text-slate-400">
+                                    {{ row.packs|intcomma }} packs
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <p class="text-[10px] font-bold
+                                  text-emerald-700 whitespace-nowrap">
+                            UGX {{ row.revenue|floatformat:0|intcomma }}
+                        </p>
+
+                    </div>
+
+                {% empty %}
+
+                    <p class="p-6 text-center
+                              text-[10px] text-slate-400">
+                        No salesperson sales recorded.
+                    </p>
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+
+        <!-- BULK SALES -->
+        <div id="bulkPanel"
+             class="hidden">
+
+            <div class="grid grid-cols-3
+                        border-b border-line">
+
+                <div class="p-2.5 border-r border-line">
+
+                    <p class="text-[8px] uppercase
+                              font-bold text-slate-400">
+                        Quantity
+                    </p>
+
+                    <p class="text-sm font-bold
+                              text-slate-800 mt-0.5">
+                        {{ bulk_kg_sold|floatformat:2|intcomma }}
+                        <span class="text-[8px] text-slate-400">kg</span>
+                    </p>
+
+                </div>
+
+
+                <div class="p-2.5 border-r border-line">
+
+                    <p class="text-[8px] uppercase
+                              font-bold text-slate-400">
+                        Revenue
+                    </p>
+
+                    <p class="text-sm font-bold
+                              text-emerald-700 mt-0.5">
+                        UGX {{ bulk_sales_value|floatformat:0|intcomma }}
+                    </p>
+
+                </div>
+
+
+                <div class="p-2.5">
+
+                    <p class="text-[8px] uppercase
+                              font-bold text-slate-400">
+                        Transactions
+                    </p>
+
+                    <p class="text-sm font-bold
+                              text-slate-800 mt-0.5">
+                        {{ bulk_sale_count|intcomma }}
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="divide-y divide-line">
+
+                {% for row in bulk_buyers %}
+
+                    <div class="px-3 py-2.5
+                                flex items-center
+                                justify-between gap-3">
+
+                        <div>
+
+                            <p class="text-[10px] font-semibold
+                                      text-slate-800">
+                                {{ row.name }}
+                            </p>
+
+                            <p class="text-[9px] text-slate-400">
+                                {{ row.kg|floatformat:2 }} kg
+                            </p>
+
+                        </div>
+
+                        <p class="text-[10px] font-bold
+                                  text-slate-800">
+                            UGX {{ row.revenue|floatformat:0|intcomma }}
+                        </p>
+
+                    </div>
+
+                {% empty %}
+
+                    <p class="p-6 text-center
+                              text-[10px] text-slate-400">
+                        No bulk sales during this period.
+                    </p>
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+    </section>
+
+</div>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const salespeopleBtn =
+        document.getElementById("salespeopleBtn");
+
+    const bulkBtn =
+        document.getElementById("bulkBtn");
+
+    const salespeoplePanel =
+        document.getElementById("salespeoplePanel");
+
+    const bulkPanel =
+        document.getElementById("bulkPanel");
+
+
+    function switchPanel(mode) {
+
+        const salespeople =
+            mode === "salespeople";
+
+        salespeoplePanel.classList.toggle(
+            "hidden",
+            !salespeople
+        );
+
+        bulkPanel.classList.toggle(
+            "hidden",
+            salespeople
+        );
+
+
+        salespeopleBtn.classList.toggle(
+            "bg-white",
+            salespeople
+        );
+
+        salespeopleBtn.classList.toggle(
+            "text-slate-800",
+            salespeople
+        );
+
+        salespeopleBtn.classList.toggle(
+            "shadow-sm",
+            salespeople
+        );
+
+        salespeopleBtn.classList.toggle(
+            "text-slate-500",
+            !salespeople
+        );
+
+
+        bulkBtn.classList.toggle(
+            "bg-white",
+            !salespeople
+        );
+
+        bulkBtn.classList.toggle(
+            "text-slate-800",
+            !salespeople
+        );
+
+        bulkBtn.classList.toggle(
+            "shadow-sm",
+            !salespeople
+        );
+
+        bulkBtn.classList.toggle(
+            "text-slate-500",
+            salespeople
+        );
+    }
+
+
+    salespeopleBtn.addEventListener(
+        "click",
+        function () {
+            switchPanel("salespeople");
+        }
+    );
+
+    bulkBtn.addEventListener(
+        "click",
+        function () {
+            switchPanel("bulk");
+        }
+    );
+
+});
+</script>
+
+{% endblock content %}
+
+
+{% block footer %}
+
+<footer
+    class="sticky bottom-0 z-30
+           bg-paper border-t border-line
+           flex-shrink-0 print:hidden"
+>
+    <div class="w-full max-w-7xl mx-auto px-2 sm:px-4 py-2">
+
+        {% include "reports/components/report_nav.html" %}
+
+    </div>
+</footer>
+
+{% endblock footer %}

@@ -126,24 +126,16 @@ class StockRequestItemForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        available_product_ids = []
-
-        inventory_records = (
-            PackagedInventory.objects
-            .select_related("product__blend", "product__pack_size")
-        )
-
-        for inventory in inventory_records:
-            if inventory.available > 0 and inventory.product.is_active:
-                available_product_ids.append(inventory.product_id)
-
+        # IMPORTANT:
+        # Requests may be made even when current packaged stock is zero.
+        # The request waits until stock becomes available.
         self.fields["product"].queryset = (
             PackagedProduct.objects
-            .filter(
-                pk__in=available_product_ids,
-                is_active=True,
+            .filter(is_active=True)
+            .select_related(
+                "blend",
+                "pack_size",
             )
-            .select_related("blend", "pack_size")
             .order_by(
                 "blend__name",
                 "pack_size__grams",
@@ -158,10 +150,13 @@ class StockRequestItemForm(forms.Form):
             available = 0
 
         return (
-            f"{product.blend.name} · {product.pack_size.label} · "
-            f"{product.get_form_display()} — {available} in store"
+            f"{product.blend.name} · "
+            f"{product.pack_size.label} · "
+            f"{product.get_form_display()} — "
+            f"{available} currently in store"
         )
 
+    
 class BaseStockRequestItemFormSet(BaseFormSet):
     def clean(self):
         super().clean()
@@ -189,6 +184,7 @@ StockRequestItemFormSet = formset_factory(
     extra=1,
     max_num=20,
     validate_max=True,
+    can_delete=True,
 )
 
 

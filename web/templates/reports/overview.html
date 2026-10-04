@@ -15,8 +15,7 @@ Management Reports
 
 {% block page_subtitle %}
 <p class="mt-1 text-sm text-slate-500">
-    Executive view of business performance,
-    stock movement and management indicators.
+    Business performance overview and access to detailed management reports.
 </p>
 {% endblock %}
 
@@ -24,124 +23,143 @@ Management Reports
 {% block header_action %}
 <button
     onclick="window.print()"
-    class="px-4 py-2.5 rounded-lg border border-line
-           bg-white text-xs font-semibold text-slate-700"
+    class="px-3 py-2 rounded-lg border border-line
+           bg-white text-[11px] font-semibold text-slate-700
+           hover:bg-slate-50"
 >
-    Print Report
+    <i class="fa-solid fa-print mr-1"></i>
+    Print Overview
 </button>
 {% endblock %}
 
 
 {% block content %}
 
-<div class="space-y-6">
+<div class="space-y-3 pb-4">
 
-    {% include "reports/components/report_nav.html" %}
-
+    <!-- =====================================================
+         FILTERS
+         ===================================================== -->
     {% include "reports/components/report_filters.html" %}
 
 
-    <div>
-        <p class="text-[10px] uppercase tracking-wider
-                  font-bold text-slate-400">
-            Reporting Period
-        </p>
+    <!-- =====================================================
+         CURRENT STOCK / CONSUMPTION SNAPSHOT
+         ===================================================== -->
+    <section class="bg-white border border-line
+                    rounded-lg shadow-sm overflow-hidden">
 
-        <h2 class="font-display text-xl font-bold text-slate-800 mt-1">
-            {{ period_label }}
-        </h2>
-    </div>
-
-
-    <!-- R2 STOCK CONSUMPTION SUMMARY -->
-
-    <section class="bg-white border border-line rounded-xl
-                    shadow-sm overflow-hidden">
-
-        <div class="px-5 py-4 border-b border-line
-                    flex items-center justify-between">
+        <div class="px-3 py-2.5 border-b border-line
+                    flex items-center justify-between gap-3">
 
             <div>
-                <h2 class="text-sm font-bold text-slate-800">
-                    Stock Consumption
+
+                <h2 class="text-xs font-bold text-slate-800">
+                    Stock & Consumption
                 </h2>
 
-                <p class="text-xs text-slate-400 mt-1">
-                    Where coffee left productive inventory.
+                <p class="text-[9px] text-slate-400 mt-0.5">
+                    {{ period_label }}
                 </p>
+
             </div>
 
+
             <a
-                href="{% url 'reports_stock' %}?period={{ preset }}"
-                class="text-xs font-semibold text-olive"
+                href="{% url 'reports_stock' %}?{{ request.GET.urlencode }}"
+                class="text-[9px] font-semibold text-olive
+                       hover:underline whitespace-nowrap"
             >
-                Full report →
+                Open report →
             </a>
 
         </div>
 
 
-        <div class="grid grid-cols-1 md:grid-cols-4">
+        <div class="grid grid-cols-2 lg:grid-cols-4">
 
-            <div class="p-5 border-b md:border-b-0 md:border-r border-line">
+            <!-- TOTAL -->
+            <div class="p-2.5 border-b lg:border-b-0
+                        border-r border-line">
 
-                <p class="text-[10px] uppercase tracking-wider
+                <p class="text-[8px] uppercase tracking-wider
                           font-bold text-slate-400">
                     Total Consumed
                 </p>
 
-                <p class="font-display text-xl font-bold
-                          text-slate-800 mt-2">
+                <p class="font-display text-base sm:text-lg
+                          font-bold text-slate-800 mt-1">
                     {{ consumption.total_consumed_kg|floatformat:2|intcomma }}
-                    kg
+
+                    <span class="text-[9px] text-slate-400">
+                        kg
+                    </span>
                 </p>
 
             </div>
 
 
-            <div class="p-5 border-b md:border-b-0 md:border-r border-line">
+            <!-- SALES -->
+            <div class="p-2.5 border-b lg:border-b-0
+                        lg:border-r border-line">
 
-                <p class="text-[10px] uppercase tracking-wider
+                <p class="text-[8px] uppercase tracking-wider
                           font-bold text-slate-400">
                     Sales
                 </p>
 
-                <p class="font-display text-xl font-bold
-                          text-emerald-700 mt-2">
+                <p class="font-display text-base sm:text-lg
+                          font-bold text-emerald-700 mt-1">
                     {{ consumption.sales_kg|floatformat:2|intcomma }}
-                    kg
+
+                    <span class="text-[9px] text-slate-400">
+                        kg
+                    </span>
                 </p>
 
             </div>
 
 
-            <div class="p-5 border-b md:border-b-0 md:border-r border-line">
+            <!-- INTERNAL -->
+            <div class="p-2.5 border-r border-line">
 
-                <p class="text-[10px] uppercase tracking-wider
+                <p class="text-[8px] uppercase tracking-wider
                           font-bold text-slate-400">
-                    Internal Use
+                    Internal Usage
                 </p>
 
-                <p class="font-display text-xl font-bold
-                          text-amber-700 mt-2">
+                <p class="font-display text-base sm:text-lg
+                          font-bold text-amber-700 mt-1">
                     {{ consumption.internal_kg|floatformat:2|intcomma }}
-                    kg
+
+                    <span class="text-[9px] text-slate-400">
+                        kg
+                    </span>
                 </p>
 
             </div>
 
 
-            <div class="p-5">
+            <!-- LOSS -->
+            <div class="p-2.5">
 
-                <p class="text-[10px] uppercase tracking-wider
+                <p class="text-[8px] uppercase tracking-wider
                           font-bold text-slate-400">
-                    Production Loss
+                    Recorded Loss
                 </p>
 
-                <p class="font-display text-xl font-bold
-                          text-rose-700 mt-2">
-                    {{ consumption.processing_loss_kg|floatformat:2|intcomma }}
-                    kg
+                <p class="font-display text-base sm:text-lg
+                          font-bold text-rose-700 mt-1">
+
+                    {% if consumption.total_loss_kg is not None %}
+                        {{ consumption.total_loss_kg|floatformat:2|intcomma }}
+                    {% else %}
+                        {{ consumption.processing_loss_kg|floatformat:2|intcomma }}
+                    {% endif %}
+
+                    <span class="text-[9px] text-slate-400">
+                        kg
+                    </span>
                 </p>
 
             </div>
@@ -151,79 +169,120 @@ Management Reports
     </section>
 
 
-    <!-- NEXT REPORT MODULES -->
+    <!-- =====================================================
+         REPORT DIRECTORY
+         ===================================================== -->
+    <section>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="flex items-end justify-between gap-3 mb-2">
 
-        <a href="{% url 'reports_sales' %}?period={{ preset }}"
-   class="bg-white border border-line rounded-xl
-          p-5 shadow-sm hover:shadow-md transition block">
+            <div>
 
-    <div class="flex items-start justify-between gap-3">
+                <h2 class="text-xs font-bold text-slate-800">
+                    Reports
+                </h2>
 
-        <div>
+                <p class="text-[9px] text-slate-400 mt-0.5">
+                    Open a report for detailed analysis and printing.
+                </p>
 
-            <p class="text-[10px] uppercase tracking-wider
-                      font-bold text-slate-400">
-                Sales & Revenue
-            </p>
-
-            <p class="font-display text-xl font-bold
-                      text-slate-800 mt-2">
-                UGX {{ sales.total_sales_value|floatformat:0|intcomma }}
-            </p>
+            </div>
 
         </div>
 
-        <span class="text-olive text-sm">
-            →
-        </span>
+            <!-- FINANCE -->
 
-    </div>
 
-    <div class="flex items-center gap-4 mt-4 text-[10px] text-slate-500">
+            <!-- EXECUTIVE -->
+            <div class="bg-white border border-line
+                        rounded-lg shadow-sm p-3">
 
-        <span>
-            {{ sales.packaged_packs_sold|intcomma }} packs
-        </span>
+                <div class="flex items-start justify-between gap-3">
 
-        <span>
-            {{ sales.bulk_kg_sold|floatformat:2 }} kg bulk
-        </span>
+                    <div class="flex items-start gap-2.5">
 
-    </div>
+                        <div class="w-8 h-8 rounded-lg
+                                    bg-slate-100 text-slate-700
+                                    flex items-center justify-center shrink-0">
 
-</a>
+                            <i class="fa-solid fa-briefcase text-xs"></i>
 
-        <div class="border border-dashed border-line rounded-xl p-5 bg-slate-50/40">
-            <p class="text-xs font-bold text-slate-700">
-                Finance & Expenses
-            </p>
-            <p class="text-xs text-slate-400 mt-1">
-                R4
-            </p>
+                        </div>
+
+                        <div>
+
+                            <h3 class="text-[11px] font-bold text-slate-800">
+                                Executive Overview
+                            </h3>
+
+                            <p class="text-[9px] text-slate-400 mt-1 leading-relaxed">
+                                Management-level summary across all reports.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="flex flex-wrap gap-1.5 mt-3">
+
+                    <a
+                        href="{% url 'reports_executive' %}?{{ request.GET.urlencode }}"
+                        class="px-2 py-1 rounded
+                               bg-slate-800 text-white
+                               text-[9px] font-semibold"
+                    >
+                        Open
+                    </a>
+
+                    <a
+                        href="{% url 'reports_executive_print' %}?{{ request.GET.urlencode }}"
+                        class="px-2 py-1 rounded
+                               border border-line
+                               text-[9px] font-semibold text-slate-600"
+                    >
+                        Print
+                    </a>
+
+                    <a
+                        href="{% url 'reports_executive_pdf' %}?{{ request.GET.urlencode }}"
+                        class="px-2 py-1 rounded
+                               border border-line
+                               text-[9px] font-semibold text-slate-600"
+                    >
+                        PDF
+                    </a>
+
+                </div>
+
+            </div>
+
+
+           
+
         </div>
 
-        <div class="border border-dashed border-line rounded-xl p-5 bg-slate-50/40">
-            <p class="text-xs font-bold text-slate-700">
-                Credit & Receivables
-            </p>
-            <p class="text-xs text-slate-400 mt-1">
-                R4
-            </p>
-        </div>
-
-        <div class="border border-dashed border-line rounded-xl p-5 bg-slate-50/40">
-            <p class="text-xs font-bold text-slate-700">
-                Operations
-            </p>
-            <p class="text-xs text-slate-400 mt-1">
-                R5
-            </p>
-        </div>
-
-    </div>
+    </section>
 
 </div>
 
-{% endblock %}
+{% endblock content %}
+
+
+{% block footer %}
+
+<footer
+    class="sticky bottom-0 z-30
+           bg-paper border-t border-line
+           flex-shrink-0 print:hidden"
+>
+    <div class="w-full max-w-7xl mx-auto px-2 sm:px-4 py-2">
+
+        {% include "reports/components/report_nav.html" %}
+
+    </div>
+</footer>
+
+{% endblock footer %}

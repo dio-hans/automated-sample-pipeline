@@ -1,3 +1,14 @@
+
+from datetime import timedelta
+from datetime import timedelta
+
+from django.conf import settings
+from django.core.paginator import Paginator
+from django.db.models import Q, Prefetch
+from django.utils import timezone
+from django.conf import settings
+from django.core.paginator import Paginator
+from django.utils import timezone
 from django.db.models import Q, Prefetch
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -8,9 +19,9 @@ from django.views import View
 from django.views.generic import DetailView, ListView, TemplateView
 from django.forms import formset_factory
 from .sales_forms import PaymentReceiptForm
-from .sales_workflow import record_installment_payment
+from .sales_workflow import create_stock_request, record_installment_payment
 from .sales_forms import PackReturnForm
-from .models import  AccountHolder, ConsignmentInventory, PackagedProduct
+from .models import  AccountHolder, CompanyBranch, ConsignmentInventory, PackagedProduct, StockAudit
 from .models import (
     Company,
     PackRelease,
@@ -984,4 +995,254 @@ class ConsignmentListView(RoleRequiredMixin, ListView):
             company.last_display_audit = company.audits.all().order_by("-audit_date").first()
         return qs
 
+
+class ConsignmentAuditListView(RoleRequiredMixin, View):
+    """
+    Global audit schedule across every active consignment branch.
+
+    Designed to remain usable when Nonda has hundreds of branches.
+    """
+
+    allowed_roles = (
+                    User.Role.ACCOUNTS,
+                    User.Role.ADMIN,)
     
+    template_name = "consignments/consignment_audit_list.html"
+
+    def get(self, request):
+
+        interval_days = getattr(
+            settings,
+            "CONSIGNMENT_AUDIT_INTERVAL_DAYS",
+            14,
+        )
+
+        search = request.GET.get(
+            "q",
+            "",
+        ).strip()
+
+        status_filter = request.GET.get(
+            "status",
+            "",
+        ).strip()
+
+        branches = (
+            CompanyBranch.objects
+            .filter(is_active=True)
+            .select_related("company")
+            .prefetch_related(
+                "consignment_inventories",
+                Prefetch(
+                    "audits",
+                    queryset=(
+                        StockAudit.objects
+                        .filter(status="approved")
+                        .order_by(
+                            "-approved_at",
+                            "-audit_date",
+                        )
+                    ),
+                    to_attr="approved_audits",
+                ),
+                Prefetch(
+                    "audits",
+                    queryset=(
+                        StockAudit.objects
+                        .filter(status="pending_approval")
+                        .order_by("-audit_date")
+                    ),
+                    to_attr="pending_audits",
+                ),
+            )
+            .order_by(
+                "company__name",
+                "branch_name",
+            )
+        )
+
+        if search:
+            branches = branches.filter(
+                Q(company__name__icontains=search)
+                | Q(branch_name__icontains=search)
+                | Q(address__icontains=search)
+            )
+
+        today = timezone.localdate()
+
+        rows = []
+
+        for branch in branches:
+
+            inventories = list(
+                branch.consignment_inventories.all()
+            )
+
+            stock_on_hand = sum(
+                inventory.total_consignment_stock
+                for inventory in inventories
+            )
+
+            latest_audit = (
+                branch.approved_audits[0]
+                if branch.approved_audits
+                else None
+            )
+
+            pending_audit = (
+                branch.pending_audits[0]
+                if branch.pending_audits
+                else None
+            )
+
+
+            # -------------------------------------------------
+            # NO STOCK
+            # -------------------------------------------------
+
+            if stock_on_hand <= 0:
+                audit_status = "no_stock"
+                last_audited = (
+                    latest_audit.approved_at
+                    if latest_audit
+                    else None
+                )
+                due_date = None
+                days_value = None
+
+
+            # -------------------------------------------------
+            # NEVER AUDITED
+            # -------------------------------------------------
+
+            elif latest_audit is None:
+                audit_status = "due"
+                last_audited = None
+                due_date = today
+                days_value = 0
+
+
+            else:
+
+                audit_datetime = (
+                    latest_audit.approved_at
+                    or latest_audit.audit_date
+                )
+
+                last_date = timezone.localtime(
+                    audit_datetime
+                ).date()
+
+                due_date = (
+                    last_date
+                    + timedelta(days=interval_days)
+                )
+
+                last_audited = audit_datetime
+
+                days_value = (
+                    due_date - today
+                ).days
+
+                if days_value < 0:
+                    audit_status = "overdue"
+
+                elif days_value == 0:
+                    audit_status = "due"
+
+                elif days_value <= 3:
+                    audit_status = "due_soon"
+
+                else:
+                    audit_status = "ok"
+
+
+            # Pending overrides scheduling status visually.
+            if pending_audit:
+                audit_status = "pending"
+
+
+            rows.append({
+                "branch": branch,
+                "company": branch.company,
+                "stock_on_hand": stock_on_hand,
+                "last_audited": last_audited,
+                "due_date": due_date,
+                "days_value": days_value,
+                "audit_status": audit_status,
+                "pending_audit": pending_audit,
+            })
+
+
+        priority = {
+            "overdue": 0,
+            "due": 1,
+            "due_soon": 2,
+            "pending": 3,
+            "ok": 4,
+            "no_stock": 5,
+        }
+
+        if status_filter:
+            rows = [
+                row
+                for row in rows
+                if row["audit_status"] == status_filter
+            ]
+
+        rows.sort(
+            key=lambda row: (
+                priority.get(
+                    row["audit_status"],
+                    99,
+                ),
+                row["due_date"] or today,
+                row["company"].name.lower(),
+                row["branch"].branch_name.lower(),
+            )
+        )
+
+
+        overdue_count = sum(
+            row["audit_status"] == "overdue"
+            for row in rows
+        )
+
+        due_count = sum(
+            row["audit_status"] in {
+                "due",
+                "due_soon",
+            }
+            for row in rows
+        )
+
+        pending_count = sum(
+            row["audit_status"] == "pending"
+            for row in rows
+        )
+
+
+        paginator = Paginator(
+            rows,
+            50,
+        )
+
+        page_obj = paginator.get_page(
+            request.GET.get("page")
+        )
+
+
+        return render(
+            request,
+            self.template_name,
+            {
+                "page_obj": page_obj,
+                "rows": page_obj.object_list,
+                "search": search,
+                "status_filter": status_filter,
+                "interval_days": interval_days,
+                "overdue_count": overdue_count,
+                "due_count": due_count,
+                "pending_count": pending_count,
+            },
+        )

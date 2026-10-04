@@ -1,0 +1,642 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}
+Production Loss Investigation | Nonda
+{% endblock %}
+
+{% block breadcrumb %}
+Management / Reports / Stock & Consumption / Loss
+{% endblock %}
+
+{% block page_title %}
+Production Loss Investigation
+{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Trace recorded losses back to batches, dates and processing runs.
+</p>
+{% endblock %}
+
+
+{% block header_action %}
+<a
+    href="{% url 'reports_stock' %}?{{ request.GET.urlencode }}"
+    class="px-3 py-2 rounded-lg border border-line
+           bg-white text-[11px] font-semibold text-slate-700"
+>
+    ← Consumption
+</a>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="space-y-3 pb-4">
+
+
+    <div class="space-y-1">
+
+        {% include "reports/components/report_filters.html" %}
+
+
+        <div class="grid grid-cols-3 gap-2">
+
+            <div class="p-2.5 bg-white border
+                        border-line rounded-lg shadow-sm">
+
+                <p class="text-[8px] sm:text-[9px]
+                          uppercase font-bold text-slate-400">
+                    Total Loss
+                </p>
+
+                <p class="text-sm sm:text-lg font-bold
+                          text-rose-700 mt-1">
+                    {{ total_loss|floatformat:2|intcomma }}
+
+                    <span class="text-[9px] text-slate-400">
+                        kg
+                    </span>
+                </p>
+
+            </div>
+
+
+            <div class="p-2.5 bg-white border
+                        border-line rounded-lg shadow-sm">
+
+                <p class="text-[8px] sm:text-[9px]
+                          uppercase font-bold text-slate-400">
+                    Processing
+                </p>
+
+                <p class="text-sm sm:text-lg font-bold
+                          text-amber-700 mt-1">
+                    {{ processing_total|floatformat:2|intcomma }}
+
+                    <span class="text-[9px] text-slate-400">
+                        kg
+                    </span>
+                </p>
+
+            </div>
+
+
+            <div class="p-2.5 bg-white border
+                        border-line rounded-lg shadow-sm">
+
+                <p class="text-[8px] sm:text-[9px]
+                          uppercase font-bold text-slate-400">
+                    Packaging
+                </p>
+
+                <p class="text-sm sm:text-lg font-bold
+                          text-slate-800 mt-1">
+                    {{ packaging_total|floatformat:2|intcomma }}
+
+                    <span class="text-[9px] text-slate-400">
+                        kg
+                    </span>
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ONE INVESTIGATION CARD -->
+    <section class="bg-white border border-line
+                    rounded-lg shadow-sm overflow-hidden">
+
+        <div class="px-3 py-2
+                    border-b border-line
+                    flex flex-wrap items-center
+                    justify-between gap-2">
+
+            <div>
+
+                <h2 class="text-xs font-bold text-slate-800">
+                    Loss Records
+                </h2>
+
+                <p class="text-[9px] text-slate-400 mt-0.5">
+                    {{ period_label }}
+                </p>
+
+            </div>
+
+
+            <div class="flex items-center gap-1
+                        bg-slate-100 rounded-md p-0.5">
+
+                <button
+                    type="button"
+                    id="processingLossBtn"
+                    class="loss-tab px-2.5 py-1
+                           rounded text-[9px] font-semibold
+                           bg-white text-slate-800 shadow-sm"
+                >
+                    Processing
+                </button>
+
+                <button
+                    type="button"
+                    id="packagingLossBtn"
+                    class="loss-tab px-2.5 py-1
+                           rounded text-[9px] font-semibold
+                           text-slate-500"
+                >
+                    Packaging
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             PROCESSING PANEL
+             ================================================= -->
+        <div id="processingLossPanel">
+
+
+            <!-- MOBILE -->
+            <div class="md:hidden divide-y divide-line">
+
+                {% for run in processing_runs %}
+
+                    <details>
+
+                        <summary class="list-none cursor-pointer
+                                        px-3 py-2.5">
+
+                            <div class="flex justify-between gap-3">
+
+                                <div>
+
+                                    <p class="text-[10px] font-bold
+                                              text-slate-800">
+                                        {{ run.stock.batch_number }}
+                                    </p>
+
+                                    <p class="text-[9px] text-slate-400 mt-0.5">
+                                        {{ run.get_process_type_display }}
+                                        ·
+                                        {{ run.completed_at|date:"d M Y" }}
+                                    </p>
+
+                                </div>
+
+                                <p class="text-xs font-bold
+                                          text-rose-600">
+                                    {{ run.loss_quantity|floatformat:2 }} kg
+                                </p>
+
+                            </div>
+
+                        </summary>
+
+
+                        <div class="px-3 pb-3 bg-slate-50/50">
+
+                            <div class="grid grid-cols-3 gap-1.5">
+
+                                <div class="bg-white border
+                                            border-line rounded p-2">
+
+                                    <p class="text-[8px]
+                                              uppercase text-slate-400">
+                                        Input
+                                    </p>
+
+                                    <p class="text-[10px]
+                                              font-semibold mt-0.5">
+                                        {{ run.input_quantity|floatformat:2 }} kg
+                                    </p>
+
+                                </div>
+
+                                <div class="bg-white border
+                                            border-line rounded p-2">
+
+                                    <p class="text-[8px]
+                                              uppercase text-slate-400">
+                                        Primary
+                                    </p>
+
+                                    <p class="text-[10px]
+                                              font-semibold mt-0.5">
+                                        {{ run.output_quantity|default:0|floatformat:2 }} kg
+                                    </p>
+
+                                </div>
+
+                                <div class="bg-white border
+                                            border-line rounded p-2">
+
+                                    <p class="text-[8px]
+                                              uppercase text-slate-400">
+                                        Secondary
+                                    </p>
+
+                                    <p class="text-[10px]
+                                              font-semibold mt-0.5">
+                                        {{ run.secondary_output_quantity|floatformat:2 }} kg
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+
+                            <div class="mt-2 text-[9px] text-slate-500">
+
+                                Completed:
+                                {{ run.completed_at|date:"d M Y H:i" }}
+
+                                {% if run.completed_by %}
+                                    · {{ run.completed_by }}
+                                {% endif %}
+
+                            </div>
+
+
+                            {% if run.notes %}
+
+                                <p class="mt-2 p-2
+                                          rounded bg-amber-50
+                                          border border-amber-100
+                                          text-[9px] text-amber-800">
+                                    {{ run.notes }}
+                                </p>
+
+                            {% endif %}
+
+                        </div>
+
+                    </details>
+
+                {% empty %}
+
+                    <p class="p-6 text-center
+                              text-[10px] text-slate-400">
+                        No processing losses.
+                    </p>
+
+                {% endfor %}
+
+            </div>
+
+
+            <!-- DESKTOP -->
+            <div class="hidden md:block overflow-x-auto">
+
+                <table class="w-full min-w-[760px] text-left">
+
+                    <thead class="bg-slate-50 text-[9px]
+                                  uppercase tracking-wider
+                                  text-slate-400">
+
+                        <tr>
+                            <th class="px-3 py-2">Date</th>
+                            <th class="px-3 py-2">Batch</th>
+                            <th class="px-3 py-2">Process</th>
+                            <th class="px-3 py-2 text-right">Input</th>
+                            <th class="px-3 py-2 text-right">Primary</th>
+                            <th class="px-3 py-2 text-right">Secondary</th>
+                            <th class="px-3 py-2 text-right">Loss</th>
+                            <th class="px-3 py-2">Completed By</th>
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody class="divide-y divide-line">
+
+                        {% for run in processing_runs %}
+
+                            <tr class="hover:bg-slate-50">
+
+                                <td class="px-3 py-2 text-[9px]
+                                           text-slate-500 whitespace-nowrap">
+                                    {{ run.completed_at|date:"d M Y H:i" }}
+                                </td>
+
+                                <td class="px-3 py-2 text-[10px]
+                                           font-semibold text-slate-800">
+                                    {{ run.stock.batch_number }}
+                                </td>
+
+                                <td class="px-3 py-2 text-[10px]">
+                                    {{ run.get_process_type_display }}
+                                </td>
+
+                                <td class="px-3 py-2
+                                           text-right text-[10px]">
+                                    {{ run.input_quantity|floatformat:2 }}
+                                </td>
+
+                                <td class="px-3 py-2
+                                           text-right text-[10px]">
+                                    {{ run.output_quantity|default:0|floatformat:2 }}
+                                </td>
+
+                                <td class="px-3 py-2
+                                           text-right text-[10px]">
+                                    {{ run.secondary_output_quantity|floatformat:2 }}
+                                </td>
+
+                                <td class="px-3 py-2
+                                           text-right text-[10px]
+                                           font-bold text-rose-600">
+                                    {{ run.loss_quantity|floatformat:2 }}
+                                </td>
+
+                                <td class="px-3 py-2
+                                           text-[9px] text-slate-500">
+                                    {{ run.completed_by|default:"—" }}
+                                </td>
+
+                            </tr>
+
+
+                            {% if run.notes %}
+
+                                <tr class="bg-amber-50/40">
+
+                                    <td colspan="8"
+                                        class="px-3 py-1.5
+                                               text-[9px] text-amber-800">
+                                        <strong>Notes:</strong>
+                                        {{ run.notes }}
+                                    </td>
+
+                                </tr>
+
+                            {% endif %}
+
+                        {% empty %}
+
+                            <tr>
+
+                                <td colspan="8"
+                                    class="p-6 text-center
+                                           text-[10px] text-slate-400">
+                                    No processing losses.
+                                </td>
+
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             PACKAGING PANEL
+             ================================================= -->
+        <div id="packagingLossPanel"
+             class="hidden">
+
+            <div class="divide-y divide-line">
+
+                {% for run in packaging_runs %}
+
+                    <details>
+
+                        <summary class="list-none cursor-pointer
+                                        px-3 py-2.5 hover:bg-slate-50">
+
+                            <div class="flex items-center
+                                        justify-between gap-3">
+
+                                <div class="min-w-0">
+
+                                    <p class="text-[10px]
+                                              font-semibold text-slate-800">
+                                        {{ run.stock.batch_number }}
+                                    </p>
+
+                                    <p class="text-[9px]
+                                              text-slate-400 mt-0.5 truncate">
+                                        {{ run.product }}
+                                        ·
+                                        {{ run.completed_at|date:"d M Y" }}
+                                    </p>
+
+                                </div>
+
+                                <div class="text-right shrink-0">
+
+                                    <p class="text-xs font-bold
+                                              text-rose-600">
+                                        {{ run.loss_kg|floatformat:2 }} kg
+                                    </p>
+
+                                    <p class="text-[8px] text-slate-400">
+                                        {{ run.input_kg|floatformat:2 }} kg input
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                        </summary>
+
+
+                        <div class="px-3 pb-3
+                                    bg-slate-50/50 text-[9px]
+                                    text-slate-500">
+
+                            <div class="grid grid-cols-2
+                                        sm:grid-cols-4 gap-1.5">
+
+                                <div class="bg-white border
+                                            border-line rounded p-2">
+                                    Input
+                                    <strong class="block text-slate-800 mt-0.5">
+                                        {{ run.input_kg|floatformat:2 }} kg
+                                    </strong>
+                                </div>
+
+                                <div class="bg-white border
+                                            border-line rounded p-2">
+                                    Coffee Packed
+                                    <strong class="block text-slate-800 mt-0.5">
+                                        {{ run.coffee_used_kg|floatformat:2 }} kg
+                                    </strong>
+                                </div>
+
+                                <div class="bg-white border
+                                            border-line rounded p-2">
+                                    Packs
+                                    <strong class="block text-slate-800 mt-0.5">
+                                        {{ run.packs_produced|default:0 }}
+                                    </strong>
+                                </div>
+
+                                <div class="bg-white border
+                                            border-line rounded p-2">
+                                    Loss
+                                    <strong class="block text-rose-600 mt-0.5">
+                                        {{ run.loss_kg|floatformat:2 }} kg
+                                    </strong>
+                                </div>
+
+                            </div>
+
+
+                            {% if run.notes %}
+
+                                <p class="mt-2 p-2
+                                          rounded bg-amber-50
+                                          border border-amber-100
+                                          text-amber-800">
+                                    {{ run.notes }}
+                                </p>
+
+                            {% endif %}
+
+                        </div>
+
+                    </details>
+
+                {% empty %}
+
+                    <p class="p-6 text-center
+                              text-[10px] text-slate-400">
+                        No packaging losses.
+                    </p>
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+    </section>
+
+</div>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const processingBtn =
+        document.getElementById("processingLossBtn");
+
+    const packagingBtn =
+        document.getElementById("packagingLossBtn");
+
+    const processingPanel =
+        document.getElementById("processingLossPanel");
+
+    const packagingPanel =
+        document.getElementById("packagingLossPanel");
+
+
+    function switchLossPanel(mode) {
+
+        const processing = mode === "processing";
+
+        processingPanel.classList.toggle(
+            "hidden",
+            !processing
+        );
+
+        packagingPanel.classList.toggle(
+            "hidden",
+            processing
+        );
+
+
+        processingBtn.classList.toggle(
+            "bg-white",
+            processing
+        );
+
+        processingBtn.classList.toggle(
+            "text-slate-800",
+            processing
+        );
+
+        processingBtn.classList.toggle(
+            "shadow-sm",
+            processing
+        );
+
+        processingBtn.classList.toggle(
+            "text-slate-500",
+            !processing
+        );
+
+
+        packagingBtn.classList.toggle(
+            "bg-white",
+            !processing
+        );
+
+        packagingBtn.classList.toggle(
+            "text-slate-800",
+            !processing
+        );
+
+        packagingBtn.classList.toggle(
+            "shadow-sm",
+            !processing
+        );
+
+        packagingBtn.classList.toggle(
+            "text-slate-500",
+            processing
+        );
+    }
+
+
+    if (processingBtn && packagingBtn) {
+
+        processingBtn.addEventListener(
+            "click",
+            function () {
+                switchLossPanel("processing");
+            }
+        );
+
+        packagingBtn.addEventListener(
+            "click",
+            function () {
+                switchLossPanel("packaging");
+            }
+        );
+    }
+
+});
+</script>
+
+{% endblock content %}
+
+
+{% block footer %}
+
+<footer
+    class="sticky bottom-0 z-30
+           bg-paper border-t border-line
+           flex-shrink-0 print:hidden"
+>
+    <div class="w-full max-w-7xl mx-auto px-2 sm:px-4 py-2">
+
+        {% include "reports/components/report_nav.html" %}
+
+    </div>
+</footer>
+
+{% endblock footer %}
