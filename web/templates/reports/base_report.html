@@ -1,0 +1,17 @@
+2{% extends "pipeline/base.html" %}
+
+{% block footer %}
+
+<footer
+    class="sticky bottom-0 z-30 mt-auto
+           bg-paper border-t border-line
+           flex-shrink-0 print:hidden"
+>
+    <div class="w-full max-w-7xl mx-auto px-2 sm:px-4 py-2">
+
+        {% include "reports/components/report_nav.html" %}
+
+    </div>
+</footer>
+
+{% endblock footer %}

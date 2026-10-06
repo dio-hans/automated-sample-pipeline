@@ -4,6 +4,7 @@ from django.db import models
 from django.dispatch import receiver
 from decimal import Decimal
 from django.utils import timezone
+
 import uuid
 from django.db import models
 from django.conf import settings
@@ -17,6 +18,19 @@ from django.contrib.auth.models import AbstractUser
 # --- 1. COMPANY DETAILS ---
 
 
+PAYMENT_METHOD_CHOICES = (
+        ("cash", "Cash"),
+        ("mobile_money", "Mobile Money"),
+        ("bank", "Bank Transfer"),
+        ("other", "Other"),
+    )
+
+STATUS_CHOICES = (
+    ("released", "Released"),
+    ("partially_returned", "Partially Returned"),
+    ("fully_returned", "Fully Returned"),
+    ("settled", "Paid / Settled"),
+)
 
 class Coffee_type(models.TextChoices):
     ARABICA = 'arabica', 'Arabica'
@@ -120,6 +134,7 @@ class BranchStockLedger(models.Model):
         ("audit_sale", "Confirmed Sold via Audit"),
         ("shrinkage", "Damaged / Expired / Missing Stock"),
         ("return", "Returned to Nonda Central Warehouse"),
+        ('opening_balance', 'Verified historical opening balance'),
     )
 
     branch = models.ForeignKey(
@@ -185,6 +200,12 @@ class ConsignmentInventory(models.Model):
 
 
 class StockAudit(models.Model):
+    STATUS_CHOICES = (
+    ('legacy', 'Legacy — reconciliation required'),
+    ('pending_approval', 'Pending Approval'),
+    ('approved', 'Approved'),
+    ('rejected', 'Rejected'),
+)
     company = models.ForeignKey(
         Company,
         on_delete=models.CASCADE,
@@ -197,12 +218,41 @@ class StockAudit(models.Model):
         blank=True,
         related_name="audits",
     )
+
+    status = models.CharField(
+    max_length=24, choices=STATUS_CHOICES,
+    default='legacy', db_index=True,
+)
     audited_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
     )
+
+    approved_by = models.ForeignKey(
+    settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+    null=True, blank=True, related_name='consignment_audits_approved',
+)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+    settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+    null=True, blank=True, related_name='consignment_audits_reviewed',
+)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True, default='')
     audit_date = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, default="")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["branch"],
+                condition=models.Q(
+                    branch__isnull=False,
+                    status="pending_approval",
+                ),
+                name="consignment_one_pending_audit_per_branch",
+            ),
+        ]
 
     def __str__(self):
         target = self.branch or self.company
@@ -238,6 +288,8 @@ class StockAuditItem(models.Model):
 
     selling_price = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
     calculated_amount_due = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    shrinkage_shelf = models.PositiveIntegerField(default=0)
+    shrinkage_backroom = models.PositiveIntegerField(default=0)
 
     @property
     def expected_total(self):
@@ -248,6 +300,24 @@ class StockAuditItem(models.Model):
         return self.actual_shelf + self.actual_backroom
 
     def save(self, *args, **kwargs):
+        if self.pk:
+            original = type(self).objects.only("audit_id").get(pk=self.pk)
+
+            if StockAudit.objects.filter(
+                pk=original.audit_id,
+                status="approved",
+            ).exists():
+                raise ValidationError(
+                    "Approved audit items cannot be changed."
+                )
+
+        if self.audit_id and StockAudit.objects.filter(
+            pk=self.audit_id,
+            status="approved",
+        ).exists():
+            raise ValidationError(
+                "Cannot add or move an item into an approved audit."
+    )
         # Automatically calculate quantity sold and billable debt
         net_unaccounted = self.expected_total - self.actual_total
         
@@ -261,6 +331,56 @@ class StockAuditItem(models.Model):
 
     def __str__(self):
         return f"{self.audit.branch} | {self.product}: {self.quantity_sold} Sold"
+
+
+class ConsignmentAuditAllocation(models.Model):
+    """Historical FIFO link: approved audit sale -> branch-specific stock release."""
+    audit_item = models.ForeignKey(
+        'StockAuditItem', on_delete=models.PROTECT,
+        related_name='consignment_allocations',
+    )
+    release = models.ForeignKey(
+        'PackRelease', on_delete=models.PROTECT,
+        related_name='consignment_audit_allocations',
+    )
+    quantity = models.PositiveIntegerField()
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['audit_item', 'release'],
+                name='consignment_unique_audit_release',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(quantity__gt=0),
+                name='consignment_alloc_qty_positive',
+            ),
+        ]
+
+    @property
+    def amount(self):
+        return Decimal(self.quantity) * self.unit_price
+
+
+class ConsignmentInvoice(models.Model):
+    """Exactly one invoice per approved branch audit (not a payment receipt)."""
+    audit = models.OneToOneField(
+        'StockAudit', on_delete=models.PROTECT,
+        related_name='invoice',
+    )
+    total_amount = models.DecimalField(max_digits=14, decimal_places=2)
+    issued_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ['-issued_at']
+
+    @property
+    def number(self):
+        return f'CN-{self.pk:06d}'
+
+    def __str__(self):
+        return f'{self.number} · UGX {self.total_amount:,.0f}'
 
 # --- 2. INVENTORY & STOCK ---
 
@@ -1133,6 +1253,14 @@ class StockRequest(models.Model):
         choices=DESTINATION_CHOICES, 
         default="agent_float"
     )
+
+    branch = models.ForeignKey(
+    "CompanyBranch",
+    on_delete=models.PROTECT,
+    null=True,
+    blank=True,
+    related_name="stock_requests",
+    )
     company = models.ForeignKey(
         Company,
         on_delete=models.SET_NULL,
@@ -1334,6 +1462,7 @@ class PackagedInventory(models.Model):
             ret.packs_returned
             for release in self.product.releases.all()
             for ret in release.returns.all()
+            if ret.status == 'approved' and ret.condition == 'good'
         )
 
     @property
@@ -1512,19 +1641,6 @@ class EventItemReconciliation(models.Model):
 
 
 class PackRelease(models.Model):
-    STATUS_CHOICES = (
-        ("released", "Released"),
-        ("partially_returned", "Partially Returned"),
-        ("fully_returned", "Fully Returned"),
-        ("settled", "Paid / Settled"),
-    )
-
-    PAYMENT_METHOD_CHOICES = (
-        ("cash", "Cash"),
-        ("mobile_money", "Mobile Money"),
-        ("bank", "Bank Transfer"),
-        ("other", "Other"),
-    )
 
     product = models.ForeignKey(
         PackagedProduct,
@@ -1568,6 +1684,11 @@ class PackRelease(models.Model):
         related_name="pack_releases",
     )
 
+    branch = models.ForeignKey(
+    'CompanyBranch', on_delete=models.PROTECT,
+    null=True, blank=True, related_name='display_releases',
+    )
+
     selling_price = models.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -1608,19 +1729,30 @@ class PackRelease(models.Model):
 
     @property
     def total_amount_paid(self):
-        """
-        🎯 CUMULATIVE PAYMENT LEDGER SUM:
-        Sums up all historical payment installments stored under the 
-        new settlements ForeignKey relationship array securely.
-        """
-        return sum(settlement.amount_paid for settlement in self.settlements.all())
+        settlement_total = sum(
+            (
+                settlement.amount_paid
+                for settlement in self.settlements.all()
+            ),
+            Decimal("0.00"),
+        )
 
+        installment_total = sum(
+            (
+                payment.amount
+                for payment in self.payments.all()
+            ),
+            Decimal("0.00"),
+        )
+
+        return settlement_total + installment_total
+    
     @property
     def outstanding_balance(self):
-        """
-        The remaining unpaid debt value left on this delivery batch.
-        """
-        return max(self.net_amount_due - self.total_amount_paid, Decimal("0.00"))
+        return max(
+            self.net_amount_due - self.total_amount_paid,
+            Decimal("0.00"),
+        )
 
     @property
     def packs_returned(self):
@@ -1723,21 +1855,10 @@ class PackRelease(models.Model):
 
     @property
     def gross_amount(self):
-        """
-        Calculates the total monetary value of this batch delivery 
-        by multiplying physical units issued by the unit selling price.
-        """
-        # 🎯 FIX: Direct arithmetic calculation to restore the missing attribute
-        return Decimal(self.packs_out) * self.selling_price
+        qty = self.billable_packs if self.purpose == 'display' else self.packs_out
+        return Decimal(qty) * self.selling_price
 
 class PaymentReceipt(models.Model):
-
-    PAYMENT_METHOD_CHOICES = (
-        ("cash", "Cash"),
-        ("mobile_money", "Mobile Money"),
-        ("bank", "Bank Transfer"),
-        ("other", "Other"),
-    )
 
     release = models.ForeignKey(
         PackRelease,
@@ -1895,17 +2016,6 @@ class StockRequestItem(models.Model):
 
 
 class PackSettlement(models.Model):
-    PAYMENT_CHOICES = (
-        ("cash", "Cash"),
-        ("mobile_money", "Mobile Money"),
-        ("bank", "Bank Transfer"),
-        ("other", "Other"),
-    )
-
-    STATUS_CHOICES = (
-        ("partial", "Partially Paid"),
-        ("cleared", "Cleared"),
-    )
 
     release = models.ForeignKey(
         PackRelease,
@@ -1914,7 +2024,7 @@ class PackSettlement(models.Model):
     )
     packs_sold = models.PositiveIntegerField(default=0)
     amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
-    payment_method = models.CharField(max_length=20, choices=PAYMENT_CHOICES, default="cash")
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default="cash")
     payment_reference = models.CharField(max_length=100, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="partial")
     cleared_by = models.ForeignKey(
@@ -1922,7 +2032,11 @@ class PackSettlement(models.Model):
         on_delete=models.PROTECT,
         related_name="pack_settlements",
     )
-    cleared_at = models.DateTimeField(auto_now=True)
+    cleared_at = models.DateTimeField(
+    default=timezone.now,
+    editable=False,
+    db_index=True,
+)
     notes = models.TextField(blank=True)
 
     class Meta:

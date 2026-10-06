@@ -129,50 +129,77 @@
 
             <!-- PRODUCT GRID -->
 
-            <div
-                id="catalog-grid"
-                class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[450px] overflow-y-auto pr-1"
+         <div
+    id="catalog-grid"
+    class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[450px] overflow-y-auto pr-1"
+>
+
+    {% for product in item_formset.forms.0.fields.product.queryset %}
+
+        {% with available=product.inventory.available %}
+
+            <button
+                type="button"
+                class="product-card text-left p-3.5 border border-[#E4DECB] bg-white rounded-xl hover:border-rust hover:bg-rust/5 transition flex flex-col justify-between group active:scale-95"
+                data-product-id="{{ product.pk }}"
+                data-product-name="{{ product }}"
             >
 
-                {% for choice in item_formset.forms.0.fields.product.choices %}
+                <span
+                    class="block text-xs font-bold text-slate-700 group-hover:text-rust truncate-2-lines leading-relaxed"
+                >
+                    {{ product }}
+                </span>
 
-                    {% if choice.0 %}
 
-                        <button
-                            type="button"
-                            class="product-card text-left p-3.5 border border-[#E4DECB] bg-white rounded-xl hover:border-rust hover:bg-rust/5 transition flex flex-col justify-between group active:scale-95"
-                            data-product-id="{{ choice.0 }}"
-                            data-product-name="{{ choice.1 }}"
+                <div class="mt-3 flex items-center justify-between text-[11px] font-medium text-slate-500">
+
+                    <!-- STOCK QUANTITY -->
+                    <div class="flex items-center gap-2">
+
+                        <span
+                            class="uppercase tracking-wider px-1.5 py-0.5 bg-slate-100 rounded text-slate-400 font-bold text-[9px]"
                         >
+                            In Store
+                        </span>
 
-                            <span
-                                class="block text-xs font-bold text-slate-700 group-hover:text-rust truncate-2-lines leading-relaxed"
-                            >
-                                {{ choice.1 }}
-                            </span>
+                        <span class="font-bold text-slate-700 tabular-nums">
+                            {{ available|default:"0" }} packs
+                        </span>
+
+                    </div>
 
 
-                            <div class="mt-3 flex items-center justify-between text-[11px] font-medium text-slate-500">
+                    <!-- STATUS -->
+                    {% if available > 0 %}
 
-                                <span
-                                    class="uppercase tracking-wider px-1.5 py-0.5 bg-slate-100 rounded text-slate-400 font-bold text-[9px]"
-                                >
-                                    In Store
-                                </span>
+                        <span class="font-bold text-emerald-600">
+                            Available
+                        </span>
 
-                                <span class="font-bold text-slate-700">
-                                    Available
-                                </span>
+                    {% else %}
 
-                            </div>
-
-                        </button>
+                        <span class="font-bold text-amber-600">
+                            Awaiting Stock
+                        </span>
 
                     {% endif %}
 
-                {% endfor %}
+                </div>
 
-            </div>
+            </button>
+
+        {% endwith %}
+
+    {% empty %}
+
+        <div class="col-span-2 py-8 text-center text-xs text-slate-400">
+            No packaged products found.
+        </div>
+
+    {% endfor %}
+
+</div>
 
         </section>
 

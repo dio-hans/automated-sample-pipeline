@@ -1,0 +1,267 @@
+{% extends "reports/print/base.html" %}
+{% load humanize %}
+
+{% block print_title %}
+Sales & Revenue Report | Nonda Commodities
+{% endblock %}
+
+{% block report_name %}
+Sales & Revenue Report
+{% endblock %}
+
+{% block report_content %}
+
+<section class="section">
+
+    <div class="kpis">
+
+        <div class="kpi">
+            <div class="kpi-label">Total Sales</div>
+            <div class="kpi-value">
+                UGX {{ total_sales_value|floatformat:0|intcomma }}
+            </div>
+        </div>
+
+        <div class="kpi">
+            <div class="kpi-label">Packaged Revenue</div>
+            <div class="kpi-value">
+                UGX {{ packaged_sales_value|floatformat:0|intcomma }}
+            </div>
+        </div>
+
+        <div class="kpi">
+            <div class="kpi-label">Bulk Revenue</div>
+            <div class="kpi-value">
+                UGX {{ bulk_sales_value|floatformat:0|intcomma }}
+            </div>
+        </div>
+
+        <div class="kpi">
+            <div class="kpi-label">Packs Sold</div>
+            <div class="kpi-value">
+                {{ packaged_packs_sold|intcomma }}
+            </div>
+        </div>
+
+        <div class="kpi">
+            <div class="kpi-label">Coffee Sold</div>
+            <div class="kpi-value">
+                {{ total_coffee_sold_kg|floatformat:2|intcomma }} kg
+            </div>
+        </div>
+
+    </div>
+
+</section>
+
+
+<section class="section">
+
+    <h2>Sales Summary</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Metric</th>
+                <th class="right">Value</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>Packaged Revenue</td>
+                <td class="right">
+                    UGX {{ packaged_sales_value|floatformat:0|intcomma }}
+                </td>
+            </tr>
+
+            <tr>
+                <td>Bulk Coffee Revenue</td>
+                <td class="right">
+                    UGX {{ bulk_sales_value|floatformat:0|intcomma }}
+                </td>
+            </tr>
+
+            <tr>
+                <td>Total Sales</td>
+                <td class="right">
+                    <strong>
+                        UGX {{ total_sales_value|floatformat:0|intcomma }}
+                    </strong>
+                </td>
+            </tr>
+
+            <tr>
+                <td>Packaged Coffee Sold</td>
+                <td class="right">
+                    {{ packaged_kg_sold|floatformat:2|intcomma }} kg
+                </td>
+            </tr>
+
+            <tr>
+                <td>Bulk Coffee Sold</td>
+                <td class="right">
+                    {{ bulk_kg_sold|floatformat:2|intcomma }} kg
+                </td>
+            </tr>
+
+            <tr>
+                <td>Total Coffee Sold</td>
+                <td class="right">
+                    <strong>
+                        {{ total_coffee_sold_kg|floatformat:2|intcomma }} kg
+                    </strong>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+</section>
+
+
+<section class="section">
+
+    <h2>Top Products</h2>
+
+    {% if top_products %}
+    <table>
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th class="right">Packs</th>
+                <th class="right">Kg</th>
+                <th class="right">Revenue</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for row in top_products %}
+            <tr>
+                <td>{{ row.product }}</td>
+                <td class="right">{{ row.packs|intcomma }}</td>
+                <td class="right">{{ row.kg|floatformat:2|intcomma }}</td>
+                <td class="right">
+                    UGX {{ row.revenue|floatformat:0|intcomma }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p class="note">No packaged product sales recorded for this period.</p>
+    {% endif %}
+
+</section>
+
+
+<section class="section">
+
+    <h2>Salespeople / Account Holders</h2>
+
+    {% if salespeople %}
+    <table>
+        <thead>
+            <tr>
+                <th>Account Holder</th>
+                <th class="right">Packs</th>
+                <th class="right">Revenue</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for row in salespeople %}
+            <tr>
+                <td>{{ row.name }}</td>
+                <td class="right">{{ row.packs|intcomma }}</td>
+                <td class="right">
+                    UGX {{ row.revenue|floatformat:0|intcomma }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p class="note">No packaged sales recorded for this period.</p>
+    {% endif %}
+
+</section>
+
+
+<section class="section">
+
+    <h2>Bulk Coffee Buyers</h2>
+
+    {% if bulk_buyers %}
+    <table>
+        <thead>
+            <tr>
+                <th>Buyer</th>
+                <th class="right">Kg</th>
+                <th class="right">Revenue</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for row in bulk_buyers %}
+            <tr>
+                <td>{{ row.name }}</td>
+                <td class="right">
+                    {{ row.kg|floatformat:2|intcomma }}
+                </td>
+                <td class="right">
+                    UGX {{ row.revenue|floatformat:0|intcomma }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p class="note">No bulk coffee sales recorded for this period.</p>
+    {% endif %}
+
+</section>
+
+
+<section class="section">
+
+    <h2>Sales Channels</h2>
+
+    {% if sales_channels %}
+    <table>
+        <thead>
+            <tr>
+                <th>Channel</th>
+                <th class="right">Value</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for row in sales_channels %}
+            <tr>
+                <td>{{ row.label }}</td>
+                <td class="right">
+                    UGX {{ row.value|floatformat:0|intcomma }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p class="note">No channel data available.</p>
+    {% endif %}
+
+</section>
+
+
+<section class="section">
+
+    <h2>Reporting Note</h2>
+
+    <p class="note">
+        This report uses confirmed packaged settlements and recorded bulk
+        roasted-coffee sales for the selected reporting period.
+    </p>
+
+</section>
+
+{% endblock %}

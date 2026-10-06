@@ -1,55 +1,71 @@
-<div class="flex flex-wrap items-center gap-2">
+<nav
+    class="w-full overflow-x-auto"
+    aria-label="Report navigation"
+>
+    <div class="flex items-center gap-1 min-w-max sm:min-w-0 sm:justify-center">
 
-    <a
-        href="{% url 'reports_overview' %}?period={{ preset }}"
-        class="px-3 py-2 rounded-lg border text-xs font-semibold transition
-        {% if request.resolver_match.url_name == 'reports_overview' %}
-            bg-olive text-white border-olive
-        {% else %}
-            bg-white text-slate-600 border-line hover:bg-slate-50
-        {% endif %}"
-    >
-        Overview
-    </a>
+        <a
+            href="{% url 'reports_stock' %}?{{ request.GET.urlencode }}"
+            class="inline-flex h-8 items-center justify-center gap-1.5
+                   whitespace-nowrap rounded-md px-2.5
+                   text-[10px] sm:text-[11px] font-semibold transition
+                   {% if request.resolver_match.url_name == 'reports_stock' %}
+                       bg-olive text-white
+                   {% else %}
+                       text-slate-600 hover:bg-slate-100
+                   {% endif %}"
+        >
+            <i class="fa-solid fa-boxes-stacked"></i>
+            <span>Consumption</span>
+        </a>
 
-    <a
-        href="{% url 'reports_stock' %}?period={{ preset }}"
-        class="px-3 py-2 rounded-lg border text-xs font-semibold transition
-        {% if request.resolver_match.url_name == 'reports_stock' %}
-            bg-olive text-white border-olive
-        {% else %}
-            bg-white text-slate-600 border-line hover:bg-slate-50
-        {% endif %}"
-    >
-        Stock & Consumption
-    </a>
 
-    <span
-        class="px-3 py-2 rounded-lg border border-line
-               bg-slate-50 text-slate-400 text-xs font-semibold"
-    >
-        Sales
-    </span>
+        <a
+            href="{% url 'reports_sales' %}?{{ request.GET.urlencode }}"
+            class="inline-flex h-8 items-center justify-center gap-1.5
+                   whitespace-nowrap rounded-md px-2.5
+                   text-[10px] sm:text-[11px] font-semibold transition
+                   {% if request.resolver_match.url_name == 'reports_sales' %}
+                       bg-olive text-white
+                   {% else %}
+                       text-slate-600 hover:bg-slate-100
+                   {% endif %}"
+        >
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Sales</span>
+        </a>
 
-    <span
-        class="px-3 py-2 rounded-lg border border-line
-               bg-slate-50 text-slate-400 text-xs font-semibold"
-    >
-        Finance
-    </span>
 
-    <span
-        class="px-3 py-2 rounded-lg border border-line
-               bg-slate-50 text-slate-400 text-xs font-semibold"
-    >
-        Credit
-    </span>
+        <a
+            href="{% url 'reports_finance' %}?{{ request.GET.urlencode }}"
+            class="inline-flex h-8 items-center justify-center gap-1.5
+                   whitespace-nowrap rounded-md px-2.5
+                   text-[10px] sm:text-[11px] font-semibold transition
+                   {% if request.resolver_match.url_name == 'reports_finance' %}
+                       bg-olive text-white
+                   {% else %}
+                       text-slate-600 hover:bg-slate-100
+                   {% endif %}"
+        >
+            <i class="fa-solid fa-coins"></i>
+            <span>Finance</span>
+        </a>
 
-    <span
-        class="px-3 py-2 rounded-lg border border-line
-               bg-slate-50 text-slate-400 text-xs font-semibold"
-    >
-        Operations
-    </span>
 
-</div>
+        <a
+            href="{% url 'reports_operations' %}?{{ request.GET.urlencode }}"
+            class="inline-flex h-8 items-center justify-center gap-1.5
+                   whitespace-nowrap rounded-md px-2.5
+                   text-[10px] sm:text-[11px] font-semibold transition
+                   {% if request.resolver_match.url_name == 'reports_operations' %}
+                       bg-olive text-white
+                   {% else %}
+                       text-slate-600 hover:bg-slate-100
+                   {% endif %}"
+        >
+            <i class="fa-solid fa-gears"></i>
+            <span>Operations</span>
+        </a>
+
+    </div>
+</nav>

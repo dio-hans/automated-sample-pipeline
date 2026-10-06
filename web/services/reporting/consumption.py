@@ -7,6 +7,7 @@ from ...models import (
     PackReturn,
     ProcessingRun,
     PackagingRun,
+    RoastedSackSale,
 )
 
 
@@ -44,46 +45,42 @@ def _add_category(bucket, key, kg):
 
 def _packaged_sales_consumption(period):
     """
-    Returns net packaged coffee sold/released for sale,
-    converted from packs into coffee-equivalent kilograms.
+    Confirmed packaged coffee sales converted
+    to coffee-equivalent kilograms.
 
-    Returns are deducted.
+    PackRelease.packs_out is stock issued.
+    PackSettlement.packs_sold is confirmed sold stock.
     """
 
-    releases = (
-    PackRelease.objects
-    .filter(
-        request_item__request__purpose="sale",
-    )
-    .select_related(
-        "product",
-        "product__blend",
-        "product__pack_size",
-    )
-    .prefetch_related("returns")
-)
+    from ...models import PackSettlement
 
-    releases = period.filter_datetime(
-        releases,
-        "released_at",
+    settlements = (
+        PackSettlement.objects
+        .filter(
+            packs_sold__gt=0,
+        )
+        .select_related(
+            "release",
+            "release__product",
+            "release__product__blend",
+            "release__product__pack_size",
+        )
+    )
+
+    settlements = period.filter_datetime(
+        settlements,
+        "cleared_at",
     )
 
     total_kg = ZERO
 
-    for release in releases:
-        returned_packs = sum(
-    returned.packs_returned
-    for returned in release.returns.all()
-)
-
-        net_packs = max(
-            release.packs_out - returned_packs,
-            0,
-        )
+    for settlement in settlements:
 
         total_kg += (
-            _decimal(net_packs)
-            * _decimal(release.product.kg_per_pack)
+            _decimal(settlement.packs_sold)
+            * _decimal(
+                settlement.release.product.kg_per_pack
+            )
         )
 
     return total_kg
@@ -237,7 +234,18 @@ def get_stock_consumption_report(period):
     # 1. PACKAGED SALES
     # ------------------------------------------------------
 
-    sales_kg = _packaged_sales_consumption(period)
+    packaged_sales_kg = (
+    _packaged_sales_consumption(period)
+)
+
+    bulk_sales_kg = (
+        _bulk_sales_consumption(period)
+    )
+
+    sales_kg = (
+        packaged_sales_kg
+        + bulk_sales_kg
+    )
 
     _add_category(
         categories,
@@ -273,7 +281,6 @@ def get_stock_consumption_report(period):
         "processing_loss",
         processing_loss,
     )
-
     # ------------------------------------------------------
     # 4. PACKAGING LOSS
     # ------------------------------------------------------
@@ -287,6 +294,26 @@ def get_stock_consumption_report(period):
     )
 
     # ------------------------------------------------------
+    # TOTAL RECORDED LOSS
+    # ------------------------------------------------------
+
+    total_loss_kg = (
+        processing_loss
+        + packaging_loss
+    ).quantize(
+        Decimal("0.01")
+    )
+
+    # ------------------------------------------------------
+    # TOTAL CONSUMPTION
+    # ------------------------------------------------------
+
+    total_consumed_kg = sum(
+        categories.values(),
+        ZERO,
+    )
+
+    # ------------------------------------------------------
     # TOTAL
     # ------------------------------------------------------
 
@@ -294,6 +321,8 @@ def get_stock_consumption_report(period):
         categories.values(),
         ZERO,
     )
+
+    
 
     # ------------------------------------------------------
     # CATEGORY BREAKDOWN
@@ -414,6 +443,7 @@ def get_stock_consumption_report(period):
             )
         ),
 
+        "total_loss_kg": total_loss_kg,
         "breakdown": breakdown,
         "internal_accounts": internal_accounts,
         "processing_breakdown": processing_breakdown,
@@ -421,3 +451,20 @@ def get_stock_consumption_report(period):
         "chart_labels": chart_labels,
         "chart_values": chart_values,
     }
+
+def _bulk_sales_consumption(period):
+    sales = RoastedSackSale.objects.all()
+
+    sales = period.filter_datetime(
+        sales,
+        "sale_date",
+    )
+
+    total_kg = ZERO
+
+    for sale in sales:
+        total_kg += _decimal(
+            sale.kg_sold
+        )
+
+    return total_kg

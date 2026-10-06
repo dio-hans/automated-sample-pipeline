@@ -13,65 +13,115 @@ Internal Stock Issue #{{ issue.pk }}
 {% endblock %}
 
 {% block page_subtitle %}
-Detailed record of coffee removed from Nonda inventory for internal use.
+Internal stock issue record
 {% endblock %}
 
-{% load static %}
-{% block extra_css %}
-<link rel="stylesheet" href="static 'css/internal_css">
+{% block header_action %}
+
+<div class="flex items-center gap-2">
+
+    <a
+        href="{% url 'internal_stock_issue_list' %}"
+        class="inline-flex items-center gap-2
+               px-3 py-2 rounded-lg
+               border border-slate-200
+               bg-white
+               text-xs font-semibold text-slate-700
+               hover:bg-slate-50 transition"
+    >
+        <i class="fa-solid fa-arrow-left text-[10px]"></i>
+        History
+    </a>
+
+    <a
+        href="{% url 'internal_stock_issue_create' %}"
+        class="inline-flex items-center gap-2
+               px-3 py-2 rounded-lg
+               bg-rust text-white
+               text-xs font-bold
+               hover:opacity-90 transition"
+    >
+        <i class="fa-solid fa-plus text-[10px]"></i>
+        Issue Stock
+    </a>
+
+</div>
 
 {% endblock %}
+
 
 {% block content %}
 
-<div class="max-w-5xl mx-auto space-y-5">
+<div class="max-w-6xl mx-auto space-y-4">
 
+    <!-- ISSUE INFORMATION -->
+    <section class="bg-white border border-line rounded-xl overflow-hidden">
 
-    <!-- SUMMARY -->
-
-    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm p-6">
-
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <div class="px-5 py-4 border-b border-line flex items-center justify-between">
 
             <div>
-                <p class="internal-detail-label">
+                <h2 class="text-sm font-bold text-slate-900">
+                    Issue Information
+                </h2>
+
+                <p class="text-[11px] text-slate-400 mt-0.5">
+                    Details of this internal stock movement
+                </p>
+            </div>
+
+            <span class="text-[10px] font-bold uppercase tracking-wider
+                         text-slate-400">
+                #{{ issue.pk }}
+            </span>
+
+        </div>
+
+
+        <div class="grid grid-cols-2 lg:grid-cols-4 divide-x divide-line">
+
+            <!-- ACCOUNT -->
+            <div class="px-5 py-4">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Account
                 </p>
 
-                <p class="font-bold text-gray-900">
+                <p class="mt-1 text-sm font-bold text-slate-900">
                     {{ issue.account.name }}
                 </p>
             </div>
 
 
-            <div>
-                <p class="internal-detail-label">
+            <!-- TYPE -->
+            <div class="px-5 py-4">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Type
                 </p>
 
-                <p class="text-gray-700">
+                <p class="mt-1 text-sm font-semibold text-slate-700">
                     {{ issue.account.get_account_type_display }}
                 </p>
             </div>
 
 
-            <div>
-                <p class="internal-detail-label">
-                    Date
+            <!-- DATE -->
+            <div class="px-5 py-4">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Issue Date
                 </p>
 
-                <p class="text-gray-700">
+                <p class="mt-1 text-sm font-semibold text-slate-700">
                     {{ issue.issue_date|date:"d M Y" }}
                 </p>
             </div>
 
 
-            <div>
-                <p class="internal-detail-label">
+            <!-- RECORDED BY -->
+            <div class="px-5 py-4">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Recorded By
                 </p>
 
-                <p class="text-gray-700">
+                <p class="mt-1 text-sm font-semibold text-slate-700">
                     {{ issue.issued_by.username|default:"System" }}
                 </p>
             </div>
@@ -79,177 +129,220 @@ Detailed record of coffee removed from Nonda inventory for internal use.
         </div>
 
 
-        {% if issue.reason %}
+        {% if issue.reason or issue.notes %}
 
-            <div class="mt-5 pt-5 border-t border-[#E4DECB]">
+        <div class="px-5 py-4 border-t border-line bg-slate-50/40">
 
-                <p class="internal-detail-label">
-                    Reason
-                </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-                <p class="text-gray-700">
-                    {{ issue.reason }}
-                </p>
+                {% if issue.reason %}
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Reason
+                    </p>
+
+                    <p class="mt-1 text-sm text-slate-700">
+                        {{ issue.reason }}
+                    </p>
+                </div>
+                {% endif %}
+
+
+                {% if issue.notes %}
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Notes
+                    </p>
+
+                    <p class="mt-1 text-sm text-slate-600">
+                        {{ issue.notes }}
+                    </p>
+                </div>
+                {% endif %}
 
             </div>
 
+        </div>
+
         {% endif %}
 
+    </section>
 
-        {% if issue.notes %}
 
-            <div class="mt-4">
+    <!-- STOCK ISSUED -->
+    <section class="bg-white border border-line rounded-xl overflow-hidden">
 
-                <p class="internal-detail-label">
-                    Notes
+        <div class="px-5 py-4 border-b border-line flex items-center justify-between">
+
+            <div>
+                <h2 class="text-sm font-bold text-slate-900">
+                    Stock Issued
+                </h2>
+
+                <p class="text-[11px] text-slate-400 mt-0.5">
+                    Coffee removed from available inventory
                 </p>
-
-                <p class="text-gray-600 text-sm">
-                    {{ issue.notes }}
-                </p>
-
             </div>
 
-        {% endif %}
+            <div class="text-right">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Items
+                </p>
 
-    </div>
-
-
-    <!-- ITEMS -->
-
-    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
-
-        <div class="px-6 py-4 border-b border-[#E4DECB]">
-
-            <h2 class="font-bold text-gray-900">
-                Stock Issued
-            </h2>
+                <p class="text-sm font-bold text-slate-900">
+                    {{ items|length }}
+                </p>
+            </div>
 
         </div>
 
 
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto">
 
-            <thead class="bg-gray-50">
+            <table class="w-full text-sm">
 
-                <tr>
+                <thead class="bg-slate-50 border-b border-line">
 
-                    <th class="text-left px-6 py-3 text-xs uppercase text-gray-500">
-                        Coffee
-                    </th>
+                    <tr>
 
-                    <th class="text-left px-6 py-3 text-xs uppercase text-gray-500">
-                        Type
-                    </th>
+                        <th class="px-5 py-3 text-left
+                                   text-[10px] font-bold uppercase
+                                   tracking-wider text-slate-400">
+                            Coffee
+                        </th>
 
-                    <th class="text-left px-6 py-3 text-xs uppercase text-gray-500">
-                        Quantity
-                    </th>
+                        <th class="px-5 py-3 text-left
+                                   text-[10px] font-bold uppercase
+                                   tracking-wider text-slate-400">
+                            Stage
+                        </th>
 
-                    <th class="text-right px-6 py-3 text-xs uppercase text-gray-500">
-                        Value
-                    </th>
+                        <th class="px-5 py-3 text-right
+                                   text-[10px] font-bold uppercase
+                                   tracking-wider text-slate-400">
+                            Quantity
+                        </th>
 
-                </tr>
+                        <th class="px-5 py-3 text-right
+                                   text-[10px] font-bold uppercase
+                                   tracking-wider text-slate-400">
+                            Value
+                        </th>
 
-            </thead>
+                    </tr>
+
+                </thead>
 
 
-            <tbody>
+                <tbody class="divide-y divide-line">
 
-                {% for item in items %}
+                    {% for item in items %}
 
-                    <tr class="border-t border-gray-100">
+                    <tr class="hover:bg-slate-50/50 transition">
 
-                        <td class="px-6 py-4">
+                        <!-- COFFEE -->
+                        <td class="px-5 py-4">
 
                             {% if item.packaged_product %}
 
-                                <div class="font-bold text-gray-900">
+                                <p class="font-semibold text-slate-900">
                                     {{ item.packaged_product }}
-                                </div>
+                                </p>
 
-                                <div class="text-xs text-gray-500">
-                                    Packaged
-                                </div>
+                                <p class="text-[11px] text-slate-400 mt-0.5">
+                                    Packaged coffee
+                                </p>
 
                             {% else %}
 
-                                <div class="font-bold text-gray-900">
+                                <p class="font-semibold text-slate-900">
                                     {{ item.coffee_stock.variety.name }}
-                                </div>
+                                </p>
 
-                                <div class="text-xs text-gray-500">
+                                <p class="text-[11px] text-slate-400 mt-0.5">
                                     Batch {{ item.coffee_stock.batch_number }}
-                                </div>
+                                </p>
 
                             {% endif %}
 
                         </td>
 
 
-                        <td class="px-6 py-4 text-gray-600">
+                        <!-- STAGE -->
+                        <td class="px-5 py-4 text-slate-600">
 
                             {% if item.packaged_product %}
-
                                 Packaged Coffee
-
                             {% else %}
-
                                 {{ item.get_stock_stage_display }}
-
                             {% endif %}
 
                         </td>
 
 
-                        <td class="px-6 py-4 font-semibold">
+                        <!-- QUANTITY -->
+                        <td class="px-5 py-4 text-right font-semibold text-slate-900">
 
                             {% if item.packaged_product %}
-
-                                {{ item.packs }} packs
-
+                                {{ item.packs }}
+                                <span class="text-xs font-normal text-slate-400">
+                                    packs
+                                </span>
                             {% else %}
-
-                                {{ item.quantity_kg }} kg
-
+                                {{ item.quantity_kg }}
+                                <span class="text-xs font-normal text-slate-400">
+                                    kg
+                                </span>
                             {% endif %}
 
                         </td>
 
 
-                        <td class="px-6 py-4 text-right font-semibold">
+                        <!-- VALUE -->
+                        <td class="px-5 py-4 text-right font-semibold text-slate-900">
 
                             {% if item.unit_cost %}
-
                                 UGX {{ item.total_value|floatformat:0 }}
-
                             {% else %}
-
-                                —
-
+                                <span class="text-slate-300">—</span>
                             {% endif %}
 
                         </td>
 
                     </tr>
 
-                {% endfor %}
+                    {% empty %}
 
-            </tbody>
+                    <tr>
 
-        </table>
+                        <td
+                            colspan="4"
+                            class="px-5 py-10 text-center text-sm text-slate-400"
+                        >
+                            No stock items were recorded for this issue.
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
 
 
-        <div class="px-6 py-4 border-t border-[#E4DECB] flex justify-end">
+        <!-- TOTAL -->
+        <div class="px-5 py-4 border-t border-line flex justify-end">
 
             <div class="text-right">
 
-                <p class="text-xs uppercase text-gray-500 font-bold">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Recorded Stock Value
                 </p>
 
-                <p class="text-lg font-extrabold text-gray-900">
+                <p class="mt-1 text-lg font-bold text-slate-900">
                     UGX {{ total_value|floatformat:0 }}
                 </p>
 
@@ -257,26 +350,7 @@ Detailed record of coffee removed from Nonda inventory for internal use.
 
         </div>
 
-    </div>
-
-
-    <div class="flex justify-between">
-
-        <a
-            href="{% url 'internal_stock_issue_list' %}"
-            class="px-4 py-2.5 rounded-lg border border-[#E4DECB] text-sm font-semibold text-gray-600 hover:bg-gray-50"
-        >
-            ← Back to History
-        </a>
-
-        <a
-            href="{% url 'internal_stock_issue_create' %}"
-            class="px-4 py-2.5 rounded-lg bg-rust text-white text-sm font-bold"
-        >
-            + Issue More Stock
-        </a>
-
-    </div>
+    </section>
 
 </div>
 

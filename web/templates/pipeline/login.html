@@ -11,6 +11,28 @@
 
 {% block extra_head %}
 <style>
+    /* =====================================================
+       LOGIN view password styles
+       ===================================================== *
+       /* Password visibility toggle button positioning */
+.password-toggle-btn {
+    position: absolute;
+    right: 0.875rem;
+    bottom: 0.55rem;
+    color: #94A3B8;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.875rem;
+    transition: color 0.2s ease;
+    z-index: 10;
+}
+.password-toggle-btn:hover {
+    color: #3A5333;
+}
+
+
     /* 1. Force remove browser scrollbars on the login page */
     html, body {
         overflow: hidden !important;
@@ -177,7 +199,7 @@
                     </div>
 
                     <div class="flex items-center justify-end pt-1">
-                        <a href="{% url 'register' %}"
+                        <a href="{% url 'forgot_password' %}"
                            class="text-xs font-medium text-slate-500 hover:text-orange-600 transition">
                             Forgot password?
                         </a>
@@ -207,6 +229,43 @@
     </div>
 
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const passwordContainer = document.getElementById('div_id_password');
+        const passwordInput = document.getElementById('id_password');
+
+        if (passwordContainer && passwordInput) {
+            // Add right padding so typed text doesn't overlap the eye icon
+            passwordInput.style.paddingRight = '2.5rem';
+
+            // Create toggle button
+            const toggleBtn = document.createElement('button');
+            toggleBtn.type = 'button';
+            toggleBtn.className = 'password-toggle-btn';
+            toggleBtn.setAttribute('aria-label', 'Toggle password visibility');
+            toggleBtn.innerHTML = '<i class="fa-solid fa-eye"></i>';
+
+            // Append button inside the password container
+            passwordContainer.appendChild(toggleBtn);
+
+            // Toggle input type and icon on click
+            toggleBtn.addEventListener('click', function () {
+                const isPassword = passwordInput.getAttribute('type') === 'password';
+                passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
+                
+                const icon = toggleBtn.querySelector('i');
+                if (isPassword) {
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                } else {
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                }
+            });
+        }
+    });
+</script>
 
 {% block footer %}
 {% endblock %}

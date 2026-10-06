@@ -158,61 +158,62 @@ from django.utils import timezone
 from ..models import StockMovement, StockStage
 
 @transaction.atomic
-def complete_roasting(processing_run, good_quantity, bad_quantity, user, notes=""):
+def complete_roasting(processing_run, output_quantity, user, notes=""):
     """
-    Step 2: Completes an active roasting run.
-    Deducts from input stage and updates Roasted and Quakers inventory states.
+    Completes an active roasting run.
+    Brings back roasted coffee into inventory.
+    The difference between input_quantity and output_quantity is roasting loss (moisture/chaff).
     """
-    good_qty = Decimal(good_quantity)
-    bad_qty = Decimal(bad_quantity)
-    total_output = good_qty + bad_qty
+    output_qty = Decimal(output_quantity)
 
-    if total_output > processing_run.input_quantity:
+    if output_qty <= ZERO:
+        raise ValidationError("Roasted output must be greater than zero.")
+
+    if output_qty > processing_run.input_quantity:
         raise ValidationError(
-            f"Output ({total_output} kg) cannot be greater than the input lot weight "
+            f"Output ({output_qty} kg) cannot be greater than input lot weight "
             f"({processing_run.input_quantity} kg)."
         )
 
-    # Automatic Process Loss Calculation (Moisture Loss / Silver-skin chaff)
-    process_loss = processing_run.input_quantity - total_output
+    # Automatic Roasting Loss Calculation (Moisture Loss / Silver-skin chaff)
+    roasting_loss = processing_run.input_quantity - output_qty
 
-    # Update processing run status
-    processing_run.output_quantity = good_qty
-    if hasattr(processing_run, "bad_quantity_sorted"):
-        processing_run.bad_quantity_sorted = bad_qty
+    # Update processing run record
+    processing_run.output_quantity = output_qty
+    processing_run.loss_quantity = roasting_loss
     processing_run.status = "completed"
+    processing_run.completed_by = user
     processing_run.completed_at = timezone.now()
+    if notes:
+        processing_run.notes = notes
     processing_run.save()
 
-    stock = processing_run.stock
-    input_stage = processing_run.input_stage  # Uses GREEN or configured input stage
-
-    # 1. Log Good Roasted Output
+    # 1. Log Roasted Coffee back into inventory
     StockMovement.objects.create(
-        stock=stock,
+        stock=processing_run.stock,
         from_stage=None,
         to_stage=StockStage.ROASTED,
-        quantity=good_qty,
-        movement_type="processing_complete",
+        quantity=output_qty,
+        movement_type="roast_return",
         created_by=user,
-        notes=notes
+        reference=f"Roasting #{processing_run.pk}",
+        notes=notes,
     )
 
-    # 2. Log Bad Roasted Output (Quakers)
-    if bad_qty > 0:
-        quakers_stage = getattr(StockStage, "QUAKERS", "quakers")
+    # 2. Log Roasting Loss Movement (optional audit tracking)
+    if roasting_loss > ZERO:
         StockMovement.objects.create(
-            stock=stock,
-            from_stage=input_stage,
-            to_stage=quakers_stage,
-            quantity=bad_qty,
-            movement_type="defect_sorting",
+            stock=processing_run.stock,
+            from_stage=None,
+            to_stage=None,
+            quantity=roasting_loss,
+            movement_type="roasting_loss",
             created_by=user,
-            notes=f"Sorted bad beans saved for staff consumption. {notes}"
+            reference=f"Roasting loss #{processing_run.pk}",
+            notes="Moisture loss and silver-skin chaff during roast.",
         )
 
-    return processing_run, process_loss
-
+    return processing_run, roasting_loss
 
 # ============================================================
 # COMPLETE SORTING

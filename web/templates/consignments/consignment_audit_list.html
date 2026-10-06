@@ -1,0 +1,395 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}Audit Schedule | Nonda{% endblock %}
+
+{% block breadcrumb %}
+Sales / Consignments / Audit Schedule
+{% endblock %}
+
+{% block page_title %}
+Consignment Audit Schedule
+{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-0.5 text-xs text-slate-500">
+    Branches are due for physical stock verification every
+    {{ interval_days }} days while Nonda stock remains on site.
+</p>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="space-y-3">
+
+    <!-- SMALL SUMMARY -->
+    <section class="grid grid-cols-3 gap-2">
+
+        <div class="rounded-lg border border-line bg-white
+                    px-3 py-2">
+
+            <p class="text-[10px] uppercase text-slate-400">
+                {{ row.days_overdue }} day{{ row.days_overdue|pluralize }} overdue
+            </p>
+
+            <p class="mt-0.5 text-base font-semibold text-rose-700">
+                {{ overdue_count }}
+            </p>
+
+        </div>
+
+
+        <div class="rounded-lg border border-line bg-white
+                    px-3 py-2">
+
+            <p class="text-[10px] uppercase text-slate-400">
+                Due / Due soon
+            </p>
+
+            <p class="mt-0.5 text-base font-semibold text-amber-700">
+                {{ due_count }}
+            </p>
+
+        </div>
+
+
+        <div class="rounded-lg border border-line bg-white
+                    px-3 py-2">
+
+            <p class="text-[10px] uppercase text-slate-400">
+                Pending approval
+            </p>
+
+            <p class="mt-0.5 text-base font-semibold text-slate-800">
+                {{ pending_count }}
+            </p>
+
+        </div>
+
+    </section>
+
+
+    <!-- FILTERS -->
+    <section class="rounded-lg border border-line bg-white
+                    px-3 py-2">
+
+        <form method="get"
+              class="flex flex-wrap items-center gap-2">
+
+            <input
+                type="search"
+                name="q"
+                value="{{ search }}"
+                placeholder="Company or branch..."
+                class="h-8 w-56 rounded-md border border-line
+                       px-2.5 text-xs outline-none
+                       focus:border-olive"
+            >
+
+            <select
+                name="status"
+                class="h-8 rounded-md border border-line
+                       bg-white px-2 text-xs"
+            >
+                <option value="">All statuses</option>
+
+                <option value="overdue"
+                    {% if status_filter == "overdue" %}selected{% endif %}>
+                    Overdue
+                </option>
+
+                <option value="due"
+                    {% if status_filter == "due" %}selected{% endif %}>
+                    Due
+                </option>
+
+                <option value="due_soon"
+                    {% if status_filter == "due_soon" %}selected{% endif %}>
+                    Due soon
+                </option>
+
+                <option value="pending"
+                    {% if status_filter == "pending" %}selected{% endif %}>
+                    Pending
+                </option>
+
+                <option value="ok"
+                    {% if status_filter == "ok" %}selected{% endif %}>
+                    Current
+                </option>
+
+                <option value="no_stock"
+                    {% if status_filter == "no_stock" %}selected{% endif %}>
+                    No stock
+                </option>
+            </select>
+
+            <button
+                class="h-8 rounded-md bg-olive
+                       px-3 text-xs font-semibold text-white"
+            >
+                Filter
+            </button>
+
+            {% if search or status_filter %}
+            <a
+                href="{% url 'consignment_audit_list' %}"
+                class="text-[11px] text-slate-500"
+            >
+                Clear
+            </a>
+            {% endif %}
+
+        </form>
+
+    </section>
+
+
+    <!-- TABLE -->
+    <section class="rounded-lg border border-line bg-white
+                    shadow-sm overflow-hidden">
+
+        <div class="overflow-x-auto">
+
+            <table class="min-w-full text-xs">
+
+                <thead class="bg-slate-50 text-[10px]
+                              uppercase tracking-wide text-slate-500">
+
+                    <tr>
+                        <th class="px-3 py-2 text-left">
+                            Company / Branch
+                        </th>
+
+                        <th class="px-3 py-2 text-right">
+                            Stock on site
+                        </th>
+
+                        <th class="px-3 py-2 text-left">
+                            Last audited
+                        </th>
+
+                        <th class="px-3 py-2 text-left">
+                            Next audit
+                        </th>
+
+                        <th class="px-3 py-2 text-center">
+                            Status
+                        </th>
+
+                        <th class="px-3 py-2 text-right">
+                            Action
+                        </th>
+                    </tr>
+
+                </thead>
+
+
+                <tbody class="divide-y divide-slate-100">
+
+                    {% for row in rows %}
+
+                    <tr class="hover:bg-slate-50/60">
+
+                        <td class="px-3 py-2.5">
+
+                            <p class="font-semibold text-slate-800">
+                                {{ row.branch.branch_name }}
+                            </p>
+
+                            <p class="text-[10px] text-slate-400">
+                                {{ row.company.name }}
+                            </p>
+
+                        </td>
+
+
+                        <td class="px-3 py-2.5 text-right
+                                   font-medium tabular-nums">
+                            {{ row.stock_on_hand|intcomma }}
+                        </td>
+
+
+                        <td class="px-3 py-2.5">
+
+                            {% if row.last_audited %}
+                                {{ row.last_audited|date:"d M Y" }}
+                            {% else %}
+                                <span class="text-slate-400">
+                                    Never
+                                </span>
+                            {% endif %}
+
+                        </td>
+
+
+                        <td class="px-3 py-2.5">
+
+                            {% if row.due_date %}
+                                {{ row.due_date|date:"d M Y" }}
+                            {% else %}
+                                <span class="text-slate-300">—</span>
+                            {% endif %}
+
+                        </td>
+
+
+                        <td class="px-3 py-2.5 text-center">
+
+                            {% if row.audit_status == "overdue" %}
+
+                                <span class="rounded-full bg-rose-50
+                                             px-2 py-0.5 text-[10px]
+                                             font-semibold text-rose-700">
+                                    {{ row.days_value|stringformat:"+d"|cut:"+" }}
+                                    day{{ row.days_value|pluralize }} overdue
+                                </span>
+
+                            {% elif row.audit_status == "due" %}
+
+                                <span class="rounded-full bg-amber-50
+                                             px-2 py-0.5 text-[10px]
+                                             font-semibold text-amber-700">
+                                    Audit due
+                                </span>
+
+                            {% elif row.audit_status == "due_soon" %}
+
+                                <span class="rounded-full bg-amber-50
+                                             px-2 py-0.5 text-[10px]
+                                             font-semibold text-amber-700">
+                                    Due in {{ row.days_value }} day{{ row.days_value|pluralize }}
+                                </span>
+
+                            {% elif row.audit_status == "pending" %}
+
+                                <span class="rounded-full bg-blue-50
+                                             px-2 py-0.5 text-[10px]
+                                             font-semibold text-blue-700">
+                                    Pending approval
+                                </span>
+
+                            {% elif row.audit_status == "ok" %}
+
+                                <span class="rounded-full bg-emerald-50
+                                             px-2 py-0.5 text-[10px]
+                                             font-semibold text-emerald-700">
+                                    Current
+                                </span>
+
+                            {% else %}
+
+                                <span class="rounded-full bg-slate-100
+                                             px-2 py-0.5 text-[10px]
+                                             font-medium text-slate-500">
+                                    No stock
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+
+                        <td class="px-3 py-2.5 text-right">
+
+                            {% if row.pending_audit %}
+
+                            <a
+                                href="{% url 'consignment_audit_detail' row.company.pk row.branch.pk row.pending_audit.pk %}"
+                                class="inline-flex h-7 items-center rounded-md
+                                       border border-amber-200 bg-amber-50
+                                       px-2.5 text-[10px] font-semibold
+                                       text-amber-700"
+                            >
+                                Review
+                            </a>
+
+                            {% elif row.stock_on_hand > 0 %}
+
+                            <a
+                                href="{% url 'consignment_branch_audit' row.company.pk row.branch.pk %}"
+                                class="inline-flex h-7 items-center rounded-md
+                                       border border-line bg-white
+                                       px-2.5 text-[10px] font-semibold
+                                       text-slate-700 hover:bg-slate-50"
+                            >
+                                Audit
+                            </a>
+
+                            {% endif %}
+
+                            <a
+                                href="{% url 'consignment_branch_detail' row.company.pk row.branch.pk %}"
+                                class="ml-1 text-[10px] font-medium
+                                       text-olive hover:underline"
+                            >
+                                Branch →
+                            </a>
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="6"
+                            class="px-3 py-8 text-center
+                                   text-xs text-slate-400">
+                            No branches match this filter.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        {% if page_obj.has_other_pages %}
+
+        <div class="flex items-center justify-between
+                    border-t border-line px-3 py-2">
+
+            <p class="text-[10px] text-slate-400">
+                Page {{ page_obj.number }}
+                of {{ page_obj.paginator.num_pages }}
+            </p>
+
+            <div class="flex gap-1">
+
+                {% if page_obj.has_previous %}
+                <a
+                    href="?page={{ page_obj.previous_page_number }}&q={{ search }}&status={{ status_filter }}"
+                    class="h-7 inline-flex items-center rounded-md
+                           border border-line px-2 text-[10px]"
+                >
+                    Previous
+                </a>
+                {% endif %}
+
+                {% if page_obj.has_next %}
+                <a
+                    href="?page={{ page_obj.next_page_number }}&q={{ search }}&status={{ status_filter }}"
+                    class="h-7 inline-flex items-center rounded-md
+                           border border-line px-2 text-[10px]"
+                >
+                    Next
+                </a>
+                {% endif %}
+
+            </div>
+
+        </div>
+
+        {% endif %}
+
+    </section>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,404 @@
+{% load humanize %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>
+        {% block print_title %}
+        Nonda Report
+        {% endblock %}
+    </title>
+
+
+    <style>
+
+        @page {
+            size: A4;
+            margin: 12mm 12mm 14mm;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #eef0ed;
+            color: #1f2937;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 10px;
+            line-height: 1.35;
+        }
+
+        .report {
+            width: min(1000px, calc(100% - 24px));
+            margin: 14px auto;
+            padding: 22px;
+            background: #ffffff;
+            border: 1px solid #d8d5cb;
+            border-radius: 8px;
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #526b3b;
+        }
+
+        .brand {
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 20px;
+            font-weight: 700;
+            color: #213329;
+        }
+
+        .brand-sub {
+            margin-top: 1px;
+            color: #526b3b;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 8px;
+        }
+
+        .report-name {
+            margin-top: 8px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .report-period {
+            margin-top: 2px;
+            color: #64748b;
+            font-size: 9px;
+        }
+
+        .document-meta {
+            text-align: right;
+            color: #64748b;
+            font-size: 8px;
+            line-height: 1.6;
+        }
+
+        .actions {
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 6px;
+        }
+
+        .button {
+            border: 1px solid #cfd3cf;
+            background: white;
+            border-radius: 5px;
+            padding: 6px 10px;
+            font-size: 9px;
+            cursor: pointer;
+        }
+
+        .button-primary {
+            background: #26352c;
+            color: white;
+            border-color: #26352c;
+        }
+
+        .section {
+            margin-top: 12px;
+        }
+
+        .section-title {
+            margin: 0 0 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #dadde0;
+            font-size: 9px;
+            color: #374151;
+            text-transform: uppercase;
+            letter-spacing: .8px;
+        }
+
+        .kpis {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+
+        .kpi {
+            border: 1px solid #dfe2df;
+            border-radius: 5px;
+            padding: 7px;
+            background: #fafbf9;
+        }
+
+        .kpi-label {
+            color: #64748b;
+            font-size: 7.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+        }
+
+        .kpi-value {
+            margin-top: 3px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #17231c;
+        }
+
+        .kpi-note {
+            margin-top: 2px;
+            font-size: 7.5px;
+            color: #94a3b8;
+        }
+
+        .green {
+            color: #087443;
+        }
+
+        .red {
+            color: #c22136;
+        }
+
+        .amber {
+            color: #a8550a;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .panel {
+            border: 1px solid #dfe2df;
+            border-radius: 5px;
+            padding: 7px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            padding: 4px 5px;
+            background: #f4f6f4;
+            color: #64748b;
+            font-size: 7.5px;
+            text-align: left;
+            text-transform: uppercase;
+            letter-spacing: .3px;
+        }
+
+        td {
+            padding: 4px 5px;
+            border-bottom: 1px solid #eceeec;
+            font-size: 8.5px;
+        }
+
+        .right {
+            text-align: right;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        .note {
+            margin-top: 10px;
+            padding-top: 6px;
+            border-top: 1px solid #dfe2df;
+            color: #64748b;
+            font-size: 7.5px;
+        }
+
+        .avoid-break {
+            break-inside: avoid;
+        }
+
+        .report-footer {
+            margin-top: 14px;
+            padding-top: 6px;
+            border-top: 1px solid #dfe2df;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            color: #94a3b8;
+            font-size: 7px;
+        }
+
+
+        @media (max-width: 700px) {
+
+            .report {
+                width: calc(100% - 12px);
+                margin: 6px;
+                padding: 12px;
+            }
+
+            .report-header {
+                flex-direction: column;
+            }
+
+            .document-meta {
+                text-align: left;
+            }
+
+            .kpis {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .two-column {
+                grid-template-columns: 1fr;
+            }
+
+            .table-scroll {
+                overflow-x: auto;
+            }
+
+        }
+
+
+        @media print {
+
+            body {
+                background: #ffffff;
+            }
+
+            .report {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                border: 0;
+                border-radius: 0;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .section {
+                break-inside: avoid;
+            }
+
+            .panel,
+            .kpi,
+            table {
+                break-inside: avoid;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+<div class="report">
+
+    <!-- =====================================================
+         SCREEN-ONLY ACTIONS
+         ===================================================== -->
+    <div class="actions no-print">
+
+        <button
+            type="button"
+            onclick="window.history.back()"
+            class="button"
+        >
+            Back
+        </button>
+
+        <button
+            type="button"
+            onclick="window.print()"
+            class="button button-primary"
+        >
+            Print / Save PDF
+        </button>
+
+    </div>
+
+
+    <!-- =====================================================
+         REPORT HEADER
+         ===================================================== -->
+    <header class="report-header">
+
+        <div>
+
+            <div class="brand">
+                Nonda
+            </div>
+
+            <div class="brand-sub">
+                Commodities
+            </div>
+
+            <div class="report-name">
+                {% block report_name %}
+                Management Report
+                {% endblock %}
+            </div>
+
+            <div class="report-period">
+                Reporting period: {{ period_label }}
+            </div>
+
+        </div>
+
+
+        <div class="document-meta">
+
+            <strong>NONDA COMMODITIES</strong><br>
+
+            Management Reporting System<br>
+
+            Generated {% now "d M Y, H:i" %}<br>
+
+            Internal Management Document
+
+        </div>
+
+    </header>
+
+
+    <!-- =====================================================
+         REPORT BODY
+         ===================================================== -->
+    {% block report_content %}
+    {% endblock %}
+
+
+    <!-- =====================================================
+         REPORT FOOTER
+         ===================================================== -->
+    <footer class="report-footer">
+
+        <span>
+            Nonda Commodities · Management Report
+        </span>
+
+        <span>
+            {{ period_label }}
+        </span>
+
+    </footer>
+
+</div>
+
+</body>
+
+</html>

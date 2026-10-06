@@ -1,0 +1,309 @@
+{% extends "reports/print/base.html" %}
+{% load humanize %}
+
+{% block print_title %}
+Operations Report | Nonda Commodities
+{% endblock %}
+
+{% block report_name %}
+Operations Report
+{% endblock %}
+
+{% block report_content %}
+
+<section class="section">
+
+    <div class="kpis">
+
+        <div class="kpi">
+            <div class="kpi-label">Processing Completed</div>
+            <div class="kpi-value">
+                {{ processing.runs|intcomma }}
+                <span style="font-size:8px;font-weight:normal;">runs</span>
+            </div>
+        </div>
+
+        <div class="kpi">
+            <div class="kpi-label">Processing Yield</div>
+            <div class="kpi-value">
+                {{ processing.yield_pct }}%
+            </div>
+        </div>
+
+        <div class="kpi">
+            <div class="kpi-label">Processing Loss</div>
+            <div class="kpi-value">
+                {{ processing.loss_kg|floatformat:2|intcomma }} kg
+            </div>
+        </div>
+
+        <div class="kpi">
+            <div class="kpi-label">Packs Produced</div>
+            <div class="kpi-value">
+                {{ packaging.packs_produced|intcomma }}
+            </div>
+        </div>
+
+    </div>
+
+</section>
+
+
+<section class="section">
+
+    <h2>Processing Performance</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Process</th>
+                <th class="right">Runs</th>
+                <th class="right">Input (kg)</th>
+                <th class="right">Output (kg)</th>
+                <th class="right">Loss (kg)</th>
+                <th class="right">Yield</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for row in process_rows %}
+            <tr>
+                <td>{{ row.name }}</td>
+                <td class="right">{{ row.runs|intcomma }}</td>
+                <td class="right">
+                    {{ row.input_kg|floatformat:2|intcomma }}
+                </td>
+                <td class="right">
+                    {{ row.primary_kg|floatformat:2|intcomma }}
+                </td>
+                <td class="right">
+                    {{ row.loss_kg|floatformat:2|intcomma }}
+                </td>
+                <td class="right">
+                    {{ row.yield_pct }}%
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="center">
+                    No processing operations in this period.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</section>
+
+
+<section class="section">
+
+    <h2>Packaging Performance</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Metric</th>
+                <th class="right">Value</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>Packaging Runs</td>
+                <td class="right">
+                    {{ packaging.runs|intcomma }}
+                </td>
+            </tr>
+
+            <tr>
+                <td>Input Coffee</td>
+                <td class="right">
+                    {{ packaging.input_kg|floatformat:2|intcomma }} kg
+                </td>
+            </tr>
+
+            <tr>
+                <td>Coffee Used</td>
+                <td class="right">
+                    {{ packaging.coffee_used_kg|floatformat:2|intcomma }} kg
+                </td>
+            </tr>
+
+            <tr>
+                <td>Packaging Loss</td>
+                <td class="right">
+                    {{ packaging.loss_kg|floatformat:2|intcomma }} kg
+                </td>
+            </tr>
+
+            <tr>
+                <td>Packaging Yield</td>
+                <td class="right">
+                    {{ packaging.yield_pct }}%
+                </td>
+            </tr>
+
+            <tr>
+                <td>Packs Produced</td>
+                <td class="right">
+                    {{ packaging.packs_produced|intcomma }}
+                </td>
+            </tr>
+
+            <tr>
+                <td>Unaccounted</td>
+                <td class="right">
+                    {{ packaging.unaccounted_kg|floatformat:2|intcomma }} kg
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+</section>
+
+
+<section class="section">
+
+    <h2>Stock Movement Summary</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Movement</th>
+                <th class="right">Entries</th>
+                <th class="right">Quantity (kg)</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for row in movement_rows %}
+            <tr>
+                <td>{{ row.label }}</td>
+                <td class="right">{{ row.count|intcomma }}</td>
+                <td class="right">
+                    {{ row.kg|floatformat:2|intcomma }}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3" class="center">
+                    No stock movements recorded in this period.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p class="note">
+        Movement quantities are not summed across movement types because the
+        same coffee may move through multiple processing stages.
+    </p>
+
+</section>
+
+
+<section class="section">
+
+    <h2>Work in Progress</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Batch</th>
+                <th>Operation</th>
+                <th class="right">Input (kg)</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            {% for run in open_processing %}
+            <tr>
+                <td>{{ run.stock.batch_number }}</td>
+                <td>{{ run.get_process_type_display }}</td>
+                <td class="right">
+                    {{ run.input_quantity|floatformat:2|intcomma }}
+                </td>
+            </tr>
+            {% endfor %}
+
+            {% for run in open_packaging %}
+            <tr>
+                <td>{{ run.stock.batch_number }}</td>
+                <td>Packaging</td>
+                <td class="right">
+                    {{ run.input_kg|floatformat:2|intcomma }}
+                </td>
+            </tr>
+            {% endfor %}
+
+            {% if not open_processing and not open_packaging %}
+            <tr>
+                <td colspan="3" class="center">
+                    No active work in progress.
+                </td>
+            </tr>
+            {% endif %}
+
+        </tbody>
+    </table>
+
+</section>
+
+
+<section class="section">
+
+    <h2>Reconciliation Exceptions</h2>
+
+    {% if exceptions %}
+
+    <table>
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Batch</th>
+                <th class="right">Variance (kg)</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for row in exceptions %}
+            <tr>
+                <td>{{ row.kind }}</td>
+                <td>{{ row.batch }}</td>
+                <td class="right">
+                    {{ row.variance_kg|floatformat:2|intcomma }}
+                </td>
+                <td>{{ row.date|date:"d M Y" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% else %}
+
+    <p class="note">
+        No processing or packaging reconciliation exceptions were recorded
+        for this period.
+    </p>
+
+    {% endif %}
+
+</section>
+
+
+<section class="section">
+
+    <h2>Management Note</h2>
+
+    <p class="note">
+        Processing and packaging quantities are operational measurements.
+        Movement quantities should not be interpreted as unique coffee
+        consumed because stock may pass through multiple stages.
+    </p>
+
+</section>
+
+{% endblock %}

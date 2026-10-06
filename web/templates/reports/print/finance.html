@@ -1,0 +1,367 @@
+{% extends "reports/print/base.html" %}
+{% load humanize %}
+
+{% block print_title %}
+Finance & Credit Report | Nonda Commodities
+{% endblock %}
+
+{% block report_name %}
+Finance & Credit Report
+{% endblock %}
+
+
+{% block report_content %}
+
+<!-- =========================================================
+     FINANCIAL SUMMARY
+     ========================================================= -->
+<section class="section avoid-break">
+
+    <h2 class="section-title">
+        Financial Summary
+    </h2>
+
+    <div class="kpis">
+
+        <div class="kpi">
+            <div class="kpi-label">
+                Collections
+            </div>
+
+            <div class="kpi-value green">
+                UGX {{ collections_total|floatformat:0|intcomma }}
+            </div>
+
+            <div class="kpi-note">
+                {{ payment_count }} recorded settlement{{ payment_count|pluralize }}
+            </div>
+        </div>
+
+
+        <div class="kpi">
+            <div class="kpi-label">
+                Expenses
+            </div>
+
+            <div class="kpi-value red">
+                UGX {{ expense_total|floatformat:0|intcomma }}
+            </div>
+
+            <div class="kpi-note">
+                Recorded during {{ period_label }}
+            </div>
+        </div>
+
+
+        <div class="kpi">
+            <div class="kpi-label">
+                Collections Less Expenses
+            </div>
+
+            <div class="kpi-value">
+                UGX {{ cash_less_expenses|floatformat:0|intcomma }}
+            </div>
+
+            <div class="kpi-note">
+                Cash movement indicator — not net profit
+            </div>
+        </div>
+
+
+        <div class="kpi">
+            <div class="kpi-label">
+                Outstanding Packaged Debt
+            </div>
+
+            <div class="kpi-value amber">
+                UGX {{ outstanding_receivables|floatformat:0|intcomma }}
+            </div>
+
+            <div class="kpi-note">
+                Current unpaid packaged-sales balance
+            </div>
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     COLLECTIONS + EXPENDITURE
+     ========================================================= -->
+<section class="section two-column avoid-break">
+
+    <div class="panel">
+
+        <h2 class="section-title">
+            Collections by Payment Method
+        </h2>
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th class="right">Amount</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for row in payment_methods %}
+
+                    <tr>
+                        <td>{{ row.label }}</td>
+
+                        <td class="right">
+                            <strong>
+                                UGX {{ row.amount|floatformat:0|intcomma }}
+                            </strong>
+                        </td>
+                    </tr>
+
+                {% empty %}
+
+                    <tr>
+                        <td colspan="2" class="center">
+                            No collections recorded.
+                        </td>
+                    </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <div class="panel">
+
+        <h2 class="section-title">
+            Expenditure Ranking
+        </h2>
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th class="right">Amount</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for row in expense_ranking %}
+
+                    <tr>
+                        <td>{{ row.label }}</td>
+
+                        <td class="right">
+                            <strong>
+                                UGX {{ row.total|floatformat:0|intcomma }}
+                            </strong>
+                        </td>
+                    </tr>
+
+                {% empty %}
+
+                    <tr>
+                        <td colspan="2" class="center">
+                            No expenditure recorded.
+                        </td>
+                    </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     DEBTORS
+     ========================================================= -->
+<section class="section avoid-break">
+
+    <h2 class="section-title">
+        Outstanding Debtors
+    </h2>
+
+    <table>
+
+        <thead>
+            <tr>
+                <th>Account</th>
+                <th class="center">Releases</th>
+                <th class="right">Outstanding Balance</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            {% for row in debtors %}
+
+                <tr>
+                    <td>
+                        <strong>{{ row.name }}</strong>
+                    </td>
+
+                    <td class="center">
+                        {{ row.invoices }}
+                    </td>
+
+                    <td class="right">
+                        UGX {{ row.balance|floatformat:0|intcomma }}
+                    </td>
+                </tr>
+
+            {% empty %}
+
+                <tr>
+                    <td colspan="3" class="center">
+                        No outstanding debtor balances.
+                    </td>
+                </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</section>
+
+
+<!-- =========================================================
+     DEBT AGEING
+     ========================================================= -->
+<section class="section avoid-break">
+
+    <h2 class="section-title">
+        Debt Ageing
+    </h2>
+
+    <table>
+
+        <thead>
+            <tr>
+                <th>Age Bucket</th>
+                <th class="right">Outstanding Amount</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            {% for row in ageing %}
+
+                <tr>
+                    <td>{{ row.label }}</td>
+
+                    <td class="right">
+                        <strong>
+                            UGX {{ row.amount|floatformat:0|intcomma }}
+                        </strong>
+                    </td>
+                </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+    <div class="note">
+        {{ ageing_basis }}
+    </div>
+
+</section>
+
+
+<!-- =========================================================
+     DAILY COLLECTIONS
+     ========================================================= -->
+<section class="section">
+
+    <h2 class="section-title">
+        Daily Collections
+    </h2>
+
+    <table>
+
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th class="right">Amount Collected</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            {% for row in collection_days %}
+
+                <tr>
+                    <td>{{ row.date }}</td>
+
+                    <td class="right">
+                        <strong>
+                            UGX {{ row.amount|floatformat:0|intcomma }}
+                        </strong>
+                    </td>
+                </tr>
+
+            {% empty %}
+
+                <tr>
+                    <td colspan="2" class="center">
+                        No collections in this period.
+                    </td>
+                </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</section>
+
+
+{% if unallocated_credit %}
+
+<section class="section avoid-break">
+
+    <div class="panel">
+
+        <strong>Unallocated Credit:</strong>
+
+        UGX {{ unallocated_credit|floatformat:0|intcomma }}
+
+        <div class="note">
+            Payments recorded in excess of currently matched packaged sales.
+        </div>
+
+    </div>
+
+</section>
+
+{% endif %}
+
+
+<div class="note">
+
+    <strong>Accounting note:</strong>
+    Collections and expenditure relate to the selected reporting period.
+    Outstanding packaged debt is a current balance snapshot and is not a
+    profitability calculation.
+
+</div>
+
+{% endblock report_content %}

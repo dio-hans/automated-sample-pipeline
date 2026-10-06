@@ -3,115 +3,114 @@
 
 {% block title %}Expense History | Nonda{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/expense_tracker.css' %}">
-{% endblock %}
-
 {% block breadcrumb %}
 Accounts / Expenses / History
 {% endblock %}
 
 {% block content %}
-<div class="expense-list-page">
-    <!-- HEADER -->
-    <div class="expense-list-header">
+<div class="px-3 py-2 sm:px-4 sm:py-3 space-y-3 w-full">
+
+    <!-- PAGE HEADER -->
+    <div class="flex items-center justify-between gap-3">
         <div>
-            <h1>Expense History</h1>
-            <p>Review and filter Nonda business expenses.</p>
+            <h1 class="text-lg sm:text-xl font-bold text-slate-800 tracking-tight">Expense History</h1>
+            <p class="text-xs text-slate-500">Review and filter Nonda business expenses.</p>
         </div>
-        <a href="{% url 'expense_tracker' %}" class="expense-new-button">
-            + Record Expense
+        <a href="{% url 'expense_tracker' %}" 
+           class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-green-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-sm transition shrink-0">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Record Expense
         </a>
     </div>
 
-    <!-- SUMMARY -->
-    <div class="expense-summary-card">
+    <!-- SUMMARY CARD -->
+    <div class="bg-white rounded-lg border border-slate-200 shadow-sm px-3.5 py-2.5 max-w-sm flex items-center justify-between gap-3">
+        <div class="space-y-0.5">
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Total Expenses</span>
+            <div class="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                UGX {{ total_expenses|floatformat:0|intcomma }}
+            </div>
+        </div>
         <div>
-            <span>Total Expenses</span>
-            <strong>UGX {{ total_expenses|floatformat:0|intcomma }}</strong>
-        </div>
-        <div class="expense-summary-period">
-            {{ selected_range_label }}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                {{ selected_range_label }}
+            </span>
         </div>
     </div>
 
-    <!-- FILTERS -->
-    <div class="expense-filter-card">
-        <div class="expense-filter-presets">
-            <a href="?range=today" class="{% if selected_range == 'today' %}active{% endif %}">
-                Today
+    <!-- REPORT DATE FILTERS & CATEGORY SELECT -->
+    <div class="space-y-2">
+        {% include "reports/components/report_filters.html" %}
+
+        <!-- CATEGORY QUICK FILTER BAR -->
+        {% if categories %}
+        <div class="bg-white border border-slate-200 rounded-lg shadow-sm px-3 py-1.5 flex items-center gap-2 overflow-x-auto text-xs">
+            <span class="text-slate-400 font-semibold text-[10px] shrink-0">Category:</span>
+            <a href="?{% if extra_qs %}{{ extra_qs|safe }}&{% endif %}category="
+               class="px-2 py-0.5 rounded-md border text-[10px] font-semibold transition shrink-0
+               {% if not category_filter %}bg-slate-800 text-white border-slate-800{% else %}bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100{% endif %}">
+                All Categories
             </a>
-            <a href="?range=this_week" class="{% if selected_range == 'this_week' %}active{% endif %}">
-                This Week
-            </a>
-            <a href="?range=this_month" class="{% if selected_range == 'this_month' %}active{% endif %}">
-                This Month
-            </a>
+            {% for code, label in categories %}
+                <a href="?{% if preset %}period={{ preset }}&{% endif %}{% if period.start_date %}start_date={{ period.start_date|date:'Y-m-d' }}&{% endif %}{% if period.end_date %}end_date={{ period.end_date|date:'Y-m-d' }}&{% endif %}category={{ code }}"
+                   class="px-2 py-0.5 rounded-md border text-[10px] font-semibold transition shrink-0
+                   {% if category_filter == code %}bg-slate-800 text-white border-slate-800{% else %}bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100{% endif %}">
+                    {{ label }}
+                </a>
+            {% endfor %}
         </div>
-        <form method="GET" class="expense-filter-form">
-            <input type="hidden" name="range" value="custom">
-            <div>
-                <label>From</label>
-                <input type="date" name="start_date" value="{{ request.GET.start_date }}">
-            </div>
-            <div>
-                <label>To</label>
-                <input type="date" name="end_date" value="{{ request.GET.end_date }}">
-            </div>
-            <div>
-                <label>Category</label>
-                <select name="category">
-                    <option value="">All Categories</option>
-                    {% for value, label in categories %}
-                        <option value="{{ value }}" {% if category_filter == value %}selected{% endif %}>
-                            {{ label }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-            <button type="submit">Filter</button>
-        </form>
+        {% endif %}
     </div>
 
-    <!-- TABLE -->
-    <div class="expense-list-card">
-        <div class="expense-list-card-header">
-            <h2>Transactions</h2>
-            <span>{{ paginator.count }} record{{ paginator.count|pluralize }}</span>
+    <!-- TRANSACTIONS TABLE CARD -->
+    <div class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+        
+        <!-- CARD HEADER -->
+        <div class="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+            <h2 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Transactions</h2>
+            <span class="text-[10px] font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                {{ paginator.count }} record{{ paginator.count|pluralize }}
+            </span>
         </div>
-        <div class="expense-table-wrapper">
-            <table class="expense-list-table">
+
+        <!-- TABLE WRAPPER -->
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
                 <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Category</th>
-                        <th>Description</th>
-                        <th>Logged By</th>
-                        <th class="amount-column">Amount (UGX)</th>
+                    <tr class="bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                        <th class="px-4 py-2">Date</th>
+                        <th class="px-4 py-2">Category</th>
+                        <th class="px-4 py-2">Description</th>
+                        <th class="px-4 py-2">Logged By</th>
+                        <th class="px-4 py-2 text-right">Amount (UGX)</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="divide-y divide-slate-100 text-xs text-slate-700">
                     {% for expense in expenses %}
-                        <tr>
-                            <td>{{ expense.expense_date|date:"d M Y" }}</td>
-                            <td>
-                                <span class="expense-category">
+                        <tr class="hover:bg-slate-50/70 transition">
+                            <td class="px-4 py-2.5 whitespace-nowrap font-medium text-slate-900">
+                                {{ expense.expense_date|date:"d M Y" }}
+                            </td>
+                            <td class="px-4 py-2.5 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
                                     {{ expense.get_category_display }}
                                 </span>
                             </td>
-                            <td class="expense-description">
+                            <td class="px-4 py-2.5 text-slate-600 max-w-xs truncate">
                                 {{ expense.notes|default:"—" }}
                             </td>
-                            <td>
+                            <td class="px-4 py-2.5 whitespace-nowrap text-slate-600">
                                 {{ expense.logged_by.username|default:"System" }}
                             </td>
-                            <td class="amount-column">
+                            <td class="px-4 py-2.5 whitespace-nowrap text-right font-bold text-slate-900">
                                 UGX {{ expense.amount|floatformat:0|intcomma }}
                             </td>
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="5" class="expense-empty">
+                            <td colspan="5" class="px-4 py-6 text-center text-slate-400 text-xs">
                                 No expense records found for this period.
                             </td>
                         </tr>
@@ -122,22 +121,27 @@ Accounts / Expenses / History
 
         <!-- PAGINATION -->
         {% if is_paginated %}
-            <div class="expense-pagination">
-                {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}{% if selected_range %}&range={{ selected_range }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}">
-                        ← Previous
-                    </a>
-                {% endif %}
-                <span>
-                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-                </span>
-                {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}{% if selected_range %}&range={{ selected_range }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}">
-                        Next →
-                    </a>
-                {% endif %}
+            <div class="px-4 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                <div>
+                    Page <span class="font-semibold text-slate-800">{{ page_obj.number }}</span> of <span class="font-semibold text-slate-800">{{ page_obj.paginator.num_pages }}</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}{% if extra_qs %}&{{ extra_qs }}{% endif %}" 
+                           class="px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium transition shadow-sm text-[11px]">
+                            ← Previous
+                        </a>
+                    {% endif %}
+                    {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}{% if extra_qs %}&{{ extra_qs }}{% endif %}" 
+                           class="px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium transition shadow-sm text-[11px]">
+                            Next →
+                        </a>
+                    {% endif %}
+                </div>
             </div>
         {% endif %}
     </div>
+
 </div>
 {% endblock %}

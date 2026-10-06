@@ -1,6 +1,7 @@
+from . import consignment_views
 from .views import ManagementReportsView
 from django.urls import path
-from . import sales_views, views
+from . import sales_views, views, sales_workflow
 from django.urls import path
 
 urlpatterns = [
@@ -50,6 +51,7 @@ path('register/', views.register_user, name='register'),
 path("users/<int:user_id>/toggle-status/",views.toggle_user_status,name="toggle_user_status",),# more inventory urls
 # --- Auth ---
 path('logout/', views.user_logout, name='logout'),
+path('forgot-password/', views.forgot_password_view, name='forgot_password'),
 
 # --- Processing ---
 # --- Packaged Inventory & Products ---
@@ -102,12 +104,10 @@ path("processing/issue/<int:pk>/", views.IssueProcessingRunView.as_view(), name=
 path("processing/complete/<int:pk>/", views.CompleteProcessingRunView.as_view(), name="complete_processing"),
 path("releases/<int:pk>/collect-payment/",views.RecordInstallmentPaymentView.as_view(),name="record_installment"),
 path("cash-book/", views.CashLedgerListView.as_view(), name="cash_ledger_list"),
-path("releases/<int:pk>/collect-payment/",views.RecordInstallmentPaymentView.as_view(),name="record_installment",),
 path("processing-workspace/", views.ProcessingWorkspaceView.as_view(), name="processing_workspace"),
 path("accounting/credit-ledger/",views.CreditControlLedgerView.as_view(),name="credit_control_ledger"),
 
     # new urls for the new features/ the new cards for sales and the reports
-path("cashier/requests/<int:pk>/collect-payment/",views.record_card_payment_view,name="record_card_payment",),
 
 path("stock-requests/<int:pk>/add-item/",views.add_item_to_request_view,name="stock_request_add_item",),
 
@@ -115,12 +115,6 @@ path("stock-requests/<int:pk>/add-item/",views.add_item_to_request_view,name="st
 path('accounts/', views.account_holder_list, name='account_holder_list'),
 path('accounts/create/', views.account_holder_create, name='account_holder_create'),
 path('accounts/<int:pk>/', views.account_holder_detail, name='account_holder_detail'),
-
-# # Add these to web/urls.py
-
-path("sales/consignments/", sales_views.ConsignmentListView.as_view(), name="consignment_list"),
-path("sales/consignments/<int:pk>/", sales_views.ConsignmentDetailView.as_view(), name="consignment_detail"),
-path("sales/consignments/<int:pk>/audit/", sales_views.ConsignmentAuditView.as_view(), name="consignment_audit"),
 
 
 # urls.py additions
@@ -130,11 +124,6 @@ path("returns/pending/", views.PendingReturnApprovalListView.as_view(), name="pe
 path("returns/<int:pk>/approve/", views.PackReturnApproveView.as_view(), name="pack_return_approve"),
     #  expense tracker
 path('expenses/', views.ExpenseTrackerView.as_view(), name='expense_tracker'),
-path(
-    "expenses/",
-    views.ExpenseTrackerView.as_view(),
-    name="expense_tracker",
-),
 
 path("expenses/history/",views.ExpenseListView.as_view(),name="expense_list",),
 
@@ -160,5 +149,171 @@ path("internal-accounts/<int:pk>/",views.InternalAccountDetailView.as_view(),nam
 path("reports/",views.ReportOverviewView.as_view(), name="reports_overview",),
 
 path("reports/stock/",views.StockConsumptionReportView.as_view(), name="reports_stock",),
+
+# reports
+# ============================================================
+# REPORTING CENTRE
+# ============================================================
+
+path("reports/",views.ReportOverviewView.as_view(),name="reports_overview",),
+
+path("reports/stock/",views.StockConsumptionReportView.as_view(),name="reports_stock",),
+path("reports/sales/",views.SalesReportView.as_view(),name="reports_sales",),
+path('reports/finance/', views.FinanceReportView.as_view(), name='reports_finance'),
+path('reports/operations/', views.OperationsReportView.as_view(), name='reports_operations'),
+path("reports/executive/", views.ExecutiveReportView.as_view(), name="reports_executive"),
+path('reports/profitability/', views.ProfitabilityPlaceholderView.as_view(), name='reports_profitability'),
+path('reports/executive/print/', views.ExecutivePrintView.as_view(), name='reports_executive_print'),
+path('reports/executive/pdf/', views.ExecutivePDFView.as_view(), name='reports_executive_pdf'),
+# ============================================================
+# REPORTS
+# ============================================================
+
+path(
+    "reports/",
+    views.ReportOverviewView.as_view(),
+    name="reports_overview",
+),
+
+path(
+    "reports/stock/",
+    views.StockConsumptionReportView.as_view(),
+    name="reports_stock",
+),
+
+path(
+    "reports/sales/",
+    views.SalesReportView.as_view(),
+    name="reports_sales",
+),
+
+path(
+    "reports/finance/",
+    views.FinanceReportView.as_view(),
+    name="reports_finance",
+),
+
+path(
+    "reports/operations/",
+    views.OperationsReportView.as_view(),
+    name="reports_operations",
+),
+
+path(
+    "reports/executive/",
+    views.ExecutiveReportView.as_view(),
+    name="reports_executive",
+),
+
+path(
+    "reports/profitability/",
+    views.ProfitabilityPlaceholderView.as_view(),
+    name="reports_profitability",
+),
+
+path(
+    "reports/executive/print/",
+    views.ExecutivePrintView.as_view(),
+    name="reports_executive_print",
+),
+
+path(
+    "reports/executive/pdf/",
+    views.ExecutivePDFView.as_view(),
+    name="reports_executive_pdf",
+),
+
+
+# ============================================================
+# REPORT DRILL-DOWNS
+# ============================================================
+
+path(
+    "reports/stock/internal-usage/",
+    views.InternalUsageReportDetailView.as_view(),
+    name="reports_internal_usage",
+),
+
+path(
+    "reports/stock/production-loss/",
+    views.ProductionLossReportDetailView.as_view(),
+    name="reports_production_loss",
+),
+
+path(
+    "reports/sales/details/",
+    views.SalesBreakdownReportView.as_view(),
+    name="reports_sales_details",
+),
+
+path(
+    "reports/stock/print/",
+    views.StockConsumptionPrintView.as_view(),
+    name="reports_stock_print",
+),
+
+path(
+    "reports/sales/print/",
+    views.SalesPrintView.as_view(),
+    name="reports_sales_print",
+),
+
+path(
+    "reports/finance/print/",
+    views.FinancePrintView.as_view(),
+    name="reports_finance_print",
+),
+
+path(
+    "reports/operations/print/",
+    views.OperationsPrintView.as_view(),
+    name="reports_operations_print",
+),
+
+path(
+    "reports/operations/",
+    views.OperationsReportView.as_view(),
+    name="reports_operations",
+),
+
+path(
+    "reports/operations/details/",
+    views.OperationsDetailReportView.as_view(),
+    name="reports_operations_detail",
+),
+
+
+# CONSIGNMENTS — branch-first workflow
+path('sales/consignments/',
+     consignment_views.ConsignmentListView.as_view(), name='consignment_list'),
+path('sales/consignments/<int:pk>/',
+     consignment_views.ConsignmentDetailView.as_view(), name='consignment_detail'),
+path('sales/consignments/<int:pk>/branches/new/',
+     consignment_views.ConsignmentBranchCreateView.as_view(), name='consignment_branch_create'),
+path('sales/consignments/<int:pk>/branches/<int:branch_pk>/',
+     consignment_views.ConsignmentBranchDetailView.as_view(), name='consignment_branch_detail'),
+path('sales/consignments/<int:pk>/branches/<int:branch_pk>/delivery/',
+     consignment_views.ConsignmentDeliveryView.as_view(), name='consignment_delivery'),
+path('sales/consignments/<int:pk>/branches/<int:branch_pk>/transfer/',
+     consignment_views.ConsignmentShelfTransferView.as_view(), name='consignment_shelf_transfer'),
+path('sales/consignments/<int:pk>/branches/<int:branch_pk>/return/',
+     consignment_views.ConsignmentBranchReturnView.as_view(), name='consignment_branch_return'),
+path('sales/consignments/<int:pk>/branches/<int:branch_pk>/audit/',
+     consignment_views.ConsignmentAuditView.as_view(), name='consignment_branch_audit'),
+path('sales/consignments/<int:pk>/branches/<int:branch_pk>/audits/<int:audit_pk>/',
+     consignment_views.ConsignmentAuditDetailView.as_view(), name='consignment_audit_detail'),
+path('sales/consignments/<int:pk>/branches/<int:branch_pk>/audits/<int:audit_pk>/decision/',
+     consignment_views.ConsignmentAuditDecisionView.as_view(), name='consignment_audit_decision'),
+path('sales/consignments/<int:pk>/branches/<int:branch_pk>/invoices/<int:invoice_pk>/',
+     consignment_views.ConsignmentInvoiceView.as_view(), name='consignment_invoice'),
+# An older link used company-only audit/<pk>/; route it to branch selection.
+path('sales/consignments/<int:pk>/audit/',
+     consignment_views.ConsignmentLegacyAuditRedirectView.as_view(), name='consignment_audit'),
+path("sales/consignments/new/",consignment_views.ConsigneeCreateView.as_view(),name="consignee_create",),
+path(
+    "sales/consignments/audits/",
+    sales_views.ConsignmentAuditListView.as_view(),
+    name="consignment_audit_list",
+),
 
 ]

@@ -1,0 +1,564 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}
+Operations | Nonda
+{% endblock %}
+
+{% block breadcrumb %}
+Management / Reports / Operations
+{% endblock %}
+
+{% block page_title %}
+Operations Report
+{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Processing performance and operational exceptions · {{ period_label }}
+</p>
+{% endblock %}
+
+
+{% block header_action %}
+<a
+    href="{% url 'reports_operations_detail' %}?{{ request.GET.urlencode }}"
+    class="px-3 py-2 rounded-lg border border-line
+           bg-white text-[10px] font-semibold text-slate-700
+           hover:bg-slate-50"
+>
+    Full Details
+</a>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="space-y-3 text-xs text-gray-700 pb-4">
+
+
+    <!-- =====================================================
+         FILTER + KPI AREA
+         ===================================================== -->
+    <div class="space-y-1">
+
+        {% include "reports/components/report_filters.html" %}
+
+
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
+
+            <!-- COMPLETED RUNS -->
+            <div class="p-2.5 bg-white border border-gray-200
+                        rounded-lg shadow-sm">
+
+                <p class="text-[9px] font-bold
+                          text-gray-400 uppercase tracking-wider">
+                    Completed Runs
+                </p>
+
+                <p class="mt-1 text-base sm:text-lg
+                          font-bold text-gray-900">
+                    {{ processing.runs|intcomma }}
+
+                    <span class="text-[9px] font-normal text-gray-400">
+                        runs
+                    </span>
+                </p>
+
+            </div>
+
+
+            <!-- YIELD -->
+            <div class="p-2.5 bg-white border border-gray-200
+                        rounded-lg shadow-sm">
+
+                <p class="text-[9px] font-bold
+                          text-gray-400 uppercase tracking-wider">
+                    Processing Yield
+                </p>
+
+                <p class="mt-1 text-base sm:text-lg
+                          font-bold text-emerald-700">
+                    {{ processing.yield_pct }}%
+                </p>
+
+            </div>
+
+
+            <!-- LOSS -->
+            <div class="p-2.5 bg-white border border-gray-200
+                        rounded-lg shadow-sm">
+
+                <p class="text-[9px] font-bold
+                          text-gray-400 uppercase tracking-wider">
+                    Processing Loss
+                </p>
+
+                <p class="mt-1 text-base sm:text-lg
+                          font-bold text-amber-700">
+                    {{ processing.loss_kg|floatformat:2|intcomma }}
+
+                    <span class="text-[9px] font-normal text-gray-400">
+                        kg
+                    </span>
+                </p>
+
+            </div>
+
+
+            <!-- PACKS -->
+            <div class="p-2.5 bg-white border border-gray-200
+                        rounded-lg shadow-sm">
+
+                <p class="text-[9px] font-bold
+                          text-gray-400 uppercase tracking-wider">
+                    Packs Produced
+                </p>
+
+                <p class="mt-1 text-base sm:text-lg
+                          font-bold text-gray-900">
+                    {{ packaging.packs_produced|intcomma }}
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         PROCESSING PERFORMANCE
+         ===================================================== -->
+    <section class="bg-white border border-gray-200
+                    rounded-lg shadow-sm overflow-hidden">
+
+        <div class="px-3 py-2
+                    border-b border-gray-100
+                    flex items-center justify-between gap-3">
+
+            <div>
+
+                <h2 class="text-[10px] font-bold
+                           text-gray-800 uppercase tracking-wider">
+                    Processing Performance
+                </h2>
+
+                <p class="text-[9px] text-gray-400 mt-0.5">
+                    Input, output, loss and yield by operation.
+                </p>
+
+            </div>
+
+
+            <a
+                href="{% url 'reports_operations_detail' %}?{{ request.GET.urlencode }}"
+                class="text-[9px] font-semibold text-olive
+                       hover:underline whitespace-nowrap"
+            >
+                Inspect →
+            </a>
+
+        </div>
+
+
+        <!-- MOBILE -->
+        <div class="md:hidden divide-y divide-gray-100">
+
+            {% for row in process_rows %}
+
+                <div class="px-3 py-2">
+
+                    <div class="flex items-center
+                                justify-between gap-3">
+
+                        <div>
+
+                            <p class="text-[10px]
+                                      font-bold text-gray-800">
+                                {{ row.name }}
+                            </p>
+
+                            <p class="text-[8px]
+                                      text-gray-400 mt-0.5">
+                                {{ row.runs }} run{{ row.runs|pluralize }}
+                            </p>
+
+                        </div>
+
+
+                        <div class="text-right">
+
+                            <p class="text-[10px]
+                                      font-bold text-gray-800">
+                                {{ row.yield_pct }}%
+                            </p>
+
+                            <p class="text-[8px] text-amber-600">
+                                {{ row.loss_kg|floatformat:2 }} kg loss
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="grid grid-cols-3 gap-1 mt-2">
+
+                        <div class="bg-gray-50
+                                    rounded px-2 py-1">
+
+                            <p class="text-[7px] uppercase text-gray-400">
+                                Input
+                            </p>
+
+                            <p class="text-[9px] font-semibold">
+                                {{ row.input_kg|floatformat:2 }}
+                            </p>
+
+                        </div>
+
+
+                        <div class="bg-gray-50
+                                    rounded px-2 py-1">
+
+                            <p class="text-[7px] uppercase text-gray-400">
+                                Primary
+                            </p>
+
+                            <p class="text-[9px] font-semibold">
+                                {{ row.primary_kg|floatformat:2 }}
+                            </p>
+
+                        </div>
+
+
+                        <div class="bg-gray-50
+                                    rounded px-2 py-1">
+
+                            <p class="text-[7px] uppercase text-gray-400">
+                                Secondary
+                            </p>
+
+                            <p class="text-[9px] font-semibold">
+                                {{ row.secondary_kg|floatformat:2 }}
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            {% empty %}
+
+                <p class="p-5 text-center
+                          text-[10px] text-gray-400">
+                    No processing runs.
+                </p>
+
+            {% endfor %}
+
+        </div>
+
+
+        <!-- TABLET / DESKTOP -->
+        <div class="hidden md:block overflow-x-auto">
+
+            <table class="w-full text-left">
+
+                <thead class="bg-gray-50
+                              text-[8px] uppercase
+                              tracking-wider text-gray-400">
+
+                    <tr>
+
+                        <th class="px-3 py-2">
+                            Process
+                        </th>
+
+                        <th class="px-3 py-2 text-center">
+                            Runs
+                        </th>
+
+                        <th class="px-3 py-2 text-right">
+                            Input
+                        </th>
+
+                        <th class="px-3 py-2 text-right">
+                            Primary
+                        </th>
+
+                        <th class="px-3 py-2 text-right">
+                            Secondary
+                        </th>
+
+                        <th class="px-3 py-2 text-right">
+                            Loss
+                        </th>
+
+                        <th class="px-3 py-2 text-right">
+                            Yield
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody class="divide-y divide-gray-100">
+
+                    {% for row in process_rows %}
+
+                        <tr class="hover:bg-gray-50">
+
+                            <td class="px-3 py-2
+                                       text-[10px] font-semibold
+                                       text-gray-800">
+                                {{ row.name }}
+                            </td>
+
+                            <td class="px-3 py-2
+                                       text-[9px] text-center">
+                                {{ row.runs }}
+                            </td>
+
+                            <td class="px-3 py-2
+                                       text-[9px] text-right">
+                                {{ row.input_kg|floatformat:2 }} kg
+                            </td>
+
+                            <td class="px-3 py-2
+                                       text-[9px] text-right">
+                                {{ row.primary_kg|floatformat:2 }} kg
+                            </td>
+
+                            <td class="px-3 py-2
+                                       text-[9px] text-right">
+                                {{ row.secondary_kg|floatformat:2 }} kg
+                            </td>
+
+                            <td class="px-3 py-2
+                                       text-[9px] text-right
+                                       font-semibold text-amber-700">
+                                {{ row.loss_kg|floatformat:2 }} kg
+                            </td>
+
+                            <td class="px-3 py-2
+                                       text-[9px] text-right
+                                       font-bold text-gray-800">
+                                {{ row.yield_pct }}%
+                            </td>
+
+                        </tr>
+
+                    {% empty %}
+
+                        <tr>
+                            <td colspan="7"
+                                class="p-5 text-center
+                                       text-[10px] text-gray-400">
+                                No processing runs.
+                            </td>
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         OPERATIONAL ATTENTION
+         ===================================================== -->
+    <section>
+
+        <div class="flex items-end justify-between gap-3 mb-1.5">
+
+            <div>
+
+                <h2 class="text-[10px] font-bold
+                           text-gray-800 uppercase tracking-wider">
+                    Operational Attention
+                </h2>
+
+                <p class="text-[8px] text-gray-400 mt-0.5">
+                    Open deeper detail only when needed.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+
+
+            <!-- PACKAGING -->
+            <a
+                href="{% url 'reports_operations_detail' %}?{{ request.GET.urlencode }}#packaging"
+                class="group bg-white border border-gray-200
+                       rounded-lg shadow-sm p-2.5
+                       hover:border-olive transition"
+            >
+
+                <div class="flex items-center justify-between gap-3">
+
+                    <div>
+
+                        <p class="text-[9px] font-bold
+                                  text-gray-400 uppercase">
+                            Packaging
+                        </p>
+
+                        <p class="text-sm font-bold
+                                  text-gray-800 mt-1">
+                            {{ packaging.packs_produced|intcomma }}
+                            <span class="text-[8px] font-normal text-gray-400">
+                                packs
+                            </span>
+                        </p>
+
+                        <p class="text-[8px] text-gray-400 mt-0.5">
+                            {{ packaging.yield_pct }}% yield
+                            · {{ packaging.loss_kg|floatformat:2 }} kg loss
+                        </p>
+
+                    </div>
+
+                    <i class="fa-solid fa-chevron-right
+                              text-[8px] text-gray-300
+                              group-hover:text-olive"></i>
+
+                </div>
+
+            </a>
+
+
+            <!-- OPEN WORK -->
+            <a
+                href="{% url 'reports_operations_detail' %}?{{ request.GET.urlencode }}#live-work"
+                class="group bg-white border border-gray-200
+                       rounded-lg shadow-sm p-2.5
+                       hover:border-olive transition"
+            >
+
+                <div class="flex items-center justify-between gap-3">
+
+                    <div>
+
+                        <p class="text-[9px] font-bold
+                                  text-gray-400 uppercase">
+                            Open Work
+                        </p>
+
+                        <p class="text-sm font-bold
+                                  text-gray-800 mt-1">
+                            {{ open_processing_count|add:open_packaging_count }}
+
+                            <span class="text-[8px]
+                                         font-normal text-gray-400">
+                                runs
+                            </span>
+                        </p>
+
+                        <p class="text-[8px] text-gray-400 mt-0.5">
+                            Processing {{ open_processing_count }}
+                            · Packaging {{ open_packaging_count }}
+                        </p>
+
+                    </div>
+
+                    <i class="fa-solid fa-chevron-right
+                              text-[8px] text-gray-300
+                              group-hover:text-olive"></i>
+
+                </div>
+
+            </a>
+
+
+            <!-- EXCEPTIONS -->
+            <a
+                href="{% url 'reports_operations_detail' %}?{{ request.GET.urlencode }}#exceptions"
+                class="group bg-white border
+                       {% if exception_count > 0 %}
+                           border-red-200
+                       {% else %}
+                           border-gray-200
+                       {% endif %}
+                       rounded-lg shadow-sm p-2.5
+                       hover:border-olive transition"
+            >
+
+                <div class="flex items-center justify-between gap-3">
+
+                    <div>
+
+                        <p class="text-[9px] font-bold
+                                  text-gray-400 uppercase">
+                            Reconciliation
+                        </p>
+
+                        <p class="text-sm font-bold
+                                  {% if exception_count > 0 %}
+                                      text-red-600
+                                  {% else %}
+                                      text-emerald-700
+                                  {% endif %}
+                                  mt-1">
+                            {{ exception_count }}
+
+                            <span class="text-[8px]
+                                         font-normal text-gray-400">
+                                exception{{ exception_count|pluralize }}
+                            </span>
+                        </p>
+
+                        <p class="text-[8px] text-gray-400 mt-0.5">
+                            {% if exception_count > 0 %}
+                                Requires investigation
+                            {% else %}
+                                Reconciled
+                            {% endif %}
+                        </p>
+
+                    </div>
+
+                    <i class="fa-solid fa-chevron-right
+                              text-[8px] text-gray-300
+                              group-hover:text-olive"></i>
+
+                </div>
+
+            </a>
+
+        </div>
+
+    </section>
+
+</div>
+
+{% endblock content %}
+
+
+{% block footer %}
+
+<footer
+    class="sticky bottom-0 z-30
+           bg-paper border-t border-line
+           flex-shrink-0 print:hidden"
+>
+    <div class="w-full max-w-7xl mx-auto px-2 sm:px-4 py-2">
+
+        {% include "reports/components/report_nav.html" %}
+
+    </div>
+</footer>
+
+{% endblock footer %}

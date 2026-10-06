@@ -93,7 +93,7 @@
         </div>
 
         <!-- PINNED DASHBOARD LINK (STAYS FIXED AT TOP) -->
-        {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" %}
+        {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" or request.user.role == "ACCOUNTS" or request.user.role == "CASHIER" %}
         <div class="px-3 pt-3 pb-2 border-b border-white/10 flex-shrink-0">
             <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                 <i class="fa-solid fa-chart-pie nav-icon"></i>
@@ -103,7 +103,11 @@
         {% endif %}
 
         <!-- MAIN NAVIGATION -->
-        <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-3.5">
+        <nav
+    id="sidebarNav"
+    class="flex-1 overflow-y-auto px-3 py-4 space-y-3.5"
+    
+>
 
             {% if request.user.role == "MANAGER" %}
                 <div>
@@ -134,22 +138,19 @@
                 </div>
             {% endif %}
 
-            {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" or request.user.role == "CASHIER" %}
+            {% if request.user.role == "ADMIN" or request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" %}
                 <div>
                     <p class="nav-section-title">Stock Movement</p>
                     <div class="space-y-0.5">
-                        <a href="{% url 'pack_release_list' %}" class="nav-link">
-                            <i class="fa-solid fa-truck-ramp-box nav-icon"></i>
-                            <span>Releases</span>
-                        </a>
-                        <a href="{% url 'pack_return_list' %}" class="nav-link">
-                            <i class="fa-solid fa-rotate-left nav-icon"></i>
-                            <span>Returns</span>
+                        <a href="{% url 'stock_request_create' %}" class="nav-link">
+                            <i class="fa-solid fa-clipboard-list fa-fw"></i>
+                            <span>Request stock</span>
                         </a>
                     </div>
                 </div>
             {% endif %}
 
+          
             {% if request.user.role == "SALES" %}
                 <div>
                     <p class="nav-section-title">Sales</p>
@@ -170,7 +171,7 @@
                 </div>
             {% endif %}
 
-            {% if request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" or request.user.role == "MANAGER" %}
+            {% if request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
                 <div>
                     <p class="nav-section-title">Cash Desk & Finance</p>
                     <div class="space-y-0.5">
@@ -182,10 +183,7 @@
                             <i class="fa-solid fa-users nav-icon"></i>
                             <span>Account Holders</span>
                         </a>
-                        <a href="{% url 'reports_overview' %}" class="nav-link">
-                           <i class="fa-solid fa-chart-line nav-icon"></i>
-                            <span>Reports</span>
-                        </a>
+
                         <a href="{% url 'expense_tracker' %}" class="nav-link">
                            <i class="fa-solid fa-receipt nav-icon"></i>
                             <span>Expenses</span>
@@ -194,7 +192,55 @@
                 </div>
             {% endif %}
 
-            {% if request.user.role == "ADMIN" %}
+           {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
+                  <a href="{% url 'reports_overview' %}" class="nav-link">
+                           <i class="fa-solid fa-chart-line nav-icon"></i>
+                            <span>Reports</span>
+                        </a>
+            {% endif %}
+ 
+                    
+
+            {% if request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
+
+<div>
+
+    <p class="nav-section-title">
+        Consignments
+    </p>
+
+    <div class="space-y-0.5">
+
+        <a
+            href="{% url 'consignment_list' %}"
+            class="nav-link
+            {% if request.resolver_match.url_name == 'consignment_list' or request.resolver_match.url_name == 'consignment_detail' or request.resolver_match.url_name == 'consignment_branch_detail' %}
+            active
+            {% endif %}"
+        >
+            <i class="fa-solid fa-store nav-icon"></i>
+            <span>Consignment Accounts</span>
+        </a>
+
+
+        <a
+            href="{% url 'consignment_audit_list' %}"
+            class="nav-link
+            {% if request.resolver_match.url_name == 'consignment_audit_list' or request.resolver_match.url_name == 'consignment_branch_audit' or request.resolver_match.url_name == 'consignment_audit_detail' %}
+            active
+            {% endif %}"
+        >
+            <i class="fa-solid fa-clipboard-check nav-icon"></i>
+            <span>Audit Schedule</span>
+        </a>
+
+    </div>
+
+</div>
+
+{% endif %}
+
+            <!-- {% if request.user.role == "ADMIN" %}
                 <div>
                     <p class="nav-section-title">Commercial</p>
                     <div class="space-y-0.5">
@@ -216,6 +262,8 @@
                         </a>
                     </div>
                 </div>
+                 -->
+
                 <div>
                     <p class="nav-section-title">Administration</p>
                     <div class="space-y-0.5">
@@ -229,7 +277,7 @@
 
             <!-- Internal Stock Navigation Block -->
 
-            {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
+            {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" or request.user.role == "CASHIER" %}
                 <div>
                <div class="sidebar-section">
 
@@ -259,6 +307,8 @@
                                 <i class="fas fa-sitemap sidebar-icon"></i>
                                 <span>Accounts</span>
                             </a>
+
+
                         </li>
 
                     </ul>
@@ -267,7 +317,7 @@
 
                 {% endif %}
 
-        </nav>
+        </nav>                            
         <!-- SIDEBAR FOOTER -->
         <div class="px-3 py-3 border-t border-white/10 flex-shrink-0 space-y-0.5">
             <a href="#" class="nav-link">
@@ -316,25 +366,25 @@
                 {% block page_header %}{% endblock %}
                 
                 {% block messages %}
-                    {% if messages %}
-                        <div id="messages" class="w-full space-y-2">
-                            {% for message in messages %}
-                                <div class="p-3.5 rounded-lg text-sm font-medium border shadow-sm flex items-center justify-between
-                                    {% if message.tags == 'success' %}
-                                        bg-emerald-50 text-emerald-800 border-emerald-200
-                                    {% elif message.tags == 'error' or message.tags == 'warning' %}
-                                        bg-amber-50 text-amber-800 border-amber-200
-                                    {% else %}
-                                        bg-slate-50 text-slate-800 border-slate-200
-                                    {% endif %}
-                                ">
-                                    <span>{{ message }}</span>
-                                    <button onclick="this.parentElement.remove()" class="text-xs opacity-60 hover:opacity-100">&times;</button>
-                                </div>
-                            {% endfor %}
-                        </div>
+    {% if messages %}
+        <div id="messages" class="fixed top-4 right-4 z-50 space-y-2 max-w-sm pointer-events-none">
+            {% for message in messages %}
+                <div class="pointer-events-auto p-3 px-4 rounded-xl text-xs font-medium border shadow-lg flex items-center gap-3 transition-all duration-300
+                    {% if message.tags == 'success' %}
+                        bg-emerald-50 text-emerald-800 border-emerald-200
+                    {% elif message.tags == 'error' or message.tags == 'warning' %}
+                        bg-amber-50 text-amber-800 border-amber-200
+                    {% else %}
+                        bg-slate-50 text-slate-800 border-slate-200
                     {% endif %}
-                {% endblock messages %}
+                ">
+                    <span>{{ message }}</span>
+                    <button onclick="this.parentElement.remove()" class="text-base font-bold opacity-60 hover:opacity-100 leading-none ml-auto cursor-pointer">&times;</button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock messages %}
 
                 {% block content %}{% endblock %}
             </div>
@@ -364,15 +414,84 @@
 {% block extra_scripts %}{% endblock %}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    const currentPath = window.location.pathname;
-    const navLinks = document.querySelectorAll("#mainSidebar a.nav-link");
 
-    navLinks.forEach(link => {
+    const sidebarNav = document.getElementById("sidebarNav");
+    const navLinks = document.querySelectorAll("#mainSidebar a.nav-link");
+    const currentPath = window.location.pathname;
+
+    /*
+     * =========================================================
+     * 1. RESTORE SIDEBAR SCROLL POSITION
+     * =========================================================
+     */
+    if (sidebarNav) {
+
+        const savedScroll = sessionStorage.getItem(
+            "nondaSidebarScrollPosition"
+        );
+
+        if (savedScroll !== null) {
+            sidebarNav.scrollTop = parseInt(savedScroll, 10) || 0;
+        }
+
+        /*
+         * Continuously remember where the user has scrolled.
+         */
+        sidebarNav.addEventListener(
+            "scroll",
+            function () {
+
+                sessionStorage.setItem(
+                    "nondaSidebarScrollPosition",
+                    sidebarNav.scrollTop
+                );
+
+            },
+            {
+                passive: true
+            }
+        );
+    }
+
+
+    /*
+     * =========================================================
+     * 2. ACTIVE LINK HANDLING
+     * =========================================================
+     */
+    navLinks.forEach(function (link) {
+
         const linkPath = link.getAttribute("href");
-        if (linkPath && linkPath !== "#" && currentPath === linkPath) {
+
+        if (
+            linkPath &&
+            linkPath !== "#" &&
+            currentPath === linkPath
+        ) {
             link.classList.add("active");
         }
+
+
+        /*
+         * =====================================================
+         * 3. SAVE POSITION BEFORE NAVIGATION
+         * =====================================================
+         */
+        link.addEventListener("click", function () {
+
+            if (!sidebarNav) {
+                return;
+            }
+
+            sessionStorage.setItem(
+                "nondaSidebarScrollPosition",
+                sidebarNav.scrollTop
+            );
+
+        });
+
     });
+
 });
 </script>
 </body>

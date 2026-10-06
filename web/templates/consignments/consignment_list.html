@@ -1,0 +1,230 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}Consignments | Nonda{% endblock %}
+{% block breadcrumb %}Sales / Consignments{% endblock %}
+{% block page_title %}Consignment Accounts{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-0.5 text-xs text-slate-500">
+    Company-level branch stock, approved billings and receivables.
+</p>
+{% endblock %}
+
+{% block content %}
+
+{% block header_action %}
+
+{% if request.user.role == "SALES" or request.user.role == "MANAGER" or request.user.role == "ADMIN" %}
+
+<a
+    href="{% url 'consignee_create' %}"
+    class="inline-flex h-8 items-center gap-1.5
+           rounded-md bg-olive px-3
+           text-xs font-semibold text-white
+           hover:bg-olive/90"
+>
+    <i class="fa-solid fa-plus text-[10px]"></i>
+    Add Consignee
+</a>
+
+{% endif %}
+
+{% endblock %}
+
+<div class="space-y-4">
+
+    <!-- KPI STRIP -->
+    <section class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+
+        <div class="rounded-lg border border-line bg-white px-3 py-2.5 shadow-sm">
+            <p class="text-[10px] uppercase tracking-wide text-slate-400">Branches</p>
+            <p class="mt-0.5 text-lg font-semibold text-slate-800">
+                {{ total_branches|intcomma }}
+            </p>
+        </div>
+
+        <div class="rounded-lg border border-line bg-white px-3 py-2.5 shadow-sm">
+            <p class="text-[10px] uppercase tracking-wide text-slate-400">
+                Packs on consignment
+            </p>
+            <p class="mt-0.5 text-lg font-semibold text-slate-800">
+                {{ total_on_hand|intcomma }}
+            </p>
+        </div>
+
+        <div class="rounded-lg border border-line bg-white px-3 py-2.5 shadow-sm">
+            <p class="text-[10px] uppercase tracking-wide text-slate-400">
+                Confirmed outstanding · UGX
+            </p>
+            <p class="mt-0.5 text-lg font-semibold text-rust">
+                {{ total_outstanding|floatformat:0|intcomma }}
+            </p>
+            <p class="text-[10px] text-slate-400">
+                Approved audits only
+            </p>
+        </div>
+
+    </section>
+
+    <!-- COMPANY TABLE -->
+    <section class="rounded-lg border border-line bg-white shadow-sm overflow-hidden">
+
+        <div class="flex flex-col gap-2 border-b border-line px-3 py-2.5
+                    sm:flex-row sm:items-center sm:justify-between">
+
+            <div>
+                <h2 class="text-sm font-semibold text-slate-800">
+                    Company accounts
+                </h2>
+
+                <p class="text-[11px] text-slate-400">
+                    Open a company to manage its branches.
+                </p>
+            </div>
+
+            <form method="get" class="flex items-center gap-1.5">
+
+                <input
+                    type="search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Search company..."
+                    class="h-8 w-52 rounded-md border border-line bg-white
+                           px-2.5 text-xs outline-none
+                           focus:border-olive focus:ring-1 focus:ring-olive/20"
+                >
+
+                <button
+                    class="h-8 rounded-md border border-line bg-slate-50
+                           px-3 text-xs font-medium text-slate-700
+                           hover:bg-slate-100"
+                >
+                    Search
+                </button>
+
+                {% if query %}
+                <a
+                    href="{% url 'consignment_list' %}"
+                    class="h-8 inline-flex items-center rounded-md px-2
+                           text-[11px] text-slate-500 hover:text-rust"
+                >
+                    Clear
+                </a>
+                {% endif %}
+
+            </form>
+
+        </div>
+
+        <div class="overflow-x-auto">
+
+            <table class="min-w-full text-xs">
+
+                <thead class="bg-slate-50/80 text-[10px] uppercase tracking-wide text-slate-500">
+                    <tr>
+                        <th class="px-3 py-2 text-left font-semibold">Company</th>
+                        <th class="px-3 py-2 text-right font-semibold">Branches</th>
+                        <th class="px-3 py-2 text-right font-semibold">On-site</th>
+                        <th class="px-3 py-2 text-right font-semibold">Billed · UGX</th>
+                        <th class="px-3 py-2 text-right font-semibold">Paid · UGX</th>
+                        <th class="px-3 py-2 text-right font-semibold">Outstanding · UGX</th>
+                        <th class="px-3 py-2 text-center font-semibold">Audit</th>
+                        <th class="px-3 py-2"></th>
+                    </tr>
+                </thead>
+
+                <tbody class="divide-y divide-slate-100">
+
+                    {% for row in rows %}
+                    <tr class="hover:bg-slate-50/60">
+
+                        <td class="px-3 py-2.5">
+                            <p class="font-semibold text-slate-800">
+                                {{ row.company.name }}
+                            </p>
+
+                            <p class="text-[10px] text-slate-400">
+                                {{ row.company.city|default:"—" }}
+                            </p>
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right tabular-nums">
+                            {{ row.branch_count }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right tabular-nums">
+                            {{ row.on_hand|intcomma }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right tabular-nums">
+                            {{ row.billed|floatformat:0|intcomma }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right tabular-nums text-emerald-700">
+                            {{ row.paid|floatformat:0|intcomma }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right font-semibold tabular-nums
+                                   {% if row.outstanding %}text-rust{% else %}text-slate-500{% endif %}">
+                            {{ row.outstanding|floatformat:0|intcomma }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-center">
+
+                            {% if row.pending %}
+                            <span class="inline-flex rounded-full bg-amber-50
+                                         px-2 py-0.5 text-[10px] font-semibold
+                                         text-amber-700">
+                                {{ row.pending }} pending
+                            </span>
+
+                            {% else %}
+                            <span class="text-[10px] text-slate-400">
+                                Clear
+                            </span>
+                            {% endif %}
+
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right">
+
+                            <a
+                                href="{% url 'consignment_detail' row.company.pk %}"
+                                class="inline-flex h-7 items-center rounded-md
+                                       border border-line bg-white px-2.5
+                                       text-[11px] font-medium text-slate-700
+                                       hover:bg-slate-50"
+                            >
+                                Open →
+                            </a>
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+                    <tr>
+                        <td colspan="8"
+                            class="px-3 py-8 text-center text-xs text-slate-400">
+                            No consignment companies found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <div class="border-t border-line bg-slate-50/50 px-3 py-2
+                    text-[10px] text-slate-400">
+            Stock dispatched is not revenue. Receivables appear only after
+            an approved branch audit.
+        </div>
+
+    </section>
+
+</div>
+{% endblock %}

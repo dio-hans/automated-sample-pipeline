@@ -1,0 +1,303 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}{{ company.name }} | Consignments{% endblock %}
+{% block breadcrumb %}Sales / Consignments / {{ company.name }}{% endblock %}
+{% block page_title %}{{ company.name }}{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-0.5 text-xs text-slate-500">
+    Branch stock, approved audit sales and company receivables.
+</p>
+{% endblock %}
+
+{% block header_action %}
+{% if can_edit %}
+<a
+    href="{% url 'consignment_branch_create' company.pk %}"
+    class="inline-flex h-8 items-center gap-1.5 rounded-md
+           bg-olive px-3 text-xs font-semibold text-white
+           hover:bg-olive/90"
+>
+    <i class="fa-solid fa-plus text-[10px]"></i>
+    Add branch
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+
+    {% if legacy_release_count %}
+    <div class="rounded-md border border-amber-200 bg-amber-50
+                px-3 py-2 text-xs text-amber-800">
+
+        <span class="font-semibold">
+            Reconciliation needed:
+        </span>
+
+        {{ legacy_release_count }} older display release(s)
+        have no branch assigned.
+
+    </div>
+    {% endif %}
+
+    <!-- KPIs -->
+    <section class="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+
+        <div class="rounded-lg border border-line bg-white px-3 py-2.5">
+            <p class="text-[10px] uppercase tracking-wide text-slate-400">
+                Packs at branches
+            </p>
+
+            <p class="mt-0.5 text-lg font-semibold">
+                {{ display_on_hand|intcomma }}
+            </p>
+        </div>
+
+        <div class="rounded-lg border border-line bg-white px-3 py-2.5">
+            <p class="text-[10px] uppercase tracking-wide text-slate-400">
+                Confirmed billed · UGX
+            </p>
+
+            <p class="mt-0.5 text-lg font-semibold">
+                {{ display_value|floatformat:0|intcomma }}
+            </p>
+        </div>
+
+        <div class="rounded-lg border border-line bg-white px-3 py-2.5">
+            <p class="text-[10px] uppercase tracking-wide text-slate-400">
+                Collected · UGX
+            </p>
+
+            <p class="mt-0.5 text-lg font-semibold text-emerald-700">
+                {{ display_paid|floatformat:0|intcomma }}
+            </p>
+        </div>
+
+        <div class="rounded-lg border border-line bg-white px-3 py-2.5">
+            <p class="text-[10px] uppercase tracking-wide text-slate-400">
+                Outstanding · UGX
+            </p>
+
+            <p class="mt-0.5 text-lg font-semibold text-rust">
+                {{ display_outstanding|floatformat:0|intcomma }}
+            </p>
+        </div>
+
+    </section>
+
+    <!-- BRANCHES -->
+    <section class="rounded-lg border border-line bg-white shadow-sm overflow-hidden">
+
+        <div class="border-b border-line px-3 py-2.5">
+            <h2 class="text-sm font-semibold text-slate-800">
+                Branches
+            </h2>
+
+            <p class="text-[11px] text-slate-400">
+                Each branch maintains an independent shelf,
+                backroom and audit ledger.
+            </p>
+        </div>
+
+        <div class="overflow-x-auto">
+
+            <table class="min-w-full text-xs">
+
+                <thead class="bg-slate-50/80 text-[10px] uppercase
+                              tracking-wide text-slate-500">
+
+                    <tr>
+                        <th class="px-3 py-2 text-left">Branch</th>
+                        <th class="px-3 py-2 text-right">SKUs</th>
+                        <th class="px-3 py-2 text-right">On-site</th>
+                        <th class="px-3 py-2 text-right">Outstanding · UGX</th>
+                        <th class="px-3 py-2 text-center">Audit</th>
+                        <th class="px-3 py-2"></th>
+                    </tr>
+
+                </thead>
+
+                <tbody class="divide-y divide-slate-100">
+
+                    {% for row in branch_rows %}
+
+                    <tr class="hover:bg-slate-50/60">
+
+                        <td class="px-3 py-2.5">
+
+                            <p class="font-semibold text-slate-800">
+                                {{ row.branch.branch_name }}
+                            </p>
+
+                            <p class="text-[10px] text-slate-400">
+                                {{ row.branch.address|default:"—" }}
+                            </p>
+
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right">
+                            {{ row.sku_count }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right tabular-nums">
+                            {{ row.on_hand|intcomma }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right font-semibold
+                                   tabular-nums
+                                   {% if row.outstanding %}text-rust{% endif %}">
+                            {{ row.outstanding|floatformat:0|intcomma }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-center">
+
+                            {% if row.pending %}
+
+                            <span class="rounded-full bg-amber-50 px-2
+                                         py-0.5 text-[10px] font-semibold
+                                         text-amber-700">
+                                Pending
+                            </span>
+
+                            {% else %}
+
+                            <span class="text-[10px] text-slate-400">
+                                Clear
+                            </span>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right">
+
+                            <a
+                                href="{% url 'consignment_branch_detail' company.pk row.branch.pk %}"
+                                class="inline-flex h-7 items-center rounded-md
+                                       border border-line px-2.5 text-[11px]
+                                       font-medium hover:bg-slate-50"
+                            >
+                                Manage →
+                            </a>
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="6"
+                            class="px-3 py-8 text-center text-xs text-slate-400">
+                            No branches yet. Create the first branch to begin
+                            consignment deliveries.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+    <!-- AUDITS -->
+    <section class="rounded-lg border border-line bg-white shadow-sm overflow-hidden">
+
+        <div class="border-b border-line px-3 py-2.5">
+            <h2 class="text-sm font-semibold text-slate-800">
+                Recent audits
+            </h2>
+        </div>
+
+        <div class="overflow-x-auto">
+
+            <table class="min-w-full text-xs">
+
+                <thead class="bg-slate-50/80 text-[10px] uppercase
+                              tracking-wide text-slate-500">
+
+                    <tr>
+                        <th class="px-3 py-2 text-left">Date</th>
+                        <th class="px-3 py-2 text-left">Branch</th>
+                        <th class="px-3 py-2 text-left">Auditor</th>
+                        <th class="px-3 py-2 text-left">Status</th>
+                        <th class="px-3 py-2"></th>
+                    </tr>
+
+                </thead>
+
+                <tbody class="divide-y divide-slate-100">
+
+                    {% for audit in audits %}
+
+                    <tr>
+
+                        <td class="px-3 py-2.5 whitespace-nowrap">
+                            {{ audit.audit_date|date:'d M Y, H:i' }}
+                        </td>
+
+                        <td class="px-3 py-2.5">
+                            {{ audit.branch.branch_name|default:'Legacy / unassigned' }}
+                        </td>
+
+                        <td class="px-3 py-2.5">
+                            {{ audit.audited_by }}
+                        </td>
+
+                        <td class="px-3 py-2.5">
+                            <span class="text-[11px] font-medium">
+                                {{ audit.get_status_display }}
+                            </span>
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right">
+
+                            {% if audit.branch_id %}
+
+                            <a
+                                href="{% url 'consignment_audit_detail' company.pk audit.branch_id audit.pk %}"
+                                class="text-[11px] font-medium text-olive
+                                       hover:underline"
+                            >
+                                Review →
+                            </a>
+
+                            {% else %}
+
+                            <span class="text-[10px] text-amber-700">
+                                Reconcile
+                            </span>
+
+                            {% endif %}
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="5"
+                            class="px-3 py-6 text-center text-xs text-slate-400">
+                            No audits yet.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+</div>
+{% endblock %}

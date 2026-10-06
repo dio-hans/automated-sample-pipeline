@@ -1,0 +1,270 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}
+Internal Usage Detail | Nonda
+{% endblock %}
+
+{% block breadcrumb %}
+Management / Reports / Stock & Consumption / Internal Usage
+{% endblock %}
+
+{% block page_title %}
+Internal Usage
+{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Supporting records behind internal coffee consumption.
+</p>
+{% endblock %}
+
+
+{% block header_action %}
+<a
+    href="{% url 'reports_stock' %}?{{ request.GET.urlencode }}"
+    class="px-3 py-2 rounded-lg border border-line
+           bg-white text-[11px] font-semibold text-slate-700"
+>
+    ← Consumption
+</a>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="space-y-3 pb-4">
+
+    <div class="space-y-1">
+
+        {% include "reports/components/report_filters.html" %}
+
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-2">
+
+            <div class="p-2.5 bg-white border border-line
+                        rounded-lg shadow-sm">
+
+                <p class="text-[9px] uppercase
+                          tracking-wider font-bold text-slate-400">
+                    Total Internal Usage
+                </p>
+
+                <p class="text-lg font-bold text-amber-700 mt-1">
+                    {{ total_kg|floatformat:2|intcomma }}
+                    <span class="text-[10px] text-slate-400">kg</span>
+                </p>
+
+            </div>
+
+
+            <div class="lg:col-span-3 bg-white
+                        border border-line rounded-lg
+                        shadow-sm p-2">
+
+                <div class="flex flex-wrap gap-1.5">
+
+                    {% for item in summary %}
+
+                        <div class="px-2 py-1.5 rounded-md
+                                    bg-slate-50 border border-gray-100">
+
+                            <p class="text-[8px] uppercase
+                                      font-semibold text-slate-400">
+                                {{ item.name }}
+                            </p>
+
+                            <p class="text-[10px] font-bold
+                                      text-slate-800 mt-0.5">
+                                {{ item.kg|floatformat:2|intcomma }} kg
+                            </p>
+
+                        </div>
+
+                    {% empty %}
+
+                        <p class="text-[10px] text-slate-400">
+                            No internal consumption in this period.
+                        </p>
+
+                    {% endfor %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <section class="bg-white border border-line
+                    rounded-lg shadow-sm overflow-hidden">
+
+        <div class="px-3 py-2.5 border-b border-line">
+
+            <h2 class="text-xs font-bold text-slate-800">
+                Internal Issue History
+            </h2>
+
+            <p class="text-[9px] text-slate-400 mt-0.5">
+                Open a record to inspect the stock issued.
+            </p>
+
+        </div>
+
+
+        <div class="divide-y divide-line">
+
+            {% for row in rows %}
+
+                <details class="group">
+
+                    <summary
+                        class="list-none cursor-pointer
+                               px-3 py-2.5 hover:bg-slate-50"
+                    >
+
+                        <div class="flex items-center
+                                    justify-between gap-3">
+
+                            <div class="flex items-center gap-2 min-w-0">
+
+                                <i class="fa-solid fa-chevron-right
+                                          text-[8px] text-slate-400
+                                          group-open:rotate-90"></i>
+
+                                <div class="min-w-0">
+
+                                    <p class="text-[10px] font-semibold
+                                              text-slate-800 truncate">
+                                        {{ row.issue.account.name }}
+                                    </p>
+
+                                    <p class="text-[9px] text-slate-400 mt-0.5">
+
+                                        {{ row.issue.issue_date|date:"d M Y" }}
+
+                                        {% if row.issue.reason %}
+                                            · {{ row.issue.reason }}
+                                        {% endif %}
+
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+
+                            <div class="text-right shrink-0">
+
+                                <p class="text-xs font-bold text-amber-700">
+                                    {{ row.kg|floatformat:2|intcomma }} kg
+                                </p>
+
+                                {% if row.issue.issued_by %}
+                                    <p class="text-[8px] text-slate-400">
+                                        {{ row.issue.issued_by }}
+                                    </p>
+                                {% endif %}
+
+                            </div>
+
+                        </div>
+
+                    </summary>
+
+
+                    <div class="bg-slate-50/50
+                                px-3 pb-3 pt-1">
+
+                        <div class="divide-y divide-gray-100">
+
+                            {% for item in row.items %}
+
+                                <div class="py-2
+                                            flex items-center
+                                            justify-between gap-3">
+
+                                    <div class="min-w-0">
+
+                                        <p class="text-[10px]
+                                                  font-medium text-slate-700">
+                                            {{ item.name }}
+                                        </p>
+
+                                        <p class="text-[9px] text-slate-400">
+                                            {{ item.quantity }}
+                                        </p>
+
+                                    </div>
+
+                                    <span class="text-[10px]
+                                                 font-semibold
+                                                 text-slate-800
+                                                 whitespace-nowrap">
+                                        {{ item.kg|floatformat:2 }} kg
+                                    </span>
+
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+
+                        {% if row.issue.notes %}
+
+                            <div class="mt-2 p-2
+                                        rounded-md bg-amber-50
+                                        border border-amber-100">
+
+                                <p class="text-[9px] text-amber-800">
+                                    <strong>Notes:</strong>
+                                    {{ row.issue.notes }}
+                                </p>
+
+                            </div>
+
+                        {% endif %}
+
+                    </div>
+
+                </details>
+
+            {% empty %}
+
+                <div class="p-8 text-center">
+
+                    <p class="text-xs text-slate-400">
+                        No internal usage recorded for this period.
+                    </p>
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+</div>
+
+{% endblock content %}
+
+
+{% block footer %}
+
+<footer
+    class="sticky bottom-0 z-30
+           bg-paper border-t border-line
+           flex-shrink-0 print:hidden"
+>
+    <div class="w-full max-w-7xl mx-auto px-2 sm:px-4 py-2">
+
+        {% include "reports/components/report_nav.html" %}
+
+    </div>
+</footer>
+
+{% endblock footer %}

@@ -1,0 +1,536 @@
+{% extends 'pipeline/base.html' %}
+{% load humanize %}
+
+{% block title %}{{ branch.branch_name }} | Consignments{% endblock %}
+{% block breadcrumb %}
+Sales / Consignments / {{ company.name }} / {{ branch.branch_name }}
+{% endblock %}
+{% block page_title %}{{ branch.branch_name }}{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-0.5 text-xs text-slate-500">
+    {{ company.name }} · Shelf, backroom, dispatch and audit ledger.
+</p>
+{% endblock %}
+
+{% block header_action %}
+{% if can_edit %}
+<div class="flex items-center gap-1.5">
+
+    <a
+        href="{% url 'consignment_delivery' company.pk branch.pk %}"
+        class="inline-flex h-8 items-center gap-1.5 rounded-md
+               border border-line bg-white px-3
+               text-xs font-medium text-slate-700 hover:bg-slate-50"
+    >
+        <i class="fa-solid fa-truck text-[10px]"></i>
+        Delivery
+    </a>
+
+    <a
+        href="{% url 'consignment_branch_audit' company.pk branch.pk %}"
+        class="inline-flex h-8 items-center gap-1.5 rounded-md
+               bg-olive px-3 text-xs font-semibold text-white
+               hover:bg-olive/90"
+    >
+        <i class="fa-solid fa-clipboard-check text-[10px]"></i>
+        New audit
+    </a>
+
+</div>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+
+    {% if pending_audit %}
+    <div class="flex flex-wrap items-center justify-between gap-2
+                rounded-md border border-amber-200 bg-amber-50
+                px-3 py-2 text-xs text-amber-800">
+
+        <span>
+            <strong>Audit #{{ pending_audit.pk }}</strong>
+            is awaiting approval. Deliveries, transfers and branch
+            returns are paused.
+        </span>
+
+        <a
+            href="{% url 'consignment_audit_detail' company.pk branch.pk pending_audit.pk %}"
+            class="font-semibold hover:underline"
+        >
+            Open audit →
+        </a>
+
+    </div>
+    {% endif %}
+
+    <!-- KPIs -->
+    <section class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+
+        <div class="rounded-lg border border-line bg-white px-3 py-2.5">
+            <p class="text-[10px] uppercase tracking-wide text-slate-400">
+                Packs physically on site
+            </p>
+
+            <p class="mt-0.5 text-lg font-semibold">
+                {{ on_hand|intcomma }}
+            </p>
+        </div>
+
+        <div class="rounded-lg border border-line bg-white px-3 py-2.5">
+            <p class="text-[10px] uppercase tracking-wide text-slate-400">
+                Approved billed · UGX
+            </p>
+
+            <p class="mt-0.5 text-lg font-semibold">
+                {{ billed|floatformat:0|intcomma }}
+            </p>
+        </div>
+
+        <div class="rounded-lg border border-line bg-white px-3 py-2.5">
+            <p class="text-[10px] uppercase tracking-wide text-slate-400">
+                Outstanding · UGX
+            </p>
+
+            <p class="mt-0.5 text-lg font-semibold text-rust">
+                {{ outstanding|floatformat:0|intcomma }}
+            </p>
+        </div>
+
+    </section>
+
+    <!-- INVENTORY -->
+    <section class="rounded-lg border border-line bg-white shadow-sm overflow-hidden">
+
+        <div class="border-b border-line px-3 py-2.5">
+
+            <h2 class="text-sm font-semibold text-slate-800">
+                On-site inventory
+            </h2>
+
+            <p class="text-[11px] text-slate-400">
+                Location counts; shelf transfers do not change total branch stock.
+            </p>
+
+        </div>
+
+        <div class="overflow-x-auto">
+
+            <table class="min-w-full text-xs">
+
+                <thead class="bg-slate-50/80 text-[10px] uppercase
+                              tracking-wide text-slate-500">
+
+                    <tr>
+                        <th class="px-3 py-2 text-left">Product</th>
+                        <th class="px-3 py-2 text-right">Shelf</th>
+                        <th class="px-3 py-2 text-right">Backroom</th>
+                        <th class="px-3 py-2 text-right">Total</th>
+                        <th class="px-3 py-2 text-right">Restock shelf</th>
+                    </tr>
+
+                </thead>
+
+                <tbody class="divide-y divide-slate-100">
+
+                    {% for inv in inventories %}
+
+                    <tr>
+
+                        <td class="px-3 py-2.5 font-medium text-slate-800">
+                            {{ inv.product }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right tabular-nums">
+                            {{ inv.current_shelf_quantity|intcomma }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right tabular-nums">
+                            {{ inv.current_backroom_quantity|intcomma }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right font-semibold tabular-nums">
+                            {{ inv.total_consignment_stock|intcomma }}
+                        </td>
+
+                        <td class="px-3 py-2 text-right">
+
+                            {% if can_edit and inv.current_backroom_quantity and not pending_audit %}
+
+                            <form
+                                method="post"
+                                action="{% url 'consignment_shelf_transfer' company.pk branch.pk %}"
+                                class="inline-flex items-center gap-1"
+                            >
+
+                                {% csrf_token %}
+
+                                <input
+                                    type="hidden"
+                                    name="product_id"
+                                    value="{{ inv.product_id }}"
+                                >
+
+                                <input
+                                    type="number"
+                                    name="quantity"
+                                    min="1"
+                                    max="{{ inv.current_backroom_quantity }}"
+                                    placeholder="Qty"
+                                    class="h-7 w-16 rounded-md border border-line
+                                           px-2 text-[11px] outline-none
+                                           focus:border-olive"
+                                >
+
+                                <button
+                                    class="h-7 rounded-md border border-line
+                                           bg-slate-50 px-2 text-[10px]
+                                           font-semibold text-slate-700
+                                           hover:bg-slate-100"
+                                >
+                                    Transfer
+                                </button>
+
+                            </form>
+
+                            {% else %}
+                            <span class="text-slate-300">—</span>
+                            {% endif %}
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="5"
+                            class="px-3 py-7 text-center text-xs text-slate-400">
+                            No branch inventory. Record a delivery first.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+    <!-- AUDITS + MOVEMENTS -->
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+
+        <section class="rounded-lg border border-line bg-white shadow-sm overflow-hidden">
+
+            <div class="border-b border-line px-3 py-2.5">
+                <h2 class="text-sm font-semibold text-slate-800">
+                    Audit history
+                </h2>
+            </div>
+
+            <div class="overflow-x-auto">
+
+                <table class="min-w-full text-xs">
+
+                    <thead class="bg-slate-50/80 text-[10px] uppercase
+                                  tracking-wide text-slate-500">
+                        <tr>
+                            <th class="px-3 py-2 text-left">Date</th>
+                            <th class="px-3 py-2 text-left">Status</th>
+                            <th class="px-3 py-2"></th>
+                        </tr>
+                    </thead>
+
+                    <tbody class="divide-y divide-slate-100">
+
+                        {% for audit in audits %}
+                        <tr>
+
+                            <td class="px-3 py-2.5 whitespace-nowrap">
+                                {{ audit.audit_date|date:'d M Y H:i' }}
+                            </td>
+
+                            <td class="px-3 py-2.5">
+
+                                {% if audit.status == 'approved' %}
+                                <span class="text-emerald-700 font-medium">
+                                    Approved
+                                </span>
+
+                                {% elif audit.status == 'pending_approval' %}
+                                <span class="text-amber-700 font-medium">
+                                    Pending
+                                </span>
+
+                                {% elif audit.status == 'rejected' %}
+                                <span class="text-rose-700 font-medium">
+                                    Rejected
+                                </span>
+
+                                {% else %}
+                                <span class="text-slate-500">
+                                    Legacy
+                                </span>
+                                {% endif %}
+
+                            </td>
+
+                            <td class="px-3 py-2.5 text-right">
+
+                                <a
+                                    href="{% url 'consignment_audit_detail' company.pk branch.pk audit.pk %}"
+                                    class="text-[11px] font-medium
+                                           text-olive hover:underline"
+                                >
+                                    View →
+                                </a>
+
+                            </td>
+
+                        </tr>
+
+                        {% empty %}
+
+                        <tr>
+                            <td colspan="3"
+                                class="px-3 py-6 text-center text-xs text-slate-400">
+                                No audits submitted.
+                            </td>
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </section>
+
+        <section class="rounded-lg border border-line bg-white shadow-sm overflow-hidden">
+
+            <div class="border-b border-line px-3 py-2.5">
+                <h2 class="text-sm font-semibold text-slate-800">
+                    Recent stock movements
+                </h2>
+            </div>
+
+            <div class="overflow-x-auto">
+
+                <table class="min-w-full text-xs">
+
+                    <thead class="bg-slate-50/80 text-[10px] uppercase
+                                  tracking-wide text-slate-500">
+
+                        <tr>
+                            <th class="px-3 py-2 text-left">Product</th>
+                            <th class="px-3 py-2 text-left">Movement</th>
+                            <th class="px-3 py-2 text-left">Location</th>
+                            <th class="px-3 py-2 text-right">Packs</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody class="divide-y divide-slate-100">
+
+                        {% for entry in recent_ledger %}
+
+                        <tr>
+
+                            <td class="px-3 py-2.5">
+                                {{ entry.product }}
+                            </td>
+
+                            <td class="px-3 py-2.5">
+                                {{ entry.get_transaction_type_display }}
+                            </td>
+
+                            <td class="px-3 py-2.5">
+                                {{ entry.get_stock_location_display }}
+                            </td>
+
+                            <td class="px-3 py-2.5 text-right font-medium
+                                       tabular-nums
+                                       {% if entry.quantity < 0 %}
+                                       text-rust
+                                       {% else %}
+                                       text-emerald-700
+                                       {% endif %}">
+                                {{ entry.quantity }}
+                            </td>
+
+                        </tr>
+
+                        {% empty %}
+
+                        <tr>
+                            <td colspan="4"
+                                class="px-3 py-6 text-center text-xs text-slate-400">
+                                No movements recorded.
+                            </td>
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </section>
+
+    </div>
+
+    <!-- RELEASES -->
+    <section class="rounded-lg border border-line bg-white shadow-sm overflow-hidden">
+
+        <div class="border-b border-line px-3 py-2.5">
+            <h2 class="text-sm font-semibold text-slate-800">
+                Branch deliveries & collection balances
+            </h2>
+        </div>
+
+        <div class="overflow-x-auto">
+
+            <table class="min-w-full text-xs">
+
+                <thead class="bg-slate-50/80 text-[10px] uppercase
+                              tracking-wide text-slate-500">
+
+                    <tr>
+                        <th class="px-3 py-2 text-left">Release</th>
+                        <th class="px-3 py-2 text-left">Product</th>
+                        <th class="px-3 py-2 text-right">Dispatched</th>
+                        <th class="px-3 py-2 text-right">Billable</th>
+                        <th class="px-3 py-2 text-right">Paid · UGX</th>
+                        <th class="px-3 py-2 text-right">Owed · UGX</th>
+                        <th class="px-3 py-2 text-right">Warehouse return</th>
+                    </tr>
+
+                </thead>
+
+                <tbody class="divide-y divide-slate-100">
+
+                    {% for release in releases %}
+
+                    <tr>
+
+                        <td class="px-3 py-2.5">
+                            <span class="font-medium">
+                                #{{ release.pk }}
+                            </span>
+
+                            <span class="ml-1 text-[10px] text-slate-400">
+                                {{ release.released_at|date:'d M Y' }}
+                            </span>
+                        </td>
+
+                        <td class="px-3 py-2.5">
+                            {{ release.product }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right">
+                            {{ release.packs_out }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right font-medium">
+                            {{ release.billable_packs }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right text-emerald-700">
+                            {{ release.total_amount_paid|floatformat:0|intcomma }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right font-semibold
+                                   {% if release.outstanding_balance %}text-rust{% endif %}">
+                            {{ release.outstanding_balance|floatformat:0|intcomma }}
+                        </td>
+
+                        <td class="px-3 py-2 text-right">
+
+                            {% if can_manage and not pending_audit %}
+
+                            <form
+                                method="post"
+                                action="{% url 'consignment_branch_return' company.pk branch.pk %}"
+                                class="inline-flex items-center gap-1"
+                            >
+
+                                {% csrf_token %}
+
+                                <input
+                                    type="hidden"
+                                    name="release_id"
+                                    value="{{ release.pk }}"
+                                >
+
+                                <select
+                                    name="location"
+                                    class="h-7 rounded-md border border-line
+                                           bg-white px-1.5 text-[10px]"
+                                >
+                                    <option value="shelf">Shelf</option>
+                                    <option value="backroom">Backroom</option>
+                                </select>
+
+                                <input
+                                    type="number"
+                                    name="quantity"
+                                    min="1"
+                                    placeholder="Qty"
+                                    class="h-7 w-14 rounded-md
+                                           border border-line px-1.5
+                                           text-[10px]"
+                                >
+
+                                <button
+                                    class="h-7 rounded-md border border-line
+                                           bg-slate-50 px-2 text-[10px]
+                                           font-semibold hover:bg-slate-100"
+                                >
+                                    Return
+                                </button>
+
+                            </form>
+
+                            {% else %}
+                            <span class="text-slate-300">—</span>
+                            {% endif %}
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="7"
+                            class="px-3 py-7 text-center text-xs text-slate-400">
+                            No branch-linked display releases.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <div class="border-t border-line bg-slate-50/50
+                    px-3 py-2 text-[10px] text-slate-400">
+            Only managers can approve sealed, unsold returns to central stock.
+            Damaged or missing stock belongs in audit shrinkage.
+        </div>
+
+    </section>
+
+</div>
+{% endblock %}
