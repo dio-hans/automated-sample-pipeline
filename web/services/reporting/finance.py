@@ -4,9 +4,11 @@ from decimal import Decimal
 from django.db.models import Sum
 from django.utils import timezone
 from ...models import Expense, PackRelease, PackSettlement, PaymentReceipt
+from ...models import PAYMENT_METHOD_CHOICES
+
 
 ZERO = Decimal('0.00')
-METHODS = dict(PackSettlement.PAYMENT_CHOICES)
+METHODS = dict(PAYMENT_METHOD_CHOICES)
 def money(v): return Decimal(str(v)) if v is not None else ZERO
 def ageing_bucket(days):
     if days <= 30: return '0–30 days'

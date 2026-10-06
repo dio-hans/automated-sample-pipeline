@@ -18,6 +18,19 @@ from django.contrib.auth.models import AbstractUser
 # --- 1. COMPANY DETAILS ---
 
 
+PAYMENT_METHOD_CHOICES = (
+        ("cash", "Cash"),
+        ("mobile_money", "Mobile Money"),
+        ("bank", "Bank Transfer"),
+        ("other", "Other"),
+    )
+
+STATUS_CHOICES = (
+    ("released", "Released"),
+    ("partially_returned", "Partially Returned"),
+    ("fully_returned", "Fully Returned"),
+    ("settled", "Paid / Settled"),
+)
 
 class Coffee_type(models.TextChoices):
     ARABICA = 'arabica', 'Arabica'
@@ -1628,19 +1641,6 @@ class EventItemReconciliation(models.Model):
 
 
 class PackRelease(models.Model):
-    STATUS_CHOICES = (
-        ("released", "Released"),
-        ("partially_returned", "Partially Returned"),
-        ("fully_returned", "Fully Returned"),
-        ("settled", "Paid / Settled"),
-    )
-
-    PAYMENT_METHOD_CHOICES = (
-        ("cash", "Cash"),
-        ("mobile_money", "Mobile Money"),
-        ("bank", "Bank Transfer"),
-        ("other", "Other"),
-    )
 
     product = models.ForeignKey(
         PackagedProduct,
@@ -1860,13 +1860,6 @@ class PackRelease(models.Model):
 
 class PaymentReceipt(models.Model):
 
-    PAYMENT_METHOD_CHOICES = (
-        ("cash", "Cash"),
-        ("mobile_money", "Mobile Money"),
-        ("bank", "Bank Transfer"),
-        ("other", "Other"),
-    )
-
     release = models.ForeignKey(
         PackRelease,
         on_delete=models.PROTECT,
@@ -2023,17 +2016,6 @@ class StockRequestItem(models.Model):
 
 
 class PackSettlement(models.Model):
-    PAYMENT_CHOICES = (
-        ("cash", "Cash"),
-        ("mobile_money", "Mobile Money"),
-        ("bank", "Bank Transfer"),
-        ("other", "Other"),
-    )
-
-    STATUS_CHOICES = (
-        ("partial", "Partially Paid"),
-        ("cleared", "Cleared"),
-    )
 
     release = models.ForeignKey(
         PackRelease,
@@ -2042,7 +2024,7 @@ class PackSettlement(models.Model):
     )
     packs_sold = models.PositiveIntegerField(default=0)
     amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
-    payment_method = models.CharField(max_length=20, choices=PAYMENT_CHOICES, default="cash")
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default="cash")
     payment_reference = models.CharField(max_length=100, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="partial")
     cleared_by = models.ForeignKey(

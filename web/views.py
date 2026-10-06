@@ -203,6 +203,7 @@ class InventoryRoleRequiredMixin:
           
 @method_decorator(login_required, name='dispatch')  
 class PackagingRunListView(InventoryRoleRequiredMixin, ListView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ACCOUNTS)
     model = PackagingRun
     template_name = "pipeline/packaging_run_list.html"
     context_object_name = "packaging_runs"
@@ -214,6 +215,7 @@ class PackagingRunListView(InventoryRoleRequiredMixin, ListView):
     
 @method_decorator(login_required, name='dispatch')
 class PackagingRunDetailView(InventoryRoleRequiredMixin, DetailView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS)
     model = PackagingRun
     template_name = "pipeline/packaging_run_detail.html"
     context_object_name = "run"
@@ -253,6 +255,7 @@ class PackagingRunCreateView(InventoryRoleRequiredMixin, CreateView):
 # ===================== PACK RELEASE & RETURN VIEWS =====================
 @method_decorator(login_required, name='dispatch')
 class PackReleaseListView(InventoryRoleRequiredMixin, ListView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER, User.Role.ACCOUNTS)
     model = PackRelease
     template_name = "pipeline/pack_release_list.html"
     context_object_name = "releases"
@@ -332,6 +335,7 @@ class PackReleaseDetailView(InventoryRoleRequiredMixin, DetailView):
 
 @method_decorator(login_required, name='dispatch')
 class PackReleaseCreateView(InventoryRoleRequiredMixin, CreateView):
+    allowed_roles = ( User.Role.ACCOUNTS)
     model = PackRelease
     form_class = PackReleaseForm
     template_name = "pipeline/pack_release_form.html"
@@ -379,6 +383,7 @@ from django.views.generic import ListView
 
 @method_decorator(login_required, name='dispatch')
 class PackReturnListView(InventoryRoleRequiredMixin, ListView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER, User.Role.ACCOUNTS)
     model = PackReturn
     template_name = "pipeline/pack_return_list.html"
     context_object_name = "returns"
@@ -493,6 +498,7 @@ def dashboard_router(request):
 # COMPANIES
 @method_decorator(login_required, name='dispatch')
 class CompanyListView(ListView):
+    allowed_roles =(User.Role.ACCOUNTS)
     model = Company
     template_name = "pipeline/company_list.html"
     context_object_name = "companies"
@@ -516,6 +522,7 @@ class CompanyDetailView(DetailView):
 
 @method_decorator(login_required, name='dispatch')
 class CompanyCreateView(CreateView):
+    allowed_roles = (User.Role.ACCOUNTS,)
     model = Company
     form_class = CompanyForm
     template_name = "pipeline/company_form.html"
@@ -523,6 +530,7 @@ class CompanyCreateView(CreateView):
 
 @method_decorator(login_required, name='dispatch')
 class CompanyUpdateView(UpdateView):
+    allowed_roles = (User.Role.ACCOUNTS )
     model = Company
     form_class = CompanyForm
     template_name = "pipeline/company_form.html"
@@ -530,6 +538,7 @@ class CompanyUpdateView(UpdateView):
 
 @method_decorator(login_required, name='dispatch')
 class CompanyDeleteView(DeleteView):
+    allowed_roles =(User.Role.ACCOUNTS)
     model = Company
     template_name = "pipeline/company_confirm_delete.html"
     success_url = reverse_lazy("company_list")
@@ -542,6 +551,7 @@ from .models import CoffeeStock
 
 @method_decorator(login_required, name='dispatch')
 class CoffeeStockListViews(RoleRequiredMixin, ListView):
+    allowed_roles = (User.Role.ACCOUNTS)
     model = CoffeeStock
     template_name = "pipeline/coffee_stock_list.html"
     context_object_name = "stocks"
@@ -613,6 +623,7 @@ class VarietyDatalistMixin:
 
 @method_decorator(login_required, name='dispatch')
 class CoffeeStockCreateView(VarietyDatalistMixin, CreateView):
+    allowed_roles =(User.Role.MANAGER)
     model = CoffeeStock
     form_class = CoffeeStockIntakeForm
     template_name = "pipeline/stock_form.html"
@@ -631,6 +642,7 @@ class CoffeeStockCreateView(VarietyDatalistMixin, CreateView):
 
 @method_decorator(login_required, name='dispatch')
 class CoffeeStockUpdateView(VarietyDatalistMixin, UpdateView):
+    allowed_roles =(User.Role.MANAGER)
     model = CoffeeStock
     form_class = CoffeeStockForm
     template_name = "pipeline/stock_form.html"
@@ -639,6 +651,7 @@ class CoffeeStockUpdateView(VarietyDatalistMixin, UpdateView):
 # ===================== SAMPLES =====================
 @method_decorator(login_required, name='dispatch')
 class SampleListView(ListView):
+    allowed_roles =(User.Role.ACCOUNTS)
     model = Sample
     template_name = "pipeline/sample_list.html"
     context_object_name = "samples"
@@ -656,6 +669,7 @@ class SampleListView(ListView):
 
 @method_decorator(login_required, name='dispatch')
 class SampleDetailView(DetailView):
+    allowed_roles =(User.Role.ACCOUNTS)
     model = Sample
     template_name = "pipeline/sample_detail.html"
     context_object_name = "sample"
@@ -667,6 +681,7 @@ class SampleDetailView(DetailView):
 
 @method_decorator(login_required, name='dispatch')
 class SampleCreateView(CreateView):
+    allowed_roles =(User.Role.ACCOUNTS)
     model = Sample
     form_class = SampleForm
     template_name = "pipeline/sample_form.html"
@@ -706,12 +721,14 @@ class SampleUpdateView(UpdateView):
     form_class = SampleForm
     template_name = "pipeline/sample_form.html"
     success_url = reverse_lazy("sample_list")
+    allowed_roles =(User.Role.ACCOUNTS)
 
 @method_decorator(login_required, name='dispatch')
 class SampleDeleteView(DeleteView):
     model = Sample
     template_name = "pipeline/sample_confirm_delete.html"
     success_url = reverse_lazy("sample_list")
+    allowed_roles =(User.Role.ACCOUNTS)
 
 
 # ===================== FOLLOW-UPS =====================
@@ -720,6 +737,7 @@ class FollowupListView(ListView):
     model = Followup
     template_name = "pipeline/followup_list.html"
     context_object_name = "followups"
+    allowed_roles =(User.Role.ACCOUNTS)
 
     def get_queryset(self):
         return (Followup.objects
@@ -748,6 +766,7 @@ class MarkGuideSentView(View):
 
 @method_decorator(login_required, name='dispatch')
 class MarkContractSentView(View):
+    allowed_roles =(User.Role.ACCOUNTS)
     def post(self, request, pk):
         followup = get_object_or_404(Followup, pk=pk)
         mark_contract_sent(followup)
@@ -782,6 +801,7 @@ class ContractListView(ListView):
     model = Contract
     template_name = "pipeline/contract_list.html"
     context_object_name = "contracts"
+    allowed_roles =(User.Role.ACCOUNTS)
 
     def get_queryset(self):
         qs = Contract.objects.select_related("company", "sample").order_by("-signed_at")
@@ -799,6 +819,7 @@ class ContractDetailView(DetailView):
     model = Contract
     template_name = "pipeline/contract_detail.html"
     context_object_name = "contract"
+    allowed_roles =(User.Role.ACCOUNTS)
 
 
 # ===================== API ENDPOINTS =====================
@@ -836,82 +857,58 @@ def stock_stage_inventory_api(request, pk):
         "available": float(stock.quantity_available),
     })
 
+from .utils.util import apply_date_filters
+
 @method_decorator(login_required, name='dispatch')
 class StockMovementListView(ListView):
     model = StockMovement
     template_name = "pipeline/stock_movement_list.html"
     context_object_name = "movements"
     paginate_by = 50
+    allowed_roles =(User.Role.ACCOUNTS, User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER)
 
     def get_queryset(self):
-        """
-        🎯 CORE TIME-FILTER MATRIX:
-        Extracts date criteria inputs from the web request URL strings 
-        and crops historical ledger entries strictly to that time window.
-        """
         queryset = (
             StockMovement.objects
             .select_related("stock__variety", "created_by")
             .order_by("-created_at")
         )
-        
-        # 1. Fetch browser filter parameters
-        preset = self.request.GET.get("preset", "this_month")
-        start_raw = self.request.GET.get("start_date")
-        end_raw = self.request.GET.get("end_date")
-        
-        # Capture instances inside view context variables for template state retention
+
+        queryset, preset, today, start, end = apply_date_filters(
+            self.request,
+            queryset,
+            "created_at",
+        )
+
         self._preset = preset
-        self._start = start_raw
-        self._end = end_raw
-
-        today = timezone.localtime(timezone.now()).date()
-
-        # 2. Handle Custom Calendar Dates Range Inputs Override
-        if start_raw or end_raw:
-            self._preset = "custom"
-            if start_raw:
-                try:
-                    start_date = datetime.strptime(start_raw, "%Y-%m-%d").date()
-                    queryset = queryset.filter(created_at__date__gte=start_date)
-                except ValueError:
-                    pass
-            if end_raw:
-                try:
-                    end_date = datetime.strptime(end_raw, "%Y-%m-%d").date()
-                    queryset = queryset.filter(created_at__date__lte=end_date)
-                except ValueError:
-                    pass
-            return queryset
-
-        # 3. Handle Clean Pre-set Time Shortcut Intervals
-        if preset == "today":
-            queryset = queryset.filter(created_at__date=today)
-        elif preset == "yesterday":
-            yesterday = today - timezone.timedelta(days=1)
-            queryset = queryset.filter(created_at__date=yesterday)
-        elif preset == "last_7_days":
-            week_ago = today - timezone.timedelta(days=7)
-            queryset = queryset.filter(created_at__date__gte=week_ago)
-        elif preset == "this_month":
-            # Filters items recorded from day 1 of the active running calendar month
-            queryset = queryset.filter(
-                created_at__date__year=today.year,
-                created_at__date__month=today.month
-            )
+        self._start = start
+        self._end = end
 
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["preset"] = getattr(self, "_preset", "this_month")
-        context["start_date"] = getattr(self, "_start", "")
-        context["end_date"] = getattr(self, "_end", "")
+
+        preset = getattr(self, "_preset", "this_month")
+        start = getattr(self, "_start", None)
+        end = getattr(self, "_end", None)
+
+        context["preset"] = preset
+        context["start_date"] = start
+        context["end_date"] = end
+
+        # The shared report filter expects period.start_date/end_date
+        context["period"] = {
+            "start_date": start,
+            "end_date": end,
+        }
+
         return context
 
 @method_decorator(login_required, name='dispatch')
 class DashboardView(TemplateView):
     template_name = "pipeline/dashboard.html"
+    allowed_roles =(User.Role.ACCOUNTS, User.Role.MANAGER, User.Role.ADMIN)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -994,9 +991,7 @@ def low_stock_list(request):
 class ProcessingWorkspaceView(RoleRequiredMixin, View):
     allowed_roles = (
         User.Role.MANAGER,
-        User.Role.ADMIN,
-        User.Role.CASHIER,
-        User.Role.ACCOUNTS,
+        User.Role.ADMIN
     )
 
     template_name = "pipeline/processing_workspace.html"
@@ -1026,7 +1021,7 @@ class ProcessingWorkspaceView(RoleRequiredMixin, View):
 @method_decorator(login_required, name='dispatch')
 class IssueProcessingRunView(RoleRequiredMixin, View):
     """Step 1: Called when coffee is taken and loaded into the machinery."""
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER, User.Role.ACCOUNTS)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
 
     def post(self, request, pk):
         stock = get_object_or_404(CoffeeStock, pk=pk)
@@ -1054,7 +1049,7 @@ class IssueProcessingRunView(RoleRequiredMixin, View):
 
 @method_decorator(login_required, name='dispatch')
 class CompleteProcessingRunView(RoleRequiredMixin, View):
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS, User.Role.CASHIER)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
 
     def post(self, request, pk):
         run = get_object_or_404(ProcessingRun.objects.select_related("stock"), pk=pk)
@@ -1120,6 +1115,7 @@ class PackagedInventoryListView(InventoryRoleRequiredMixin, ListView):
     model = PackagedInventory
     template_name = "pipeline/packaged_inventory_list.html"
     context_object_name = "inventory"
+    allowed_roles =(User.Role.ACCOUNTS, User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER)
 
     def get_queryset(self):
         return PackagedInventory.objects.select_related(
@@ -1148,6 +1144,7 @@ class PackagedProductDetailView(InventoryRoleRequiredMixin, DetailView):
     model = PackagedProduct
     template_name = "pipeline/packaged_product_detail.html"
     context_object_name = "product"
+    allowed_roles =(User.Role.ACCOUNTS, User.Role.MANAGER, User.Role.ADMIN)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -1173,7 +1170,8 @@ class PackagedProductCreateView(InventoryRoleRequiredMixin, FormView):
     # 1. Cleanly assign the class type here
     form_class = PackagedProductBulkForm
     template_name = "pipeline/packaged_product_form.html"  
-    success_url = reverse_lazy("packaged_inventory_list")  
+    success_url = reverse_lazy("packaged_inventory_list")
+    allowed_roles =(User.Role.MANAGER, User.Role.ADMIN)  
 
     # 2. Modify the form instance dynamically before it goes to the template
     def get_form(self, form_class=None):
@@ -1216,6 +1214,7 @@ ReturnItemFormSet = formset_factory(SingleItemReturnForm, extra=0)
 @method_decorator(login_required, name='dispatch')
 class PackReturnCreateView(InventoryRoleRequiredMixin, TemplateView):
     template_name = "pipeline/pack_return_form.html"
+    allowed_roles = (User.Role.CASHIER, User.Role.ADMIN, User.Role.ACCOUNTS)
 
     def get_release_from_url(self):
         release = get_object_or_404(
@@ -1352,6 +1351,7 @@ class PackReturnCreateView(InventoryRoleRequiredMixin, TemplateView):
 @method_decorator(login_required, name='dispatch')
 class PackReturnConfirmationView(InventoryRoleRequiredMixin, TemplateView):
     template_name = "pipeline/pack_return_confirmation.html"
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
 
     def get_payload(self, token):
         payload = self.request.session.get(f"return_review:{token}")
@@ -1449,7 +1449,6 @@ class PackReturnConfirmationView(InventoryRoleRequiredMixin, TemplateView):
 class PackReturnApproveView(InventoryRoleRequiredMixin, View):
     allowed_roles = (
         User.Role.MANAGER,
-        User.Role.CASHIER,
         User.Role.ADMIN,
     )
 
@@ -1533,7 +1532,6 @@ class RecordInstallmentPaymentView(RoleRequiredMixin, CreateView):
     allowed_roles = (
         User.Role.CASHIER,
         User.Role.ACCOUNTS,
-        User.Role.MANAGER,
         User.Role.ADMIN,
     )
     success_url = reverse_lazy("credit_control_ledger") 
@@ -1594,7 +1592,6 @@ class CashLedgerListView(RoleRequiredMixin, ListView):
     allowed_roles = (
         User.Role.CASHIER,
         User.Role.ACCOUNTS,
-        User.Role.MANAGER,
         User.Role.ADMIN,
     )
 
@@ -1746,47 +1743,37 @@ class CancelStockRequestView(RoleRequiredMixin, View):
         stock_request.save(update_fields=["status"])
         
         messages.error(request, f"Stock request ticket {stock_request.short_number} has been cancelled and removed from the active queue.")
-        return redirect("stock_request_list")
-
+        return redirect("consignment_list")
 
 
 from decimal import Decimal
-from django.db.models import Sum, F, ExpressionWrapper, DecimalField
+from django.db.models import F, Sum, ExpressionWrapper, DecimalField
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
 from django.views.generic import ListView
 
-# Import PaymentReceipt alongside PackRelease
-from .models import PackRelease, PaymentReceipt
+
 
 @method_decorator(login_required, name='dispatch')
 class CreditControlLedgerView(RoleRequiredMixin, ListView):
     model = PackRelease
     template_name = "pipeline/credit_control_ledger.html"
     context_object_name = "releases"
-
     allowed_roles = (
         User.Role.CASHIER,
         User.Role.ACCOUNTS,
-        User.Role.MANAGER,
         User.Role.ADMIN,
     )
 
     def get_queryset(self):
         qs = (
             PackRelease.objects
-            .select_related(
-                "product__blend",
-                "product__pack_size",
-                "released_to",
-            )
-            .prefetch_related(
-                "returns",
-                "payments",
-            )
+            .select_related("product__blend", "product__pack_size", "released_to")
+            .prefetch_related("returns", "payments")
             .order_by("-released_at")
         )
 
-        from .utils.util import apply_date_filters
-
+        # Apply date filters for table list
         qs, preset, today, start, end = apply_date_filters(
             self.request,
             qs,
@@ -1796,154 +1783,70 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
         self._preset = preset
         self._start = start
         self._end = end
-        self._view_scope = self.request.GET.get(
-            "scope",
-            "active",
-        )
+        self._view_scope = self.request.GET.get("scope", "active")
 
-        # ---------------------------------------------------------
-        # TABLE FILTER
-        # ---------------------------------------------------------
         if self._view_scope == "active":
             return [
-                release
-                for release in qs
-                if getattr(
-                    release,
-                    "outstanding_balance",
-                    Decimal("0.00"),
-                ) > Decimal("0.00")
+                release for release in qs
+                if getattr(release, "outstanding_balance", Decimal("0.00")) > Decimal("0.00")
             ]
-
         return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
 
-        start = getattr(self, "_start", None)
-        end = getattr(self, "_end", None)
-
-        # ---------------------------------------------------------
-        # NORMALISE DATE RANGE
-        # ---------------------------------------------------------
-        if start and hasattr(start, "date"):
-            start_date = start.date()
-        else:
-            start_date = start
-
-        if end and hasattr(end, "date"):
-            end_date = end.date()
-        else:
-            end_date = end
-
-        # ---------------------------------------------------------
-        # 1. TOTAL VALUE DISPATCHED
-        #
-        # Only releases dispatched during the selected period.
-        #
-        # If nothing was dispatched today:
-        #     0 UGX
-        # ---------------------------------------------------------
-        dispatched_qs = PackRelease.objects.all()
-
-        if start_date and end_date:
-            dispatched_qs = dispatched_qs.filter(
-                released_at__date__range=(
-                    start_date,
-                    end_date,
-                )
-            )
+        # 1. TOTAL VALUE DISPATCHED IN SELECTED PERIOD
+        dispatched_qs, preset, today, start, end = apply_date_filters(
+            self.request,
+            PackRelease.objects.all(),
+            "released_at",
+        )
 
         total_value_issued = dispatched_qs.aggregate(
-    total=Sum(
-        ExpressionWrapper(
-            F("packs_out") * F("selling_price"),
-            output_field=DecimalField(
-                max_digits=12,
-                decimal_places=2,
-            ),
-        )
-    )
-)["total"] or Decimal("0.00")
-
-        # ---------------------------------------------------------
-        # 2. LIQUID CASH COLLECTED
-        #
-        # Based on WHEN THE MONEY WAS RECEIVED,
-        # not when the coffee was dispatched.
-        #
-        # Example:
-        # Dispatch: 10 Sep
-        # Payment: 17 Sep
-        #
-        # Payment appears in 17 Sep collections.
-        # ---------------------------------------------------------
-        payments_qs = PaymentReceipt.objects.all()
-
-        if start_date and end_date:
-            payments_qs = payments_qs.filter(
-                collected_at__date__range=(
-                    start_date,
-                    end_date,
+            total=Sum(
+                ExpressionWrapper(
+                    F("packs_out") * F("selling_price"),
+                    output_field=DecimalField(max_digits=12, decimal_places=2),
                 )
             )
+        )["total"] or Decimal("0.00")
+
+        # 2. LIQUID CASH COLLECTED IN SELECTED PERIOD
+        payments_qs, _, _, _, _ = apply_date_filters(
+            self.request,
+            PaymentReceipt.objects.all(),
+            "collected_at",
+        )
 
         total_collected_revenue = (
-            payments_qs.aggregate(
-                total=Sum("amount")
-            )["total"]
-            or Decimal("0.00")
+            payments_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
         )
 
-        # ---------------------------------------------------------
-        # 3. TOTAL OUTSTANDING DEBT
-        #
-        # This is the CURRENT outstanding debt.
-        #
-        # It is NOT restricted by the selected date.
-        # ---------------------------------------------------------
-        all_releases = (
-            PackRelease.objects
-            .prefetch_related(
-                "returns",
-                "payments",
-            )
-            .all()
-        )
-
+        # 3. TOTAL OUTSTANDING DEBT (GLOBAL / ALL TIME)
+        all_releases = PackRelease.objects.prefetch_related("returns", "payments").all()
         total_outstanding_debt = sum(
             (
                 release.outstanding_balance
                 for release in all_releases
-                if getattr(
-                    release,
-                    "outstanding_balance",
-                    Decimal("0.00"),
-                ) > Decimal("0.00")
+                if getattr(release, "outstanding_balance", Decimal("0.00")) > Decimal("0.00")
             ),
             Decimal("0.00"),
         )
 
-        # ---------------------------------------------------------
-        # CONTEXT
-        # ---------------------------------------------------------
+        # CONTEXT MAPPING MATCHING TEMPLATE EXPECTATIONS
         ctx.update({
-            "preset": getattr(
-                self,
-                "_preset",
-                "today",
-            ),
-            "view_scope": getattr(
-                self,
-                "_view_scope",
-                "active",
-            ),
+            "preset": preset,
+            "period": {
+                "start_date": start,
+                "end_date": end,
+            },
+            "view_scope": getattr(self, "_view_scope", "active"),
             "total_value_issued": total_value_issued,
             "total_collected_revenue": total_collected_revenue,
             "total_outstanding_debt": total_outstanding_debt,
         })
-
         return ctx
+
 
 @method_decorator(login_required, name='dispatch')
 class LowStockListView(RoleRequiredMixin, TemplateView):
@@ -2239,9 +2142,7 @@ class ManagementReportsView(RoleRequiredMixin, TemplateView):
 
     allowed_roles = (
         User.Role.ADMIN,
-        User.Role.MANAGER,
-        User.Role.ACCOUNTS,
-        User.Role.CASHIER,
+        User.Role.ACCOUNTS
     )
 
     template_name = "pipeline/reports.html"
@@ -2777,7 +2678,6 @@ context_object_name = "company"
 
 allowed_roles = (
     User.Role.ADMIN,
-    User.Role.MANAGER,
     User.Role.ACCOUNTS,
     User.Role.CASHIER,
 )
@@ -2848,17 +2748,32 @@ from django.db.models import Sum, F, ExpressionWrapper, DecimalField
 from django.shortcuts import get_object_or_404, render
 from django.contrib.auth.decorators import login_required
 
+from django.shortcuts import render, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.db.models import Sum, F, ExpressionWrapper, DecimalField
+
+from .models import AccountHolder, PackRelease
+from .utils.util import apply_date_filters  # Adjust import path if needed
+
+
 @login_required
 def account_holder_detail(request, pk):
     account = get_object_or_404(AccountHolder, pk=pk)
-    
-    # Pre-fetch related objects for efficiency
+
+    # 1. Base QuerySet
     releases = PackRelease.objects.filter(released_to=account).select_related(
         'product__blend', 
         'product__pack_size'
     ).order_by('-released_at')
 
-    # Calculate total gross value directly in SQL (packs_out * selling_price)
+    # 2. Apply Date Filter on 'released_at'
+    releases, preset, today, start, end = apply_date_filters(
+        request, 
+        releases, 
+        date_field="released_at"
+    )
+
+    # 3. Calculate total gross value directly in SQL on filtered queryset
     value_aggregate = releases.aggregate(
         total_value=Sum(
             ExpressionWrapper(
@@ -2869,9 +2784,23 @@ def account_holder_detail(request, pk):
     )
     total_value = value_aggregate['total_value'] or 0
 
-    # Calculate properties in Python since they rely on related payments/returns logic
+    # 4. Calculate total_paid and total_outstanding across filtered releases
     total_paid = sum(r.total_amount_paid for r in releases)
     total_outstanding = sum(r.outstanding_balance for r in releases)
+
+    # 5. Range label for summary cards
+    labels = {
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "this_week": "This Week",
+        "last_7_days": "Last 7 Days",
+        "this_month": "This Month",
+        "overall": "All Time",
+    }
+    if preset == "custom" and start and end:
+        range_label = f"{start.strftime('%d %b %Y')} – {end.strftime('%d %b %Y')}"
+    else:
+        range_label = labels.get(preset, "All Time")
 
     context = {
         'account': account,
@@ -2879,6 +2808,13 @@ def account_holder_detail(request, pk):
         'total_value': total_value,
         'total_paid': total_paid,
         'total_outstanding': total_outstanding,
+        # Required by report_filters.html
+        'preset': preset,
+        'period': {
+            'start_date': start,
+            'end_date': end,
+        },
+        'selected_range_label': range_label,
     }
     return render(request, 'pipeline/account_holder_detail.html', context)
 
@@ -2927,9 +2863,7 @@ class ExpenseTrackerView(RoleRequiredMixin, TemplateView):
     template_name = "pipeline/expense_tracker.html"
     allowed_roles = (
         User.Role.ADMIN,
-        User.Role.MANAGER,
         User.Role.ACCOUNTS,
-        User.Role.CASHIER,
     )
 
     def get_context_data(self, **kwargs):
@@ -2958,6 +2892,18 @@ class ExpenseTrackerView(RoleRequiredMixin, TemplateView):
         return self.render_to_response({"form": form})
 
 
+from datetime import datetime
+from decimal import Decimal
+from django.db.models import Sum
+from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.contrib.auth.decorators import login_required
+from django.views.generic import ListView
+
+from .models import Expense, User
+from .utils.util import apply_date_filters
+
+
 @method_decorator(login_required, name="dispatch")
 class ExpenseListView(RoleRequiredMixin, ListView):
     model = Expense
@@ -2966,9 +2912,7 @@ class ExpenseListView(RoleRequiredMixin, ListView):
     paginate_by = 20
     allowed_roles = (
         User.Role.ADMIN,
-        User.Role.MANAGER,
         User.Role.ACCOUNTS,
-        User.Role.CASHIER,
     )
 
     def get_queryset(self):
@@ -2977,74 +2921,72 @@ class ExpenseListView(RoleRequiredMixin, ListView):
             .select_related("logged_by")
             .order_by("-expense_date", "-created_at")
         )
-        
-        selected_range = self.request.GET.get("range", "this_month")
-        today = timezone.localdate()
 
-        if selected_range == "today":
-            qs = qs.filter(expense_date=today)
-        elif selected_range == "this_week":
-            start_week = today - timezone.timedelta(days=today.weekday())
-            qs = qs.filter(
-                expense_date__gte=start_week,
-                expense_date__lte=today,
-            )
-        elif selected_range == "this_month":
-            qs = qs.filter(
-                expense_date__year=today.year,
-                expense_date__month=today.month,
-            )
-        elif selected_range == "custom":
-            start_raw = self.request.GET.get("start_date")
-            end_raw = self.request.GET.get("end_date")
-            if start_raw and end_raw:
-                try:
-                    start_date = datetime.strptime(start_raw, "%Y-%m-%d").date()
-                    end_date = datetime.strptime(end_raw, "%Y-%m-%d").date()
-                    qs = qs.filter(expense_date__range=(start_date, end_date))
-                except ValueError:
-                    pass
+        # 1. Apply Date Filtering using utils.py on 'expense_date'
+        qs, preset, today, start, end = apply_date_filters(
+            self.request,
+            qs,
+            date_field="expense_date",
+        )
 
+        # 2. Optional Category Filter
         category_filter = self.request.GET.get("category")
         if category_filter:
             qs = qs.filter(category=category_filter)
+
+        # Store for context calculation
+        self._preset = preset
+        self._start = start
+        self._end = end
 
         return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
-        filtered_qs = self.get_queryset()
-        total = filtered_qs.aggregate(total_sum=Sum("amount"))["total_sum"] or 0
-        
-        selected_range = self.request.GET.get("range", "this_month")
-        
-        if selected_range == "today":
-            range_label = "Today"
-        elif selected_range == "this_week":
-            range_label = "This Week"
-        elif selected_range == "this_month":
-            range_label = "This Month"
-        elif selected_range == "custom":
-            start_raw = self.request.GET.get("start_date", "")
-            end_raw = self.request.GET.get("end_date", "")
-            if start_raw and end_raw:
-                range_label = f"{start_raw} to {end_raw}"
-            else:
-                range_label = "Custom Range"
-        else:
-            range_label = "All Time"
 
+        # Aggregate Total Expenses across the entire filtered queryset
+        filtered_qs = self.get_queryset()
+        total_expenses = filtered_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+
+        preset = getattr(self, "_preset", "this_month")
+        start = getattr(self, "_start", None)
+        end = getattr(self, "_end", None)
+
+        # Generate human-readable range label
+        labels = {
+            "today": "Today",
+            "yesterday": "Yesterday",
+            "this_week": "This Week",
+            "last_7_days": "Last 7 Days",
+            "this_month": "This Month",
+            "overall": "All Time",
+        }
+        if preset == "custom" and start and end:
+            range_label = f"{start.strftime('%d %b %Y')} – {end.strftime('%d %b %Y')}"
+        else:
+            range_label = labels.get(preset, "All Time")
+
+        # Category choices for filter dropdown
         categories = getattr(Expense, "CATEGORY_CHOICES", getattr(Expense, "CategoryChoices", None))
         if hasattr(categories, "choices"):
             categories = categories.choices
 
+        # Build clean query string for pagination links
+        query_params = self.request.GET.copy()
+        if "page" in query_params:
+            del query_params["page"]
+
         context.update({
-            "total_expenses": total,
-            "selected_range": selected_range,
+            "total_expenses": total_expenses,
+            "preset": preset,
+            "period": {
+                "start_date": start,
+                "end_date": end,
+            },
             "selected_range_label": range_label,
             "category_filter": self.request.GET.get("category", ""),
             "categories": categories or [],
+            "extra_qs": query_params.urlencode(),
         })
         return context
 
@@ -3710,7 +3652,6 @@ class ReportOverviewView(RoleRequiredMixin, TemplateView):
 
     allowed_roles = (
         User.Role.ADMIN,
-        User.Role.MANAGER,
         User.Role.ACCOUNTS,
     )
 
@@ -3749,7 +3690,6 @@ class StockConsumptionReportView(
 
     allowed_roles = (
         User.Role.ADMIN,
-        User.Role.MANAGER,
         User.Role.ACCOUNTS,
     )
 
@@ -3780,7 +3720,6 @@ class SalesReportView(
 
     allowed_roles = (
         User.Role.ADMIN,
-        User.Role.MANAGER,
         User.Role.ACCOUNTS,
     )
 
@@ -3809,7 +3748,7 @@ class SalesReportView(
 @method_decorator(login_required, name='dispatch')
 class FinanceReportView(RoleRequiredMixin, TemplateView):
     template_name = 'reports/finance.html'
-    allowed_roles = (User.Role.ADMIN, User.Role.MANAGER, User.Role.ACCOUNTS)
+    allowed_roles = (User.Role.ADMIN, User.Role.ACCOUNTS)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -3821,7 +3760,7 @@ class FinanceReportView(RoleRequiredMixin, TemplateView):
 @method_decorator(login_required, name='dispatch')
 class OperationsReportView(RoleRequiredMixin, TemplateView):
     template_name = 'reports/operations.html'
-    allowed_roles = (User.Role.ADMIN, User.Role.MANAGER, User.Role.ACCOUNTS)
+    allowed_roles = (User.Role.ADMIN, User.Role.ACCOUNTS)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -3833,7 +3772,7 @@ class OperationsReportView(RoleRequiredMixin, TemplateView):
 @method_decorator(login_required, name="dispatch")
 class ExecutiveReportView(RoleRequiredMixin, TemplateView):
     template_name = "reports/executive.html"
-    allowed_roles = (User.Role.ADMIN, User.Role.MANAGER, User.Role.ACCOUNTS)
+    allowed_roles = (User.Role.ADMIN, User.Role.ACCOUNTS)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -3846,11 +3785,11 @@ class ExecutiveReportView(RoleRequiredMixin, TemplateView):
 @method_decorator(login_required, name='dispatch')
 class ProfitabilityPlaceholderView(RoleRequiredMixin, TemplateView):
     template_name = 'reports/profitability.html'
-    allowed_roles = (User.Role.ADMIN, User.Role.MANAGER, User.Role.ACCOUNTS)
+    allowed_roles = (User.Role.ADMIN, User.Role.ACCOUNTS)
 
 
 class ExecutiveExportMixin(RoleRequiredMixin):
-    allowed_roles = (User.Role.ADMIN, User.Role.MANAGER, User.Role.ACCOUNTS)
+    allowed_roles = (User.Role.ADMIN, User.Role.ACCOUNTS)
 
     def export_context(self):
         period = resolve_report_period(self.request)
@@ -3861,6 +3800,7 @@ class ExecutiveExportMixin(RoleRequiredMixin):
 @method_decorator(login_required, name='dispatch')
 class ExecutivePrintView(ExecutiveExportMixin, TemplateView):
     template_name = 'reports/executive_print.html'
+    allowed_roles =(User.Role.ACCOUNTS, User.Role.ADMIN) 
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -3879,6 +3819,7 @@ class ExecutivePrintView(ExecutiveExportMixin, TemplateView):
 
 @method_decorator(login_required, name='dispatch')
 class ExecutivePDFView(ExecutiveExportMixin, TemplateView):
+    allowed_roles =(User.Role.ACCOUNTS, User.Role.ADMIN)
     def get(self, request, *args, **kwargs):
         period, report = self.export_context()
         pdf = pdf_bytes(period, report)
@@ -3901,7 +3842,6 @@ class InternalUsageReportDetailView(
 
     allowed_roles = (
         User.Role.ADMIN,
-        User.Role.MANAGER,
         User.Role.ACCOUNTS,
     )
 
@@ -4042,8 +3982,8 @@ class ProductionLossReportDetailView(
 
     allowed_roles = (
         User.Role.ADMIN,
-        User.Role.MANAGER,
         User.Role.ACCOUNTS,
+        User.Role.MANAGER,
     )
 
     def get_context_data(self, **kwargs):
@@ -4144,7 +4084,6 @@ class SalesBreakdownReportView(
 
     allowed_roles = (
         User.Role.ADMIN,
-        User.Role.MANAGER,
         User.Role.ACCOUNTS,
     )
 
@@ -4179,24 +4118,33 @@ class StockConsumptionPrintView(
     StockConsumptionReportView
 ):
     template_name = "reports/print/stock_consumption.html"
+    allowed_roles =(User.Role.ACCOUNTS,
+                     User.Role.ADMIN)
 
 
 class SalesPrintView(
     SalesReportView
 ):
     template_name = "reports/print/sales.html"
+    allowed_roles =(User.Role.ACCOUNTS,
+                     User.Role.ADMIN)
 
 
 class FinancePrintView(
     FinanceReportView
 ):
     template_name = "reports/print/finance.html"
+    allowed_roles =(User.Role.ACCOUNTS,
+                     User.Role.ADMIN)
 
 
 class OperationsPrintView(
     OperationsReportView
 ):
     template_name = "reports/print/operations.html"
+    allowed_roles =(User.Role.ACCOUNTS,
+                     User.Role.ADMIN)
+
 
 class OperationsDetailReportView(
     OperationsReportView

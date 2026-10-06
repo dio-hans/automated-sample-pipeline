@@ -22,50 +22,7 @@
         <!-- =========================================================
          2. LIVE DATE CONTROL FILTER DASHBOARD BAR
          ========================================================= -->
-    <div class="bg-white border border-[#E4DECB] rounded-xl p-3 shadow-xs space-y-3 lg:space-y-0 lg:flex lg:items-center lg:justify-between gap-4 select-none">
-        
-        <!-- Filter Time Presets Anchor Toggles Group -->
-        <div class="flex flex-wrap items-center gap-1.5">
-            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1.5">Intervals:</span>
-            
-            <a href="?preset=this_month" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all {% if preset == 'this_month' %}bg-slate-900 text-white shadow-2xs{% else %}bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100{% endif %}">
-                This Month
-            </a>
-            
-            <a href="?preset=last_7_days" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all {% if preset == 'last_7_days' %}bg-slate-900 text-white shadow-2xs{% else %}bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100{% endif %}">
-                This Week
-            </a>
-            
-            <a href="?preset=yesterday" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all {% if preset == 'yesterday' %}bg-slate-900 text-white shadow-2xs{% else %}bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100{% endif %}">
-                Yesterday
-            </a>
-
-            <a href="?preset=today" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all {% if preset == 'today' %}bg-slate-900 text-white shadow-2xs{% else %}bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100{% endif %}">
-                Today
-            </a>
-        </div>
-
-        <!-- Custom Calendar Multi-Date Inputs Pickers Form (Matching Your Packaged Inventory Image) -->
-        <form method="get" class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-600">
-            <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
-                <span class="text-[9px] uppercase font-bold text-slate-400">From</span>
-                <input type="date" name="start_date" value="{{ start_date }}" class="bg-transparent text-slate-800 font-mono focus:outline-none cursor-pointer text-xs">
-            </div>
-            
-            <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
-                <span class="text-[9px] uppercase font-bold text-slate-400">To</span>
-                <input type="date" name="end_date" value="{{ end_date }}" class="bg-transparent text-slate-800 font-mono focus:outline-none cursor-pointer text-xs">
-            </div>
-
-            <button type="submit" class="px-3 py-1.5 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-700 transition shadow-3xs text-xs cursor-pointer">
-                Apply Range
-            </button>
-            
-            {% if preset == 'custom' or start_date or end_date %}
-                <a href="?preset=this_month" class="text-[11px] text-rose-600 hover:underline ml-1 font-semibold">Clear</a>
-            {% endif %}
-        </form>
-    </div>
+     {% include "reports/components/report_filters.html" %}
 
 
     <!-- MOVEMENT LEDGER TABLE -->
@@ -83,6 +40,7 @@
             <th class="px-3 py-2.5">Movement Type</th>
             <th class="px-3 py-2.5">Stage Flow</th>
             <th class="px-3 py-2.5 text-right">Quantity</th>
+            <th class="px-3 py-2.5 text-right">Processing Loss</th>
             <th class="px-3 py-2.5">Recorded By</th>
             <th class="px-3 py-2.5">Reference / Notes</th>
         </tr>
@@ -151,6 +109,17 @@
                     <span class="text-emerald-700">+ {{ movement.quantity|floatformat:2 }} kg</span>
                 {% endif %}
             </td>
+
+            <!-- Processing Loss -->
+        <td class="px-3 py-2 text-right font-mono font-bold whitespace-nowrap">
+            {% if movement.movement_type == "loss" %}
+                <span class="text-rose-700">
+                    {{ movement.quantity|floatformat:2 }} kg
+                </span>
+            {% else %}
+                <span class="text-slate-300">—</span>
+            {% endif %}
+        </td>
 
             <!-- Recorded By (Preserving movement.created_by) -->
             <td class="px-3 py-2 text-slate-600 font-medium whitespace-nowrap">

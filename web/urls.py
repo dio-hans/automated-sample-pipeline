@@ -124,7 +124,6 @@ path("returns/pending/", views.PendingReturnApprovalListView.as_view(), name="pe
 path("returns/<int:pk>/approve/", views.PackReturnApproveView.as_view(), name="pack_return_approve"),
     #  expense tracker
 path('expenses/', views.ExpenseTrackerView.as_view(), name='expense_tracker'),
-path("expenses/",views.ExpenseTrackerView.as_view(),name="expense_tracker",),
 
 path("expenses/history/",views.ExpenseListView.as_view(),name="expense_list",),
 

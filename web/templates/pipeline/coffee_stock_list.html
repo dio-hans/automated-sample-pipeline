@@ -52,30 +52,8 @@
     </div>
 
     <!-- 2. DATE & SCOPE FILTER BAR -->
-    <div class="bg-slate-50/60 border border-[#E4DECB] rounded-lg p-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <form method="get" class="flex flex-wrap items-center gap-2">
-            <input type="hidden" name="status" value="{{ status_filter }}">
-            <div class="flex items-center gap-1.5">
-                <label for="date_from" class="text-[10px] uppercase font-bold text-slate-500">From:</label>
-                <input type="date" id="date_from" name="date_from" value="{{ request.GET.date_from|default:'' }}"
-                    class="px-2 py-1 rounded border border-[#E4DECB] text-xs text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-olive">
-            </div>
-            <div class="flex items-center gap-1.5">
-                <label for="date_to" class="text-[10px] uppercase font-bold text-slate-500">To:</label>
-                <input type="date" id="date_to" name="date_to" value="{{ request.GET.date_to|default:'' }}"
-                    class="px-2 py-1 rounded border border-[#E4DECB] text-xs text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-olive">
-            </div>
-            <button type="submit" class="px-2.5 py-1 rounded bg-olive hover:bg-olive-dark text-white text-xs font-semibold transition">Apply</button>
-        </form>
-
-        <!-- Presets -->
-        <div class="flex items-center gap-1.5">
-            <a href="?preset=this_month&status={{ status_filter }}" class="px-2.5 py-1 rounded text-xs font-medium border transition {% if preset == 'this_month' %}bg-olive text-white border-olive{% else %}bg-white text-slate-600 border-[#E4DECB] hover:bg-slate-100{% endif %}">This Month</a>
-            <a href="?preset=last_7_days&status={{ status_filter }}" class="px-2.5 py-1 rounded text-xs font-medium border transition {% if preset == 'last_7_days' %}bg-olive text-white border-olive{% else %}bg-white text-slate-600 border-[#E4DECB] hover:bg-slate-100{% endif %}">This Week</a>
-            
-            
-        </div>
-    </div>
+   <!-- FILTER -->
+    {% include "reports/components/report_filters.html" %}
 
     <!-- 3. COMPACT SPREADSHEET TABLE -->
     <div class="bg-white border border-[#E4DECB] rounded-lg shadow-2xs overflow-hidden">

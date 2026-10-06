@@ -93,7 +93,7 @@
         </div>
 
         <!-- PINNED DASHBOARD LINK (STAYS FIXED AT TOP) -->
-        {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" %}
+        {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" or request.user.role == "ACCOUNTS" or request.user.role == "CASHIER" %}
         <div class="px-3 pt-3 pb-2 border-b border-white/10 flex-shrink-0">
             <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                 <i class="fa-solid fa-chart-pie nav-icon"></i>
@@ -106,6 +106,7 @@
         <nav
     id="sidebarNav"
     class="flex-1 overflow-y-auto px-3 py-4 space-y-3.5"
+    
 >
 
             {% if request.user.role == "MANAGER" %}
@@ -137,22 +138,19 @@
                 </div>
             {% endif %}
 
-            {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" or request.user.role == "CASHIER" %}
+            {% if request.user.role == "ADMIN" or request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" %}
                 <div>
                     <p class="nav-section-title">Stock Movement</p>
                     <div class="space-y-0.5">
-                        <a href="{% url 'pack_release_list' %}" class="nav-link">
-                            <i class="fa-solid fa-truck-ramp-box nav-icon"></i>
-                            <span>Releases</span>
-                        </a>
-                        <a href="{% url 'pack_return_list' %}" class="nav-link">
-                            <i class="fa-solid fa-rotate-left nav-icon"></i>
-                            <span>Returns</span>
+                        <a href="{% url 'stock_request_create' %}" class="nav-link">
+                            <i class="fa-solid fa-clipboard-list fa-fw"></i>
+                            <span>Request stock</span>
                         </a>
                     </div>
                 </div>
             {% endif %}
 
+          
             {% if request.user.role == "SALES" %}
                 <div>
                     <p class="nav-section-title">Sales</p>
@@ -173,7 +171,7 @@
                 </div>
             {% endif %}
 
-            {% if request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" or request.user.role == "MANAGER" %}
+            {% if request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
                 <div>
                     <p class="nav-section-title">Cash Desk & Finance</p>
                     <div class="space-y-0.5">
@@ -186,11 +184,6 @@
                             <span>Account Holders</span>
                         </a>
 
-
-                        <a href="{% url 'reports_overview' %}" class="nav-link">
-                           <i class="fa-solid fa-chart-line nav-icon"></i>
-                            <span>Reports</span>
-                        </a>
                         <a href="{% url 'expense_tracker' %}" class="nav-link">
                            <i class="fa-solid fa-receipt nav-icon"></i>
                             <span>Expenses</span>
@@ -198,6 +191,14 @@
                     </div>
                 </div>
             {% endif %}
+
+           {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
+                  <a href="{% url 'reports_overview' %}" class="nav-link">
+                           <i class="fa-solid fa-chart-line nav-icon"></i>
+                            <span>Reports</span>
+                        </a>
+            {% endif %}
+ 
                     
 
             {% if request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
@@ -239,7 +240,7 @@
 
 {% endif %}
 
-            {% if request.user.role == "ADMIN" %}
+            <!-- {% if request.user.role == "ADMIN" %}
                 <div>
                     <p class="nav-section-title">Commercial</p>
                     <div class="space-y-0.5">
@@ -261,6 +262,8 @@
                         </a>
                     </div>
                 </div>
+                 -->
+
                 <div>
                     <p class="nav-section-title">Administration</p>
                     <div class="space-y-0.5">
@@ -274,7 +277,7 @@
 
             <!-- Internal Stock Navigation Block -->
 
-            {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
+            {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" or request.user.role == "CASHIER" %}
                 <div>
                <div class="sidebar-section">
 

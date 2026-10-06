@@ -14,11 +14,15 @@ Accounts / Expenses / Record Expense
 {% block content %}
 <div class="expense-entry-page">
 
+     {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
+
      <div class="expense-history-link">
         <a href="{% url 'expense_list' %}">
             View Expense History →
         </a>
     </div>
+
+    {% endif %}
     <!-- FORM CARD -->
     <div class="expense-form-card">
         <div class="expense-form-card-header">
