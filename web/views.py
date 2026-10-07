@@ -116,21 +116,27 @@ def user_login(request):
         form = UserLoginForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
-
             if not user.is_active:
                 messages.error(request, "Access Denied: Your account has been suspended.")
                 return redirect('login')
-
             login(request, user)
             messages.success(request, f"Welcome back, {user.username}!")
             return redirect_user_by_role(user)
         else:
-            # Clear default errors and attach your exact custom message
+            username = request.POST.get('username')
+            if username:
+                try:
+                    existing_user = User.objects.get(username=username)
+                    if not existing_user.is_active or getattr(existing_user, 'is_suspended', False):
+                        messages.error(request, "Access Denied: Your account has been suspended.")
+                        return redirect('login')
+                except User.DoesNotExist:
+                    pass
+
             form.errors.clear()
             form.add_error(None, "Invalid login credentials.")
     else:
         form = UserLoginForm()
-
     return render(request, 'pipeline/login.html', {'form': form})
 
 def user_logout(request):
@@ -140,41 +146,35 @@ def user_logout(request):
 
 
 # Staff Profiling and Administrative Actions
-@login_required
 def register_user(request):
-    """
-    Unified User Control Gateway: Manages real-time 
-    staff account listing alongside provisioning forms.
-    """
+    if not (request.user.is_superuser or getattr(request.user, "role", None) == User.Role.ADMIN):
+        messages.error(request, "You do not have permission to manage users.")
+        return redirect("inventory_dashboard")
+    
     if request.method == 'POST':
         form = UserRegistrationForm(request.POST)
         if form.is_valid():
             new_user = form.save()
             messages.success(request, f"Terminal credentials generated successfully for {new_user.username}!")
-            return redirect('login') # Keeps Admin on page to view updated table
+            return redirect('register')
         else:
             messages.error(request, "Account registration failed. Verify database constraints.")
     else:
         form = UserRegistrationForm()
 
-    # Query active system users to populate the integrated dashboard table
     system_users = User.objects.all().order_by('role', 'username')
-    
-    return render(request, 'pipeline/registration.html', {
-        'form': form,
-        'users': system_users
-    })
+    return render(request, 'pipeline/registration.html', {'form': form, 'users': system_users})
 
 def toggle_user_status(request, user_id):
     """
     Soft deactivation feature to handle account locks safely.
-    Protected explicitly against arbitrary privilege escalations.
+    Protected explicitly against arbitrary privilege- escalations.
     """
     employee = get_object_or_404(User, id=user_id)
     
     if employee == request.user:
         messages.error(request, "Security Violation Protection: You cannot lock out your own administrative account.")
-        return redirect('register_user')
+        return redirect('register')
 
     # Atomic inversion of status state
     employee.is_active = not employee.is_active
@@ -199,7 +199,7 @@ class InventoryRoleRequiredMixin:
         if request.user.is_superuser or request.user.role in self.allowed_roles:
             return super().dispatch(request, *args, **kwargs)
         messages.error(request, "You do not have permission to access inventory operations.")
-        return redirect("dashboard")  
+        return redirect("record_sale")  
           
 @method_decorator(login_required, name='dispatch')  
 class PackagingRunListView(InventoryRoleRequiredMixin, ListView):

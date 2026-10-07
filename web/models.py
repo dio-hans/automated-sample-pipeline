@@ -1871,7 +1871,7 @@ class PaymentReceipt(models.Model):
         decimal_places=2,
     )
 
-    method = models.CharField(
+    payment_method = models.CharField(
         max_length=20,
         choices=PAYMENT_METHOD_CHOICES,
     )
@@ -2016,6 +2016,9 @@ class StockRequestItem(models.Model):
 
 
 class PackSettlement(models.Model):
+
+    PAYMENT_CHOICES = PAYMENT_METHOD_CHOICES
+    PAYMENT_METHOD_CHOICES = PAYMENT_CHOICES
 
     release = models.ForeignKey(
         PackRelease,

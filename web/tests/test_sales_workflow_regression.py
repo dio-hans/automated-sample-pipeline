@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.test import SimpleTestCase
 from web.sales_workflow import _money, _positive_int, _valid_method
 from web.models import PackSettlement
+from web.models import PAYMENT_METHOD_CHOICES
 
 
 class SalesWorkflowValidationTests(SimpleTestCase):
@@ -26,6 +27,6 @@ class SalesWorkflowValidationTests(SimpleTestCase):
                 _positive_int(bad)
 
     def test_unknown_payment_methods_rejected(self):
-        self.assertEqual(_valid_method("cash", PackSettlement.PAYMENT_CHOICES), "cash")
+        self.assertEqual(_valid_method("cash", PackSettlement.PAYMENT_METHOD_CHOICES), "cash")
         with self.assertRaises(ValidationError):
-            _valid_method("bitcoin", PackSettlement.PAYMENT_CHOICES)
+            _valid_method("bitcoin", PackSettlement.PAYMENT_METHOD_CHOICES)

@@ -300,7 +300,7 @@ class PaymentReceiptForm(forms.ModelForm):
 
         fields = [
             "amount",
-            "method",
+            "payment_method",
             "payment_reference",
             "notes",
         ]
@@ -313,7 +313,7 @@ class PaymentReceiptForm(forms.ModelForm):
                     "step": "0.01",
                 }
             ),
-            "method": forms.Select(
+            "payment_method": forms.Select(
                 attrs={
                     "class": "form-select",
                 }

@@ -23,13 +23,15 @@ def get_finance_report(period):
     payment_count = 0
     for model, amount_field, method_field, date_field in (
         (PackSettlement, 'amount_paid', 'payment_method', 'cleared_at'),
-        (PaymentReceipt, 'amount', 'method', 'collected_at'),
+        (PaymentReceipt, 'amount', 'payment_method', 'collected_at'),
     ):
         qs = period.filter_datetime(model.objects.all(), date_field)
         for payment in qs.iterator():
             amount = money(getattr(payment, amount_field))
             if amount < 0: raise ValueError(f'Negative payment {model.__name__} #{payment.pk}')
             method = getattr(payment, method_field)
+            if method == "bank_transfer":
+                method = "bank"
             when = getattr(payment, date_field)
             by_method[method] = by_method.get(method, ZERO) + amount
             daily[timezone.localtime(when).date().isoformat()] += amount

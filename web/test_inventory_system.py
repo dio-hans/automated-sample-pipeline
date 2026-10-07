@@ -18,7 +18,7 @@ from .models import (
     StockStage,
     User,
 )
-from .sales_workflow import create_stock_request, fulfill_request_item, return_packs
+from .sales_workflow import approve_existing_pack_return, create_stock_request, fulfill_request_item, return_packs
 from .services.inventory import get_stage_inventory, record_receipt
 from .services.packaging import execute_packaging_run
 from .services.processing import issue_for_processing, complete_roasting, complete_grinding
@@ -116,7 +116,23 @@ class InventoryFlowTests(TestCase):
         inventory = PackagedInventory.objects.get(product=self.product)
         self.assertEqual(inventory.available, 28)
         self.assertEqual(release.packs_outstanding, 12)
-        return_packs(release=release, packs_returned=5, user=self.manager, notes="Unsold stock returned")
+
+        # 1. Submit return request
+        ret = return_packs(
+            release=release, 
+            packs_returned=5, 
+            condition="good", 
+            disposition="accepted", 
+            user=self.sales
+        )
+
+        # 2. Manager approves return (restores inventory to 33)
+        approve_existing_pack_return(return_item=ret, user=self.manager)
+
+        # 3. Refresh records from DB
         inventory.refresh_from_db()
+        release.refresh_from_db()
+
+        # 4. Assert updated counts
         self.assertEqual(inventory.available, 33)
         self.assertEqual(release.packs_outstanding, 7)

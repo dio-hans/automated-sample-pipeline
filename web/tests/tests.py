@@ -6,9 +6,9 @@ from django.urls import reverse
 
 from django.core.exceptions import ValidationError
 
-from .models import CoffeeStock, CoffeeVariety
-from .services.intake import record_intake
-from .services.processing import (
+from ..models import CoffeeStock, CoffeeVariety
+from ..services.intake import record_intake
+from ..services.processing import (
     issue_for_processing,
     complete_roasting,
     complete_sorting,
@@ -45,6 +45,10 @@ def intake_payload(**overrides):
 
 
 class StockIntakeViewTests(TestCase):
+    
+    def setUp(self):
+        self.user = User.objects.create_user(username="manager", password="password123")
+        self.client.force_login(self.user)  # Log in the test client
 
     def post_intake(self, **overrides):
         return self.client.post(
@@ -213,7 +217,7 @@ class VarietyLookupTests(TestCase):
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import (
+from ..models import (
     Blend,
     PackSize,
     PackagedProduct,
@@ -222,9 +226,13 @@ from .models import (
     ProcessingRun,
     User,
 )
-from .services.packaging import execute_packaging_run
-from .sales_workflow import create_stock_request, fulfill_request_item, return_packs
-
+from ..services.packaging import execute_packaging_run
+from ..sales_workflow import (
+    create_stock_request,
+    fulfill_request_item,
+    return_packs,
+    approve_existing_pack_return,
+)
 
 class InventoryAccessAndWorkflowTests(TestCase):
     def setUp(self):
@@ -347,7 +355,22 @@ class InventoryAccessAndWorkflowTests(TestCase):
         self.client.force_login(self.manager)
         stock = self.make_stock()
 
-        run = issue_for_processing(
+        # Roast first: green coffee -> roasted coffee.
+        roasting_run = issue_for_processing(
+            stock=stock,
+            process_type="roasting",
+            input_quantity=Decimal("100"),
+            user=self.manager,
+        ).processing_run
+
+        complete_roasting(
+            processing_run=roasting_run,
+            output_quantity=Decimal("100"),
+            user=self.manager,
+        )
+
+        # Sort roasted coffee: good coffee + quakers.
+        sorting_run = issue_for_processing(
             stock=stock,
             process_type="sorting",
             input_quantity=Decimal("100"),
@@ -355,18 +378,19 @@ class InventoryAccessAndWorkflowTests(TestCase):
         ).processing_run
 
         complete_sorting(
-            processing_run=run,
-            good_quantity=Decimal("92"),
+            processing_run=sorting_run,
+            good_quantity=Decimal("95"),
             quaker_quantity=Decimal("5"),
             user=self.manager,
         )
 
         stock.refresh_from_db()
-        run.refresh_from_db()
-        self.assertEqual(stock.quantity_roasted, Decimal("92"))
+        sorting_run.refresh_from_db()
+
+        self.assertEqual(stock.quantity_roasted, Decimal("95"))
         self.assertEqual(stock.quantity_quakers, Decimal("5"))
-        self.assertEqual(run.loss_quantity, Decimal("3"))
-        self.assertTrue(run.is_accounted_for)
+        self.assertEqual(sorting_run.loss_quantity, Decimal("0"))
+        self.assertTrue(sorting_run.is_accounted_for)
 
     def test_packaging_creates_packaged_inventory_from_roasted_coffee(self):
         stock = self.make_stock()
@@ -451,13 +475,31 @@ class InventoryAccessAndWorkflowTests(TestCase):
         )
         self.assertEqual(PackagedInventory.objects.get(product=product).available, 80)
 
-        return_packs(
-            release=release,
-            packs_returned=5,
-            reason="Unsold",
+        return_item = return_packs(
+    release=release,
+    packs_returned=5,
+    reason="Unsold",
+    condition="good",
+    disposition="accepted",
+    user=self.manager,
+)
+
+# Return is pending approval, so stock must not change yet.
+        self.assertEqual(
+            PackagedInventory.objects.get(product=product).available,
+            80,
+        )
+
+        approve_existing_pack_return(
+            return_item=return_item,
             user=self.manager,
         )
-        self.assertEqual(PackagedInventory.objects.get(product=product).available, 85)
+
+        # Approved return restores the 5 packs to stock.
+        self.assertEqual(
+            PackagedInventory.objects.get(product=product).available,
+            85,
+        )
 
 
 class AuthenticationAndAuthorizationTests(TestCase):

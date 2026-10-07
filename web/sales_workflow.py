@@ -15,12 +15,15 @@ from django.utils import timezone
 
 from .models import (
     AccountHolder,
+    BranchStockLedger,
+    ConsignmentInventory,
     PackagedInventory,
     PackagedProduct,
     PackRelease,
     PackReturn,
     PackSettlement,
     PaymentReceipt,
+    StockAudit,
     StockRequest,
     StockRequestItem,
 )
@@ -656,6 +659,7 @@ def approve_existing_pack_return(*, return_item, user):
     pending.save(update_fields=[
         "status", "approved_by", "approved_at", "received_by", "disposition",
     ])
+
     return pending
 
 
