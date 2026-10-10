@@ -62,9 +62,7 @@ Processing Workspace
                             <div class="font-bold text-slate-900">
                                 {{ run.stock.batch_number }}
                             </div>
-                            <div class="text-[10px] text-slate-400 mt-0.5 font-mono">
-                                Run #{{ run.pk }}
-                            </div>
+                    
                         </td>
                         <td class="px-6 py-4">
                             {% if run.process_type == "roasting" %}
@@ -139,6 +137,7 @@ Processing Workspace
                         <th class="px-6 py-3 text-right">Green</th>
                         <th class="px-6 py-3 text-right">Roasted</th>
                         <th class="px-6 py-3 text-right">Ground</th>
+                        <th class="px-6 py-3 text-right">Quackers</th>
                         <th class="px-6 py-3 text-center">Actions</th>
                     </tr>
                 </thead>
@@ -160,6 +159,9 @@ Processing Workspace
                         <td class="px-6 py-4 text-right text-slate-500">
                             {{ stock.quantity_ground|default:"0.00"|floatformat:2 }} kg
                         </td>
+                        <td class="px-6 py-4 text-right text-slate-500">
+                            {{ stock.quantity_quakers|default:"0.00"|floatformat:2 }} kg
+                        </td>
                         <td class="px-6 py-4 text-center">
                             <div class="inline-flex items-center justify-center gap-2">
                                 {% if stock.quantity_green > 0 %}
@@ -171,16 +173,22 @@ Processing Workspace
                                 </button>
                                 {% endif %}
 
-                                {% if stock.quantity_roasted > 0 %}
-                                <button 
+                               {% if stock.quantity_roasted > 0 %}
+                                <button
                                     type="button"
-                                    onclick="openStartModal('{{ stock.batch_number }}', 'sorting', 'roasted', {{ lot.roasted_quantity }})"
-                                    class="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-semibold shadow-sm transition">
+                                    onclick="openIssueModal(
+                                        'sorting',
+                                        '{{ stock.pk }}',
+                                        '{{ stock.batch_number|escapejs }}',
+                                        '{{ stock.quantity_roasted }}',
+                                        '{% url 'issue_processing' stock.pk %}'
+                                    )"
+                                    class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold shadow-sm transition">
                                     Sort
                                 </button>
-                            {% endif %}
+                                {% endif %}
 
-                                {% if stock.quantity_roasted > 0 %}
+                                                                {% if stock.quantity_roasted > 0 %}
                                 <button
                                     type="button"
                                     onclick="openIssueModal('grinding', '{{ stock.pk }}', '{{ stock.batch_number|escapejs }}', '{{ stock.quantity_roasted }}', '{% url 'issue_processing' stock.pk %}')"
@@ -321,22 +329,7 @@ Processing Workspace
                 </div>
 
                 <!-- Quaker Field (Hidden by default, displayed by JS during Sorting) -->
-                <div id="sorting_output_section" class="hidden p-2.5 bg-amber-50/60 border border-amber-200 rounded-lg">
-                    <label for="id_quaker_qty" class="block text-xs font-bold uppercase text-amber-800 mb-1">
-                        Quaker Beans Separated (kg)
-                    </label>
-                    <input
-                        type="number"
-                        name="quaker_quantity"
-                        id="id_quaker_qty"
-                        step="0.01"
-                        min="0"
-                        value="0"
-                        class="w-full rounded-md border border-[#E4DECB] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono">
-                    <p class="text-[10px] text-amber-600 mt-1">
-                        Defective/light beans removed during hand or optical sorting.
-                    </p>
-                </div>
+                
 
                 <!-- Notes -->
                 <div>
@@ -402,7 +395,6 @@ function openIssueModal(type, pk, batchNum, maxQty, actionUrl) {
 
     modal.classList.remove("hidden");
 }
-
 function openCompleteModal(runPk, batchNum, type, inputQty, actionUrl) {
     const modal = document.getElementById("completeModal");
     const form = document.getElementById("completeForm");
@@ -410,51 +402,32 @@ function openCompleteModal(runPk, batchNum, type, inputQty, actionUrl) {
     const title = document.getElementById("completeModalTitle");
     const batchLabel = document.getElementById("complete_batch_lbl");
     const inputLabel = document.getElementById("complete_input_lbl");
-
-    const standardSection = document.getElementById("standard_output_section");
-    const sortingSection = document.getElementById("sorting_output_section");
-    const standardOutput = document.getElementById("id_output_qty");
-    const sortGoodOutput = document.getElementById("id_sort_good_qty");
-    const quakerInput = document.getElementById("id_quaker_qty");
+    const outputLabel = document.getElementById("standard_output_label");
+    const outputInput = document.getElementById("id_output_qty");
 
     batchLabel.textContent = batchNum;
     inputLabel.textContent = Number(inputQty).toFixed(2);
     form.action = actionUrl;
 
-    standardOutput.value = "";
-    sortGoodOutput.value = "";
-    quakerInput.value = "0";
+    outputInput.value = "";
+    outputInput.required = true;
 
     if (type === "sorting") {
         title.textContent = "Complete Sorting Run";
-        standardSection.classList.add("hidden");
-        sortingSection.classList.remove("hidden");
-        sortGoodOutput.required = true;
-        standardOutput.required = false;
+        outputLabel.textContent = "Sorted Coffee Output (Kg)";
+    } else if (type === "roasting") {
+        title.textContent = "Complete Roasting Run";
+        outputLabel.textContent = "Output Quantity (Kg)";
+    } else if (type === "grinding") {
+        title.textContent = "Complete Grinding Run";
+        outputLabel.textContent = "Output Quantity (Kg)";
     } else {
-        if (type === "roasting") {
-            title.textContent = "Complete Roasting Run";
-        } else if (type === "grinding") {
-            title.textContent = "Complete Grinding Run";
-        } else {
-            title.textContent = "Complete Processing Run";
-        }
-        standardSection.classList.remove("hidden");
-        sortingSection.classList.add("hidden");
-        standardOutput.required = true;
-        sortGoodOutput.required = false;
+        title.textContent = "Complete Processing Run";
+        outputLabel.textContent = "Output Quantity (Kg)";
     }
 
-    form.dataset.processType = type;
     modal.classList.remove("hidden");
 }
-
-document.getElementById("completeForm").addEventListener("submit", function (event) {
-    if (this.dataset.processType === "sorting") {
-        const goodQty = document.getElementById("id_sort_good_qty").value;
-        document.getElementById("id_output_qty").value = goodQty;
-    }
-});
 
 function closeModal(id) {
     const modal = document.getElementById(id);

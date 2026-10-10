@@ -219,6 +219,8 @@ from django.urls import reverse
 
 from ..models import (
     Blend,
+    Company,
+    CompanyBranch,
     PackSize,
     PackagedProduct,
     PackagedInventory,
@@ -284,6 +286,33 @@ class InventoryAccessAndWorkflowTests(TestCase):
             pack_size=size,
             form=form,
         )
+
+    def test_display_stock_request_keeps_destination_branch(self):
+        company = Company.objects.create(
+            name="Consignment Test Company",
+            country="Uganda",
+            city="Kampala",
+            contact_person="Test Contact",
+            email="consignment-test@nonda.test",
+            phone_number="+256700000001",
+            address="Kampala",
+        )
+        branch = CompanyBranch.objects.create(
+            company=company,
+            branch_name="Test Branch",
+        )
+        product = self.make_product()
+
+        stock_request = create_stock_request(
+            user=self.sales,
+            purpose="display",
+            destination_type="company",
+            company=company,
+            branch=branch,
+            items=[(product, 5)],
+        )
+
+        self.assertEqual(stock_request.branch, branch)
 
     def test_anonymous_user_is_redirected_from_inventory(self):
         response = self.client.get(reverse("stock_list"))
@@ -599,5 +628,4 @@ class AuthenticationAndAuthorizationTests(TestCase):
 # 7. approving the same return twice is rejected
 # 8. rejected return makes no stock or ledger change
 # 9. two pending returns cannot reserve more units than remain unsold
-
 

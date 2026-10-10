@@ -12,6 +12,7 @@ path("companies/create/", views.CompanyCreateView.as_view(), name="company_creat
 path("companies/<int:pk>/update/", views.CompanyUpdateView.as_view(), name="company_update"),
 path("companies/<int:pk>/delete/", views.CompanyDeleteView.as_view(), name="company_delete"),
 
+
 # coffee stock
 path("stocks/", views.CoffeeStockListViews.as_view(), name="stock_list"),
 path("stocks/<int:pk>/", views.CoffeeStockDetailView.as_view(), name="stock_detail"),
@@ -90,6 +91,7 @@ path("stock-requests/<int:pk>/cancel/",views.CancelStockRequestView.as_view(),na
 
 # --- Cashier ---
 path("cashier/queue/", sales_views.CashierQueueView.as_view(), name="order_queue"),
+
 path("cashier/releases/<int:pk>/clear/", sales_views.CashierClearanceView.as_view(), name="cashier_clearance"),
 
 # --- Role-specific dashboards ---
@@ -115,7 +117,6 @@ path("stock-requests/<int:pk>/add-item/",views.add_item_to_request_view,name="st
 path('accounts/', views.account_holder_list, name='account_holder_list'),
 path('accounts/create/', views.account_holder_create, name='account_holder_create'),
 path('accounts/<int:pk>/', views.account_holder_detail, name='account_holder_detail'),
-
 
 # urls.py additions
 path("returns/order/<int:pk>/", views.PackReturnCreateView.as_view(), name="pack_return_form"),

@@ -12,6 +12,7 @@ from django.utils import timezone
 from django.db.models import Q, Prefetch
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -19,7 +20,7 @@ from django.views import View
 from django.views.generic import DetailView, ListView, TemplateView
 from django.forms import formset_factory
 from .sales_forms import PaymentReceiptForm
-from .sales_workflow import create_stock_request, record_installment_payment
+from .sales_workflow import create_stock_request, fulfill_request_item, process_supermarket_audit, record_installment_payment
 from .sales_forms import PackReturnForm
 from .models import  AccountHolder, CompanyBranch, ConsignmentInventory, PackagedProduct, StockAudit
 from .models import (
@@ -281,7 +282,7 @@ class MyStockRequestListView(RoleRequiredMixin, ListView):
 
 
 class StockRequestDetailView(RoleRequiredMixin, DetailView):
-    allowed_roles = (User.Role.SALES, User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     model = StockRequest
     # 🎯 FIX: Point to detail template, NOT fulfill template
     template_name = "pipeline/stock_request_detail.html"
@@ -297,7 +298,7 @@ class StockRequestDetailView(RoleRequiredMixin, DetailView):
 
     
 class StockRequestFulfillView(RoleRequiredMixin, View):
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.SALES, User.Role.CASHIER)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     template_name = "pipeline/stock_request_fulfill.html"
 
     def get_request(self, pk):
@@ -383,7 +384,7 @@ class StockRequestFulfillView(RoleRequiredMixin, View):
 
 
 class PackReleaseListView(RoleRequiredMixin, ListView):
-    allowed_roles = (User.Role.SALES, User.Role.MANAGER, User.Role.ADMIN)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS, User.Role.CASHIER)
     model = PackRelease
     template_name = "pipeline/pack_release_list.html"
     context_object_name = "releases"
@@ -398,7 +399,7 @@ class PackReleaseListView(RoleRequiredMixin, ListView):
 
 
 class PackReleaseDetailView(RoleRequiredMixin, DetailView):
-    allowed_roles = (User.Role.SALES, User.Role.MANAGER, User.Role.ADMIN)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS, User.Role.CASHIER)
     model = PackRelease
     template_name = "pipeline/pack_release_detail.html"
     context_object_name = "release"
@@ -429,13 +430,33 @@ class SalesStockView(RoleRequiredMixin, ListView):
     context_object_name = "releases"
 
     def get_queryset(self):
-        qs = PackRelease.objects.select_related(
-            "product__blend", "product__pack_size", "released_to", "request_item__request"
-        ).prefetch_related("returns", "settlements")  
-        
+        qs = (
+            PackRelease.objects
+            .select_related(
+                "product__blend",
+                "product__pack_size",
+                "released_to",
+                "request_item__request",
+            )
+            .prefetch_related(
+                "returns",
+                "settlements",
+                "payments",
+            )
+        )
+
         if self.request.user.role == User.Role.SALES:
-            qs = qs.filter(released_to__system_user=self.request.user)
-        return qs
+            qs = qs.filter(
+                released_to__system_user=self.request.user
+            )
+
+        # Show only releases that still have an unpaid balance.
+        return [
+            release
+            for release in qs
+            if release.outstanding_balance > 0
+        ]
+
 
 
 class CashierQueueView(RoleRequiredMixin, ListView):
@@ -570,7 +591,11 @@ class CashierClearanceView(RoleRequiredMixin, View):
                 if settlement.is_cleared:
                     messages.success(request, "Payment cleared successfully.")
                 else:
-                    messages.warning(request, f"Payment recorded. Balance remaining: UGX {settlement.balance:,.2f}.")
+                    messages.warning(
+                        request,
+                        f"Sale recorded. Balance remaining: "
+                        f"UGX {settlement.release.outstanding_balance:,.2f}.",
+                    )
                 return redirect("order_queue")
             except ValidationError as exc:
                 form.add_error(None, exc.message)
@@ -623,17 +648,17 @@ class RecordInstallmentPaymentView(RoleRequiredMixin, View):
 
         if form.is_valid():
             try:
-                settlement = settle_release(
+                payment = record_installment_payment(
                     release=release,
-                    amount_paid=form.cleaned_data["amount_paid"],  # FIXED: Removed stray ']' in key
-                    payment_method=form.cleaned_data["payment_method"],
+                    amount=form.cleaned_data["amount_paid"],
+                    method=form.cleaned_data["payment_method"],
                     payment_reference=form.cleaned_data.get("payment_reference", ""),
-                    cashier=request.user,
+                    collected_by=request.user,
                     notes=form.cleaned_data.get("notes", ""),
                 )
                 messages.success(
                     request,
-                    f"UGX {settlement.amount_paid:,.0f} payment recorded successfully.",
+                    f"UGX {payment.amount:,.0f} payment recorded successfully.",
                 )
                 return redirect("pack_release_detail", pk=release.pk)
             except ValidationError as exc:
@@ -645,6 +670,78 @@ class RecordInstallmentPaymentView(RoleRequiredMixin, View):
             {"release": release, "form": form},
         )
 
+from decimal import Decimal, InvalidOperation
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.views import View
+from .models import StockRequest, User
+from .sales_workflow import record_installment_payment, settle_release
+
+class ProcessOrderPaymentView(RoleRequiredMixin, View):
+    allowed_roles = (
+        User.Role.CASHIER,
+        User.Role.ACCOUNTS,
+        User.Role.MANAGER,
+        User.Role.ADMIN,
+    )
+
+    @transaction.atomic
+    def post(self, request, pk):
+        order = get_object_or_404(StockRequest, pk=pk)
+        
+        # 1. Parse raw payment input
+        raw_amount = request.POST.get("amount", "0")
+        try:
+            amount_received = Decimal(str(raw_amount))
+        except (ValueError, TypeError, InvalidOperation):
+            messages.error(request, "Invalid payment amount entered.")
+            return redirect("order_queue")
+
+        if amount_received <= Decimal("0"):
+            messages.error(request, "Payment amount must be greater than zero.")
+            return redirect("order_queue")
+
+        payment_method = request.POST.get("method", "cash")
+        payment_reference = request.POST.get("payment_reference", "")
+        notes = request.POST.get("notes", "")
+
+        remaining_payment = amount_received
+        total_applied = Decimal("0.00")
+
+        # 2. Distribute payment across releases under this order card
+        for item in order.items.prefetch_related("releases").all():
+            for release in item.releases.all():
+                if remaining_payment <= Decimal("0.00"):
+                    break
+                
+                due = release.outstanding_balance
+                if due > Decimal("0.00"):
+                    pay_amount = min(remaining_payment, due)
+                    
+                    # Call domain helper to record settlement
+                    record_installment_payment(
+                        release=release,
+                        amount=pay_amount,
+                        method=payment_method,
+                        payment_reference=payment_reference,
+                        collected_by=request.user,
+                        notes=notes,
+                    )
+                    
+                    remaining_payment -= pay_amount
+                    total_applied += pay_amount
+
+        # 3. User feedback and return to Order Queue
+        if total_applied > Decimal("0.00"):
+            messages.success(
+                request,
+                f"Successfully posted UGX {total_applied:,.0f} payment for Order #{order.short_number}."
+            )
+        else:
+            messages.warning(request, "No active outstanding items were found to settle.")
+
+        return redirect("order_queue")
+    
 class PackReturnFromReleaseView(RoleRequiredMixin, View):
     allowed_roles = (
         User.Role.SALES,

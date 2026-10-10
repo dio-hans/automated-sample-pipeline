@@ -3,9 +3,8 @@
 Branch-level consignments live in ``web.services.consignments``.  In particular,
 no function here may deliver, audit, or return branch-controlled display stock.
 
-Money: PackSettlement and PaymentReceipt are BOTH legitimate payment records, but
-ONE real transaction must be entered into only ONE of them.  Settlement.packs_sold
-is an *incremental* sale-event quantity, always zero on payment-only entries.
+PaymentReceipt is the sole record of money collected. PackSettlement retains
+confirmed sale quantities; its amount_paid field is deprecated and ignored.
 """
 from decimal import Decimal, InvalidOperation
 
@@ -16,6 +15,7 @@ from django.utils import timezone
 from .models import (
     AccountHolder,
     BranchStockLedger,
+    CompanyBranch,
     ConsignmentInventory,
     PackagedInventory,
     PackagedProduct,
@@ -23,6 +23,7 @@ from .models import (
     PackReturn,
     PackSettlement,
     PaymentReceipt,
+    PAYMENT_METHOD_CHOICES,
     StockAudit,
     StockRequest,
     StockRequestItem,
@@ -95,7 +96,7 @@ def create_stock_request(
     items,
     account_holder=None,
     company=None,
-    branch=None,
+    branch: CompanyBranch | None = None,
     notes="",
 ):
     """Create a request. Display requests cannot be fulfilled by ordinary dispatch."""
@@ -112,7 +113,7 @@ def create_stock_request(
 
     request = StockRequest.objects.create(
         requested_by=user, company=company, purpose=purpose, notes=notes,
-        account_holder=account_holder, destination_type=destination_type, branch=None
+        account_holder=account_holder, destination_type=destination_type, branch=branch
     )
     for product, quantity in validated:
         StockRequestItem.objects.create(
@@ -415,10 +416,8 @@ def settle_release(
     """
     Confirm a NEW sale event from an ordinary sale release.
 
-    PackSettlement records the actual sale quantity and any money
-    received at the moment of that sale.
-
-    Later installment payments must use PaymentReceipt instead.
+    PackSettlement records the actual sale quantity. Any money received now
+    is recorded separately in PaymentReceipt.
     """
 
     # FIX 1: Kept prefetch_related so that Python can evaluate related sets instantly
@@ -451,7 +450,7 @@ def settle_release(
         raise ValidationError("A cashier is required to record a sale.")
 
     # FIX 3: Re-add your choice validation if _valid_method is defined in your file
-    payment_method = _valid_method(payment_method, PackSettlement.PAYMENT_CHOICES)
+    payment_method = _valid_method(payment_method, PAYMENT_METHOD_CHOICES)
 
     packs_sold = int(packs_sold)
     amount_paid = Decimal(str(amount_paid))
@@ -534,68 +533,45 @@ def settle_release(
             f"of UGX {balance_before_payment:,.2f}."
         )
     settlement = PackSettlement.objects.create(
-    release=release,
-    packs_sold=packs_sold,
-    amount_paid=amount_paid,
-    payment_method=payment_method,
-    payment_reference=payment_reference,
-    status=(
-        "cleared"
-        if amount_paid == balance_before_payment
-        else "partial"
-    ),
-    cleared_by=cashier,
-    notes=notes,
-)
+        release=release,
+        packs_sold=packs_sold,
+        amount_paid=ZERO,
+        status="partial",
+        cleared_by=cashier,
+        notes=notes,
+    )
+
+    if amount_paid > ZERO:
+        record_installment_payment(
+            release=release,
+            amount=amount_paid,
+            method=payment_method,
+            payment_reference=payment_reference,
+            collected_by=cashier,
+            notes=notes,
+        )
 
     return settlement
 
 
 @transaction.atomic
-def record_payment(*, release, amount, method, payment_reference="",
-                   collected_by=None, notes=""):
-    """Payment-only PackSettlement for an existing release: packs_sold is ZERO."""
+def record_installment_payment(*, release, amount, method, payment_reference="",
+                               collected_by=None, notes=""):
+    """Record a collection in the single authoritative cash ledger."""
     release = PackRelease.objects.select_for_update().get(pk=release.pk)
     if collected_by is None:
         raise ValidationError("A cashier is required to record this payment.")
     amount = _money(amount)
     if amount <= ZERO:
         raise ValidationError("Payment amount must be greater than zero.")
-    method = _valid_method(method, PackSettlement.PAYMENT_CHOICES)
-    owed = release.outstanding_balance  # Includes BOTH payment models.
-    if owed <= ZERO:
-        raise ValidationError("This release has already been fully cleared.")
-    if amount > owed:
-        raise ValidationError(f"Payment exceeds the outstanding balance of UGX {owed:,.2f}.")
-    return PackSettlement.objects.create(
-        release=release, packs_sold=0, amount_paid=amount,
-        payment_method=method, payment_reference=payment_reference,
-        status="cleared" if amount == owed else "partial",
-        cleared_by=collected_by, notes=notes,
-    )
-
-
-
-
-@transaction.atomic
-def record_installment_payment(*, release, amount, method, payment_reference="",
-                               collected_by=None, notes=""):
-    """Payment-only PaymentReceipt for the dedicated installment form.
-
-    Do NOT create a matching PackSettlement for this same payment.
-    """
-    release = PackRelease.objects.select_for_update().get(pk=release.pk)
-    amount = _money(amount)
-    if amount <= ZERO:
-        raise ValidationError("Payment amount must be greater than zero.")
-    method = _valid_method(method, PaymentReceipt.PAYMENT_METHOD_CHOICES)
+    method = _valid_method(method, PAYMENT_METHOD_CHOICES)
     owed = release.outstanding_balance
     if owed <= ZERO:
         raise ValidationError("This release is fully cleared or not yet billable.")
     if amount > owed:
         raise ValidationError(f"Payment exceeds the outstanding balance of UGX {owed:,.2f}.")
     return PaymentReceipt.objects.create(
-        release=release, amount=amount, method=method,
+        release=release, amount=amount, payment_method=method,
         payment_reference=payment_reference, collected_by=collected_by, notes=notes,
     )
 

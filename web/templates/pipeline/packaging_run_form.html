@@ -9,7 +9,7 @@
         {% csrf_token %}
         
         {% if form.errors or form.non_field_errors %}
-        <div class="p-2 rounded bg-red-50 border border-red-200 text-xs text-red-600">
+x        <div class="p-2 rounded bg-red-50 border border-red-200 text-xs text-red-600">
             <p class="font-semibold">Please resolve form errors before submitting.</p>
         </div>
         {% endif %}

@@ -1,7 +1,7 @@
 """Branch-level consignment workflow. Existing inventory/release/audit tables are reused.
 
-Only an approved audit produces billable units. Monetary collections remain solely
-in PackSettlement and PaymentReceipt; a stock audit is NEVER a cash collection.
+Only an approved audit produces billable units. Monetary collections are recorded
+only in PaymentReceipt; a stock audit is NEVER a cash collection.
 """
 from decimal import Decimal
 from django.core.exceptions import ValidationError

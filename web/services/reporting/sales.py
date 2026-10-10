@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.db.models import Sum
 
 from ...models import (
+    ConsignmentAuditAllocation,
     PackSettlement,
     RoastedSackSale,
 )
@@ -129,6 +130,57 @@ def get_sales_report(period):
 
         sale_date = settlement.cleared_at.date()
 
+        daily_sales[sale_date] += sale_value
+
+    # Branch-audited supermarket sales are confirmed by an approved audit,
+    # not by PackSettlement. Use the allocation's stored unit price so that
+    # later delivery price changes cannot rewrite historical sales.
+    audit_allocations = (
+        ConsignmentAuditAllocation.objects
+        .filter(audit_item__audit__status="approved")
+        .select_related(
+            "audit_item__audit",
+            "audit_item__product",
+            "release__released_to",
+        )
+        .order_by("audit_item__audit__approved_at")
+    )
+    audit_allocations = period.filter_datetime(
+        audit_allocations,
+        "audit_item__audit__approved_at",
+    )
+
+    for allocation in audit_allocations:
+        packs_sold = allocation.quantity
+        product = allocation.audit_item.product
+        release = allocation.release
+        sale_value = (
+            _decimal(packs_sold)
+            * _decimal(allocation.unit_price)
+        )
+        kg_sold = (
+            _decimal(packs_sold)
+            * _decimal(product.kg_per_pack)
+        )
+
+        packaged_packs_sold += packs_sold
+        packaged_sales_value += sale_value
+        packaged_kg_sold += kg_sold
+
+        row = product_stats[product.pk]
+        row["product"] = product
+        row["packs"] += packs_sold
+        row["kg"] += kg_sold
+        row["revenue"] += sale_value
+
+        holder = release.released_to
+        holder_key = holder.pk if holder else "unassigned"
+        seller = seller_stats[holder_key]
+        seller["name"] = holder.name if holder else "Unassigned"
+        seller["packs"] += packs_sold
+        seller["revenue"] += sale_value
+
+        sale_date = allocation.audit_item.audit.approved_at.date()
         daily_sales[sale_date] += sale_value
 
     # ============================================================

@@ -13,23 +13,29 @@
         <table class="w-full text-sm text-left border-collapse bg-white">
             <thead>
                 <tr class="bg-slate-50 border-b border-[#E4DECB] text-slate-600 font-semibold">
+                    {% if request.user.role == "MANAGER" %}
                     <th class="px-6 py-4">Request Ticket</th>
+                    {% endif %}
                     <th class="px-6 py-4">Requested By</th>
                     <th class="px-6 py-4">Allocation Purpose</th>
                     <th class="px-6 py-4">Date Submitted</th>
                     <th class="px-6 py-4 text-center">Fulfillment Status</th>
+                    {% if request.user.role == "MANAGER" %}
                     <th class="px-6 py-4 text-right">Action</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody class="divide-y divide-[#E4DECB] text-slate-700">
                 {% for request in requests %}
                 <tr class="hover:bg-slate-50/50 transition duration-150">
                     <!-- Ticket ID -->
+                     {% if request.user.role == "MANAGER" %}
                     <td class="px-6 py-4 whitespace-nowrap">
                         <a class="font-bold text-rust hover:text-rust-dark hover:underline text-xs tracking-wider" href="{% url 'stock_request_detail' request.pk %}">
                             {{ request.short_number }}
                         </a>
                     </td>
+                    {% endif %}
                     
                     <!-- Applicant -->
                     <td class="px-6 py-4 whitespace-nowrap font-medium text-slate-800">
@@ -60,11 +66,13 @@
                     </td>
 
                     <!-- Direct Navigation Action Link -->
+                     {% if request.user.role == "MANAGER" %}
                     <td class="px-6 py-4 text-right whitespace-nowrap">
                         <a href="{% url 'stock_request_detail' request.pk %}" class="text-xs font-bold text-rust hover:text-rust-dark hover:underline">
                             Process Order 
                         </a>
                     </td>
+                    {% endif %}
                 </tr>
                 {% empty %}
                 <!-- Empty Queue Exception State Layout -->

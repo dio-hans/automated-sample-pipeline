@@ -9,11 +9,6 @@
             Nonda Commodities
         {% endblock %}
     </title>
-    <!-- FONTS -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
     <!-- FONT AWESOME 6 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <!-- TAILWIND -->
@@ -39,6 +34,9 @@
             }
         }
     </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- GLOBAL STYLES -->
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
@@ -155,18 +153,16 @@
                 <div>
                     <p class="nav-section-title">Sales</p>
                     <div class="space-y-0.5">
-                        <a href="{% url 'record_sale' %}" class="nav-link">
-                            <i class="fa-solid fa-cart-shopping nav-icon"></i>
-                            <span>Record Sale</span>
+                         <a href="{% url 'my_stock' %}" class="nav-link">
+                            <i class="fa-solid fa-cubes nav-icon"></i>
+                            <span>My Stock</span>
                         </a>
+
                         <a href="{% url 'stock_request_list' %}" class="nav-link">
                             <i class="fa-solid fa-paper-plane nav-icon"></i>
                             <span>My Stock Requests</span>
                         </a>
-                        <a href="{% url 'my_stock' %}" class="nav-link">
-                            <i class="fa-solid fa-cubes nav-icon"></i>
-                            <span>My Issued Stock</span>
-                        </a>
+                       
                     </div>
                 </div>
             {% endif %}

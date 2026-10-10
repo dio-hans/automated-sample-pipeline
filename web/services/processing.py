@@ -219,14 +219,13 @@ def complete_roasting(processing_run, output_quantity, user, notes=""):
 # COMPLETE SORTING
 # ============================================================
 
-@transaction.atomic
 def complete_sorting(
     *,
     processing_run,
     good_quantity,
-    quaker_quantity,
     user=None,
     notes="",
+    **kwargs,
 ):
     """
     Sorting produces two retained outputs:
@@ -238,16 +237,15 @@ def complete_sorting(
     """
 
     good_quantity = Decimal(good_quantity)
-    quaker_quantity = Decimal(quaker_quantity)
 
     if good_quantity < ZERO:
         raise ValueError(
             "Good coffee quantity cannot be negative."
         )
 
-    if quaker_quantity < ZERO:
+    if good_quantity < ZERO:
         raise ValueError(
-            "Quaker quantity cannot be negative."
+            "Good coffee quantity cannot be negative."
         )
 
     run = (
@@ -262,25 +260,19 @@ def complete_sorting(
             "This processing run is not a sorting run."
         )
 
+    quaker_quantity = run.input_quantity - good_quantity
+
+    if quaker_quantity < ZERO:
+        raise ValueError(
+            "Sorted coffee output cannot be greater than sorting input."
+        )
+
     if run.status != "open":
         raise ValueError(
             "This sorting run has already been completed."
         )
 
-    accounted = (
-        good_quantity
-        + quaker_quantity
-    )
-
-    if accounted > run.input_quantity:
-        raise ValueError(
-            "Good coffee plus quakers cannot exceed sorting input."
-        )
-
-    loss_quantity = (
-        run.input_quantity
-        - accounted
-    )
+    loss_quantity = ZERO
 
     # Good roasted coffee
     if good_quantity > ZERO:
@@ -498,12 +490,10 @@ class CompleteProcessingRunView(RoleRequiredMixin, View):
             # ========================================================
             elif run.process_type == "sorting":
                 good_qty = request.POST.get("output_quantity", "0")
-                quaker_qty = request.POST.get("quaker_quantity", "0")
 
                 completed_run = complete_sorting(
                     processing_run=run,
                     good_quantity=good_qty,
-                    quaker_quantity=quaker_qty,
                     user=user,
                     notes=notes,
                 )

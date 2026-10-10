@@ -106,7 +106,7 @@ def pdf_bytes(period, report):
         p('No current rule-based alerts.')
     section('Reporting notes')
     p('Receivables, debtor ageing and open runs are current snapshots, even for historical periods. Bulk receivables are excluded pending payment-linkage implementation. Release-date ageing is not contractual overdue ageing.')
-    p('Collections use PackSettlement.cleared_at; the current auto_now field may change when a settlement is edited. No COGS, gross profit, net profit or margins are reported until R7 is implemented.')
+    p('Collections use PaymentReceipt.collected_at. PackSettlement records sale quantities only; its amount_paid field is excluded from financial calculations. No COGS, gross profit, net profit or margins are reported until R7 is implemented.')
     if sales['current'] is None:
         p('Sales KPI mapping is pending: the R3 total was not identified. Refer to the detailed Sales report.')
 

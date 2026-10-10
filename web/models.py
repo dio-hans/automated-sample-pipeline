@@ -1729,23 +1729,13 @@ class PackRelease(models.Model):
 
     @property
     def total_amount_paid(self):
-        settlement_total = sum(
-            (
-                settlement.amount_paid
-                for settlement in self.settlements.all()
-            ),
-            Decimal("0.00"),
-        )
-
-        installment_total = sum(
+        return sum(
             (
                 payment.amount
                 for payment in self.payments.all()
             ),
             Decimal("0.00"),
         )
-
-        return settlement_total + installment_total
     
     @property
     def outstanding_balance(self):
@@ -1906,7 +1896,7 @@ class PaymentReceipt(models.Model):
         return (
             f"{self.release.released_to} — "
             f"{self.amount} — "
-            f"{self.get_method_display()}"
+            f"{self.get_payment_method_display()}"
         )
     # 8. PACK RETURN  (salesperson â†’ store)
 from django.conf import settings
@@ -2026,6 +2016,7 @@ class PackSettlement(models.Model):
         related_name="settlements", 
     )
     packs_sold = models.PositiveIntegerField(default=0)
+    # Deprecated for financial calculations; cash receipts belong in PaymentReceipt.
     amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default="cash")
     payment_reference = models.CharField(max_length=100, blank=True)
@@ -2046,11 +2037,7 @@ class PackSettlement(models.Model):
         ordering = ["-cleared_at"]
 
     def __str__(self):
-        return (
-            f"UGX {self.amount_paid:,.0f} — "
-            f"{self.release.recipient_name} — "
-            f"{self.get_payment_method_display()}"
-        )
+        return f"{self.packs_sold} packs sold — {self.release.recipient_name}"
 
 
     @property

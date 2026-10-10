@@ -25,7 +25,11 @@ from .services.reporting.periods import resolve_report_period
 
 from .services.internal_stock import ZERO, create_internal_stock_issue, get_packaged_internal_available
 
-from .sales_workflow import approve_existing_pack_return, fulfill_request_item
+from .sales_workflow import (
+    approve_existing_pack_return,
+    fulfill_request_item,
+    record_installment_payment,
+)
 from .models import AccountHolder, InternalAccount, InternalStockIssue, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage
 from decimal import Decimal
 from .services.processing import complete_roasting, complete_sorting
@@ -1348,10 +1352,31 @@ class PackReturnCreateView(InventoryRoleRequiredMixin, TemplateView):
         return redirect("pack_return_confirm", token=token)
 
 
+from django.shortcuts import redirect
+from web.models import User
+
+def redirect_after_return_submission(user):
+    """
+    Routes users to role-specific destinations after submitting a return.
+    """
+    role = getattr(user, "role", None)
+
+    if role == User.Role.SALES:
+        return redirect("order_queue")
+    elif role == User.Role.ADMIN:
+        return redirect("admin_dashboard")
+    elif role == User.Role.ACCOUNTS:
+        return redirect("inventory_dashboard")  # or "credit_control_ledger"
+    elif role == User.Role.MANAGER:
+        return redirect("inventory_dashboard")
+    
+    # Fallback default route
+    return redirect("dashboard")
+
 @method_decorator(login_required, name='dispatch')
 class PackReturnConfirmationView(InventoryRoleRequiredMixin, TemplateView):
     template_name = "pipeline/pack_return_confirmation.html"
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER, User.Role.ACCOUNTS)
 
     def get_payload(self, token):
         payload = self.request.session.get(f"return_review:{token}")
@@ -1391,7 +1416,7 @@ class PackReturnConfirmationView(InventoryRoleRequiredMixin, TemplateView):
             )
 
         if request.POST.get("action") != "confirm":
-            return redirect("pack_return_confirm", token=token)
+            return redirect("order_queue", token=token)
 
         order_id = payload["order_id"]
         selections = payload["selections"]
@@ -1434,7 +1459,7 @@ class PackReturnConfirmationView(InventoryRoleRequiredMixin, TemplateView):
             request,
             "Return submitted for approval. No stock or account balance has changed yet.",
         )
-        return redirect("pending_return_approvals")
+        return redirect_after_return_submission(self.request.user)
 
     @staticmethod
     def _first_release_for_order(order_id):
@@ -1450,6 +1475,7 @@ class PackReturnApproveView(InventoryRoleRequiredMixin, View):
     allowed_roles = (
         User.Role.MANAGER,
         User.Role.ADMIN,
+        
     )
 
     @transaction.atomic
@@ -1528,7 +1554,7 @@ class RecordInstallmentPaymentView(RoleRequiredMixin, CreateView):
     """
     model = PaymentReceipt
     template_name = "pipeline/record_payment_form.html"
-    fields = ["amount", "method", "payment_reference", "notes"] 
+    fields = ["amount", "payment_method", "payment_reference", "notes"] 
     allowed_roles = (
         User.Role.CASHIER,
         User.Role.ACCOUNTS,
@@ -1560,17 +1586,18 @@ class RecordInstallmentPaymentView(RoleRequiredMixin, CreateView):
             release = get_object_or_404(
                 PackRelease.objects.select_for_update(), pk=self.kwargs['pk']
             )
-            payment = form.save(commit=False)
-            payment.release = release
-            payment.collected_by = self.request.user
-            balance = release.outstanding_balance
-            if payment.amount <= 0:
-                form.add_error('amount', 'Payment must be greater than zero.')
+            try:
+                payment = record_installment_payment(
+                    release=release,
+                    amount=form.cleaned_data["amount"],
+                    method=form.cleaned_data["payment_method"],
+                    payment_reference=form.cleaned_data.get("payment_reference", ""),
+                    collected_by=self.request.user,
+                    notes=form.cleaned_data.get("notes", ""),
+                )
+            except ValidationError as exc:
+                form.add_error(None, exc)
                 return self.form_invalid(form)
-            if payment.amount > balance:
-                form.add_error('amount', f'Maximum outstanding balance: UGX {balance:,.0f}.')
-                return self.form_invalid(form)
-            payment.save()
         messages.success(self.request, f'Installment of UGX {payment.amount:,.0f} recorded.')
         return redirect(self.success_url)
 
@@ -1916,18 +1943,12 @@ settle_release / record_payment functions.
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import transaction
-# Ensure you import PackSettlement at the top of your file if it isn't there!
-from web.models import PackRelease, PackSettlement 
+from .models import PackRelease, StockRequest
 
-from decimal import Decimal
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
-from django.core.exceptions import ValidationError
-from django.db import transaction
-# Ensure you import your models accurately
-from web.models import StockRequest, PackRelease, PackSettlement 
 
 # =========================================================================
 # ⚙️ FUNCTION 1: THE CORE DATABASE CALCULATION (Keyword-only arguments)
@@ -1954,6 +1975,7 @@ def record_card_payment(
         PackRelease.objects
         .select_for_update()
         .filter(request_item__request=stock_request)
+        .prefetch_related("returns", "payments")
         .order_by("released_at")
     )
 
@@ -1970,9 +1992,11 @@ def record_card_payment(
             f"Payment exceeds the outstanding balance of UGX {total_outstanding:,.2f} for this order."
         )
 
-    remaining = amount
-    settlements = []
+    if collected_by is None:
+        raise ValidationError("A cashier is required to record this payment.")
 
+    remaining = amount
+    receipts = []
     for release in releases:
         if remaining <= Decimal("0.00"):
             break
@@ -1983,21 +2007,18 @@ def record_card_payment(
 
         pay_now = min(owed, remaining)
 
-        # Creates a PackSettlement row so the dashboard cards immediately decrease
-        settlement = PackSettlement.objects.create(
+        receipt = record_installment_payment(
             release=release,
-            packs_sold=release.billable_quantity,
-            amount_paid=pay_now,
-            payment_method=method,
+            amount=pay_now,
+            method=method,
             payment_reference=payment_reference,
-            status="cleared" if pay_now == owed else "partial",
-            cleared_by=collected_by,
+            collected_by=collected_by,
             notes=notes,
         )
-        settlements.append(settlement)
+        receipts.append(receipt)
         remaining -= pay_now
 
-    return settlements
+    return receipts
 
 
 # =========================================================================
@@ -2313,27 +2334,6 @@ class ManagementReportsView(RoleRequiredMixin, TemplateView):
         # PAYMENT COLLECTIONS FOR PERIOD
         # ==========================================================
 
-        # Initial money collected when stock was released
-        initial_paid_releases = PackRelease.objects.filter(
-            request_item__request__purpose="sale",
-            released_at__gte=start_dt,
-            released_at__lt=end_dt,
-        ).prefetch_related("payments")
-
-        initial_cash = Decimal("0.00")
-        initial_momo = Decimal("0.00")
-
-        for release in initial_paid_releases:
-            for payment in release.payments.all():
-                amount = getattr(payment, "amount", Decimal("0.00"))
-                method = getattr(payment, "method", "").lower()
-
-                if method == "cash":
-                    initial_cash += amount
-                elif method in ("momo", "mobile_money"):
-                    initial_momo += amount
-
-        # Later installment collections
         payments = list(
             PaymentReceipt.objects.filter(
                 collected_at__gte=start_dt,
@@ -2341,7 +2341,7 @@ class ManagementReportsView(RoleRequiredMixin, TemplateView):
             )
         )
 
-        installment_total = Decimal("0.00")
+        total_collected = Decimal("0.00")
 
         payment_by_method = {
             "cash": Decimal("0.00"),
@@ -2352,27 +2352,20 @@ class ManagementReportsView(RoleRequiredMixin, TemplateView):
 
         for payment in payments:
             amount = payment.amount
-            installment_total += amount
+            total_collected += amount
 
-            method = payment.method
+            method = payment.payment_method
 
             if method == "momo":
                 payment_by_method["mobile_money"] += amount
+            elif method == "bank_transfer":
+                payment_by_method["bank"] += amount
 
             elif method in payment_by_method:
                 payment_by_method[method] += amount
 
-        # Add initial release collections
-        payment_by_method["cash"] += initial_cash
-        payment_by_method["mobile_money"] += initial_momo
-
-        cash_collected = (
-            initial_cash
-            + initial_momo
-            + installment_total
-        )
-
-        payment_count = len(payments) + initial_paid_releases.count()
+        cash_collected = total_collected
+        payment_count = len(payments)
 
         # ==========================================================
         # CURRENT OUTSTANDING RECEIVABLES

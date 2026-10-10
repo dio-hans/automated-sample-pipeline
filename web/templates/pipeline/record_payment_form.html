@@ -93,7 +93,7 @@
                         <!-- Amount Received -->
                         {% if form.amount %}
                         <div>
-                            <label for="{{ form.amount.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
+                            <label for="{{ form.amount_paid.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
                                 {{ form.amount.label|default:"Amount Received (UGX)" }}
                             </label>
                             {{ form.amount }}
@@ -104,13 +104,13 @@
                         {% endif %}
 
                         <!-- Collection Channel / Method -->
-                        {% if form.method %}
+                        {% if form.payment_method %}
                         <div>
-                            <label for="{{ form.method.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
-                                {{ form.method.label|default:"Payment Method" }}
+                            <label for="{{ form.payment_method.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
+                                {{ form.payment_method.label|default:"Payment Method" }}
                             </label>
-                            {{ form.method }}
-                            {% for error in form.method.errors %}
+                            {{ form.payment_method }}
+                            {% for error in form.payment_method.errors %}
                                 <p class="mt-1 text-[11px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100">{{ error }}</p>
                             {% endfor %}
                         </div>
