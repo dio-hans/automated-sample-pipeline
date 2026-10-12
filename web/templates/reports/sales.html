@@ -1,0 +1,754 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}
+Sales & Revenue Report | Nonda
+{% endblock %}
+
+{% block breadcrumb %}
+Management / Reports / Sales & Revenue
+{% endblock %}
+
+{% block page_title %}
+Sales & Revenue Report
+{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Revenue trends and product performance for {{ period_label }}.
+</p>
+{% endblock %}
+
+
+{% block header_action %}
+<button
+    onclick="window.print()"
+    class="px-3 py-2 rounded-lg border border-line
+           bg-white text-[11px] font-semibold text-slate-700"
+>
+    Print Report
+</button>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="space-y-3 pb-4">
+
+
+    <!-- =====================================================
+         FILTER + KPI AREA
+         ===================================================== -->
+    <div class="space-y-1">
+
+        {% include "reports/components/report_filters.html" %}
+
+
+        <div class="grid grid-cols-2
+                    md:grid-cols-3
+                    xl:grid-cols-5
+                    gap-2">
+
+            <div class="p-2.5 bg-white border
+                        border-gray-200 rounded-lg shadow-sm">
+
+                <p class="text-[9px] uppercase
+                          tracking-wider font-bold text-slate-400">
+                    Total Sales
+                </p>
+
+                <p class="font-display text-base sm:text-lg
+                          font-bold text-slate-800 mt-1">
+                    UGX {{ total_sales_value|floatformat:0|intcomma }}
+                </p>
+
+            </div>
+
+
+            <div class="p-2.5 bg-white border
+                        border-gray-200 rounded-lg shadow-sm">
+
+                <p class="text-[9px] uppercase
+                          tracking-wider font-bold text-slate-400">
+                    Packaged Revenue
+                </p>
+
+                <p class="font-display text-base sm:text-lg
+                          font-bold text-emerald-700 mt-1">
+                    UGX {{ packaged_sales_value|floatformat:0|intcomma }}
+                </p>
+
+            </div>
+
+
+            <div class="p-2.5 bg-white border
+                        border-gray-200 rounded-lg shadow-sm">
+
+                <p class="text-[9px] uppercase
+                          tracking-wider font-bold text-slate-400">
+                    Packs Sold
+                </p>
+
+                <p class="font-display text-base sm:text-lg
+                          font-bold text-slate-800 mt-1">
+                    {{ packaged_packs_sold|intcomma }}
+                </p>
+
+            </div>
+
+
+            <div class="p-2.5 bg-white border
+                        border-gray-200 rounded-lg shadow-sm">
+
+                <p class="text-[9px] uppercase
+                          tracking-wider font-bold text-slate-400">
+                    Bulk Revenue
+                </p>
+
+                <p class="font-display text-base sm:text-lg
+                          font-bold text-amber-700 mt-1">
+                    UGX {{ bulk_sales_value|floatformat:0|intcomma }}
+                </p>
+
+            </div>
+
+
+            <div class="p-2.5 bg-white border
+                        border-gray-200 rounded-lg shadow-sm">
+
+                <p class="text-[9px] uppercase
+                          tracking-wider font-bold text-slate-400">
+                    Coffee Sold
+                </p>
+
+                <p class="font-display text-base sm:text-lg
+                          font-bold text-slate-800 mt-1">
+                    {{ total_coffee_sold_kg|floatformat:2|intcomma }}
+
+                    <span class="text-[10px] text-slate-400">
+                        kg
+                    </span>
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         ONE SALES OVERVIEW CARD
+         ===================================================== -->
+    <section class="bg-white border border-line
+                    rounded-lg shadow-sm overflow-hidden">
+
+        <div class="px-3 py-2.5 border-b border-line">
+
+            <h2 class="text-xs font-bold text-slate-800">
+                Revenue Overview
+            </h2>
+
+            <p class="text-[9px] text-slate-400 mt-0.5">
+                Confirmed packaged and bulk sales · {{ period_label }}
+            </p>
+
+        </div>
+
+
+        <div class="grid grid-cols-1 lg:grid-cols-3">
+
+            <!-- TREND -->
+            <div class="lg:col-span-2 p-3
+                        lg:border-r border-line">
+
+                {% if trend_values %}
+
+                    <div class="relative h-[180px]
+                                sm:h-[210px] lg:h-[225px]">
+                        <canvas id="salesTrendChart"></canvas>
+                    </div>
+
+                {% else %}
+
+                    <div class="h-[180px]
+                                flex items-center justify-center">
+
+                        <p class="text-[10px] text-slate-400">
+                            No confirmed sales for this period.
+                        </p>
+
+                    </div>
+
+                {% endif %}
+
+            </div>
+
+
+            <!-- SOURCE -->
+            <div class="p-3 border-t
+                        lg:border-t-0 border-line">
+
+                <p class="text-[9px] font-bold
+                          uppercase tracking-wider text-slate-400">
+                    Revenue Source
+                </p>
+
+
+                {% if sales_channels %}
+
+                    <div class="relative h-[130px] sm:h-[150px]">
+                        <canvas id="salesChannelChart"></canvas>
+                    </div>
+
+
+                    <div class="grid grid-cols-2 gap-1 mt-1">
+
+                        {% for row in sales_channels %}
+
+                            <div class="p-1.5 rounded
+                                        bg-slate-50 border border-gray-100">
+
+                                <p class="text-[8px] text-slate-400 truncate">
+                                    {{ row.label }}
+                                </p>
+
+                                <p class="text-[10px] font-bold text-slate-800">
+                                    {{ row.percentage }}%
+                                </p>
+
+                            </div>
+
+                        {% endfor %}
+
+                    </div>
+
+                {% else %}
+
+                    <div class="h-[140px]
+                                flex items-center justify-center">
+
+                        <p class="text-[10px] text-slate-400">
+                            No sales data.
+                        </p>
+
+                    </div>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         PRODUCT PERFORMANCE — ONE TABLE / TWO MODES
+         ===================================================== -->
+    <section class="bg-white border border-line
+                    rounded-lg shadow-sm overflow-hidden">
+
+        <div class="px-3 py-2
+                    border-b border-line
+                    flex flex-wrap items-center
+                    justify-between gap-2">
+
+            <div>
+
+                <h2 class="text-xs font-bold text-slate-800">
+                    Product Performance
+                </h2>
+
+                <p class="text-[9px] text-slate-400 mt-0.5">
+                    Switch ranking without loading another section.
+                </p>
+
+            </div>
+
+
+            <div class="flex items-center gap-1
+                        bg-slate-100 rounded-md p-0.5">
+
+                <button
+                    type="button"
+                    id="bestProductsBtn"
+                    class="px-2.5 py-1 rounded
+                           text-[9px] font-semibold
+                           bg-white text-slate-800 shadow-sm"
+                >
+                    Best Selling
+                </button>
+
+                <button
+                    type="button"
+                    id="slowProductsBtn"
+                    class="px-2.5 py-1 rounded
+                           text-[9px] font-semibold
+                           text-slate-500"
+                >
+                    Lowest Selling
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- BEST -->
+        <div id="bestProductsPanel"
+             class="overflow-x-auto">
+
+            <table class="w-full min-w-[600px] text-left">
+
+                <thead class="bg-slate-50
+                              text-[8px] uppercase
+                              tracking-wider text-slate-400">
+
+                    <tr>
+                        <th class="px-3 py-2">#</th>
+                        <th class="px-3 py-2">Product</th>
+                        <th class="px-3 py-2 text-right">Packs</th>
+                        <th class="px-3 py-2 text-right">Kg</th>
+                        <th class="px-3 py-2 text-right">Revenue</th>
+                        <th class="px-3 py-2 text-right">Share</th>
+                    </tr>
+
+                </thead>
+
+
+                <tbody class="divide-y divide-line">
+
+                    {% for row in top_products %}
+
+                        <tr class="hover:bg-slate-50">
+
+                            <td class="px-3 py-2
+                                       text-[9px] text-slate-400">
+                                {{ forloop.counter }}
+                            </td>
+
+                            <td class="px-3 py-2
+                                       text-[10px] font-semibold
+                                       text-slate-800">
+                                {{ row.product }}
+                            </td>
+
+                            <td class="px-3 py-2
+                                       text-right text-[9px]">
+                                {{ row.packs|intcomma }}
+                            </td>
+
+                            <td class="px-3 py-2
+                                       text-right text-[9px]">
+                                {{ row.kg|floatformat:2 }}
+                            </td>
+
+                            <td class="px-3 py-2
+                                       text-right text-[9px]
+                                       font-semibold">
+                                UGX {{ row.revenue|floatformat:0|intcomma }}
+                            </td>
+
+                            <td class="px-3 py-2
+                                       text-right text-[9px]">
+                                {{ row.revenue_share }}%
+                            </td>
+
+                        </tr>
+
+                    {% empty %}
+
+                        <tr>
+
+                            <td colspan="6"
+                                class="p-5 text-center
+                                       text-[10px] text-slate-400">
+                                No confirmed packaged sales.
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        <!-- LOWEST -->
+        <div id="slowProductsPanel"
+             class="hidden overflow-x-auto">
+
+            <table class="w-full min-w-[520px] text-left">
+
+                <thead class="bg-slate-50
+                              text-[8px] uppercase
+                              tracking-wider text-slate-400">
+
+                    <tr>
+                        <th class="px-3 py-2">#</th>
+                        <th class="px-3 py-2">Product</th>
+                        <th class="px-3 py-2 text-right">Packs</th>
+                        <th class="px-3 py-2 text-right">Revenue</th>
+                    </tr>
+
+                </thead>
+
+
+                <tbody class="divide-y divide-line">
+
+                    {% for row in slow_products %}
+
+                        <tr class="hover:bg-slate-50">
+
+                            <td class="px-3 py-2
+                                       text-[9px] text-slate-400">
+                                {{ forloop.counter }}
+                            </td>
+
+                            <td class="px-3 py-2
+                                       text-[10px] font-semibold
+                                       text-slate-800">
+                                {{ row.product }}
+                            </td>
+
+                            <td class="px-3 py-2
+                                       text-right text-[9px]">
+                                {{ row.packs|intcomma }}
+                            </td>
+
+                            <td class="px-3 py-2
+                                       text-right text-[9px]
+                                       font-semibold">
+                                UGX {{ row.revenue|floatformat:0|intcomma }}
+                            </td>
+
+                        </tr>
+
+                    {% empty %}
+
+                        <tr>
+
+                            <td colspan="4"
+                                class="p-5 text-center
+                                       text-[10px] text-slate-400">
+                                No product sales yet.
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        <!-- DEEPER DETAIL -->
+        <div class="px-3 py-2
+                    border-t border-line
+                    bg-slate-50/50
+                    flex justify-end">
+
+            <a
+                href="{% url 'reports_sales_details' %}?{{ request.GET.urlencode }}"
+                class="text-[9px] font-semibold
+                       text-olive hover:underline"
+            >
+                Salespeople & bulk sales details →
+            </a>
+
+        </div>
+
+    </section>
+
+</div>
+
+
+{{ trend_labels|json_script:"sales-trend-labels" }}
+{{ trend_values|json_script:"sales-trend-values" }}
+{{ channel_labels|json_script:"sales-channel-labels" }}
+{{ channel_values|json_script:"sales-channel-values" }}
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    // =====================================================
+    // PRODUCT RANKING TOGGLE
+    // =====================================================
+
+    const bestBtn =
+        document.getElementById("bestProductsBtn");
+
+    const slowBtn =
+        document.getElementById("slowProductsBtn");
+
+    const bestPanel =
+        document.getElementById("bestProductsPanel");
+
+    const slowPanel =
+        document.getElementById("slowProductsPanel");
+
+
+    function setProductRanking(mode) {
+
+        const best = mode === "best";
+
+        bestPanel.classList.toggle(
+            "hidden",
+            !best
+        );
+
+        slowPanel.classList.toggle(
+            "hidden",
+            best
+        );
+
+
+        bestBtn.classList.toggle(
+            "bg-white",
+            best
+        );
+
+        bestBtn.classList.toggle(
+            "text-slate-800",
+            best
+        );
+
+        bestBtn.classList.toggle(
+            "shadow-sm",
+            best
+        );
+
+        bestBtn.classList.toggle(
+            "text-slate-500",
+            !best
+        );
+
+
+        slowBtn.classList.toggle(
+            "bg-white",
+            !best
+        );
+
+        slowBtn.classList.toggle(
+            "text-slate-800",
+            !best
+        );
+
+        slowBtn.classList.toggle(
+            "shadow-sm",
+            !best
+        );
+
+        slowBtn.classList.toggle(
+            "text-slate-500",
+            best
+        );
+    }
+
+
+    if (bestBtn && slowBtn) {
+
+        bestBtn.addEventListener(
+            "click",
+            function () {
+                setProductRanking("best");
+            }
+        );
+
+        slowBtn.addEventListener(
+            "click",
+            function () {
+                setProductRanking("slow");
+            }
+        );
+    }
+
+
+    // =====================================================
+    // SALES TREND
+    // =====================================================
+
+    const trendCanvas =
+        document.getElementById("salesTrendChart");
+
+    if (trendCanvas) {
+
+        const labels = JSON.parse(
+            document.getElementById(
+                "sales-trend-labels"
+            ).textContent
+        );
+
+        const values = JSON.parse(
+            document.getElementById(
+                "sales-trend-values"
+            ).textContent
+        );
+
+        new Chart(trendCanvas, {
+            type: "line",
+
+            data: {
+                labels: labels,
+
+                datasets: [{
+                    label: "Revenue",
+                    data: values,
+                    borderColor: "#556B2F",
+                    backgroundColor: "rgba(85,107,47,0.08)",
+                    fill: true,
+                    tension: 0.35,
+                    borderWidth: 2,
+                    pointRadius: 2
+                }]
+            },
+
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+
+                scales: {
+                    y: {
+                        beginAtZero: true,
+
+                        ticks: {
+                            font: {
+                                size: 9
+                            },
+
+                            callback: function (value) {
+                                return "UGX " +
+                                    Number(value).toLocaleString();
+                            }
+                        }
+                    },
+
+                    x: {
+                        ticks: {
+                            font: {
+                                size: 9
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+
+    // =====================================================
+    // REVENUE SOURCE
+    // =====================================================
+
+    const channelCanvas =
+        document.getElementById("salesChannelChart");
+
+    if (channelCanvas) {
+
+        const labels = JSON.parse(
+            document.getElementById(
+                "sales-channel-labels"
+            ).textContent
+        );
+
+        const values = JSON.parse(
+            document.getElementById(
+                "sales-channel-values"
+            ).textContent
+        );
+
+        new Chart(channelCanvas, {
+            type: "doughnut",
+
+            data: {
+                labels: labels,
+
+                datasets: [{
+                    data: values,
+
+                    backgroundColor: [
+                        "#556B2F",
+                        "#B66A3C"
+                    ],
+
+                    borderColor: "#ffffff",
+                    borderWidth: 2
+                }]
+            },
+
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: "68%",
+
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    }
+
+});
+</script>
+
+
+<style>
+@media print {
+
+    aside,
+    nav,
+    button,
+    form {
+        display: none !important;
+    }
+
+    body {
+        background: white !important;
+    }
+
+    .shadow-sm {
+        box-shadow: none !important;
+    }
+
+    section {
+        break-inside: avoid;
+    }
+}
+</style>
+
+{% endblock content %}
+
+
+{% block footer %}
+
+<footer
+    class="sticky bottom-0 z-30
+           bg-paper border-t border-line
+           flex-shrink-0 print:hidden"
+>
+    <div class="w-full max-w-7xl mx-auto px-2 sm:px-4 py-2">
+
+        {% include "reports/components/report_nav.html" %}
+
+    </div>
+</footer>
+
+{% endblock footer %}
