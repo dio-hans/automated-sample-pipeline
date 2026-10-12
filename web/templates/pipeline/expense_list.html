@@ -7,6 +7,16 @@
 Accounts / Expenses / History
 {% endblock %}
 
+{% block header_action %}
+
+    <a href="{% url 'expense_tracker' %}" 
+           class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-green-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-sm transition shrink-0">
+            
+            Record Expense
+        </a>
+
+
+{% endblock %}    
 {% block content %}
 <div class="px-3 py-2 sm:px-4 sm:py-3 space-y-3 w-full">
 
@@ -16,13 +26,7 @@ Accounts / Expenses / History
             <h1 class="text-lg sm:text-xl font-bold text-slate-800 tracking-tight">Expense History</h1>
             <p class="text-xs text-slate-500">Review and filter Nonda business expenses.</p>
         </div>
-        <a href="{% url 'expense_tracker' %}" 
-           class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-green-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-sm transition shrink-0">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-            </svg>
-            Record Expense
-        </a>
+        
     </div>
 
     <!-- SUMMARY CARD -->

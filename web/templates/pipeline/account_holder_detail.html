@@ -11,7 +11,172 @@
 </p>
 {% endblock %}
 
+{% block header_action %}
+    {% if can_collect_payment %}
+    {% if total_outstanding > 0 %}
+
+        <!-- Payment action: visible before the form -->
+        <div class="flex justify-end">
+            <button
+                type="button"
+                id="toggleAccountPaymentForm"
+                aria-expanded="false"
+                aria-controls="accountPaymentForm"
+                class="inline-flex items-center gap-2 rounded-lg bg-olive px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-olive focus:ring-offset-2"
+            >
+            
+                <span>Record Payment</span>
+            </button>
+        </div>
+
+      
+    {% else %}
+        <p class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            This account has no outstanding debt.
+        </p>
+    {% endif %}
+{% endif %}
+
+{% endblock %}
+
 {% block content %}
+  <!-- Payment form: hidden until requested -->
+        <div
+            id="accountPaymentForm"
+            class="hidden rounded-xl border border-[#E4DECB] bg-white p-5 shadow-sm"
+        >
+            <div class="mb-5 flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800">
+                        Record Account Payment
+                    </h3>
+                    <p class="mt-1 text-xs text-slate-500">
+                        Record a full or partial payment for {{ account.name }}.
+                    </p>
+                </div>
+
+                <div class="text-right">
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                        Outstanding Balance
+                    </p>
+                    <p class="mt-1 text-sm font-bold text-rose-600">
+                        {{ total_outstanding|floatformat:0|intcomma }} UGX
+                    </p>
+                </div>
+            </div>
+
+            <form method="post" class="space-y-4">
+                {% csrf_token %}
+                <input
+                    type="hidden"
+                    name="action"
+                    value="record_account_payment"
+                >
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label
+                            for="accountPaymentAmount"
+                            class="mb-1.5 block text-xs font-semibold text-slate-700"
+                        >
+                            Amount Received (UGX)
+                        </label>
+                        <input
+                            type="number"
+                            id="accountPaymentAmount"
+                            name="amount"
+                            min="0.01"
+                            max="{{ total_outstanding }}"
+                            step="0.01"
+                            required
+                            class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-olive focus:outline-none focus:ring-1 focus:ring-olive"
+                            placeholder="Enter amount received"
+                        >
+                        <button
+                            type="button"
+                            id="fillFullPaymentAmount"
+                            class="mt-1.5 text-xs font-medium text-olive hover:underline"
+                        >
+                            Pay full outstanding balance
+                        </button>
+                    </div>
+
+                    <div>
+                        <label
+                            for="accountPaymentMethod"
+                            class="mb-1.5 block text-xs font-semibold text-slate-700"
+                        >
+                            Payment Method
+                        </label>
+                        <select
+                            id="accountPaymentMethod"
+                            name="method"
+                            required
+                            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-olive focus:outline-none focus:ring-1 focus:ring-olive"
+                        >
+                            {% for value, label in payment_methods %}
+                                <option value="{{ value }}">
+                                    {{ label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label
+                            for="accountPaymentReference"
+                            class="mb-1.5 block text-xs font-semibold text-slate-700"
+                        >
+                            Payment Reference
+                            <span class="font-normal text-slate-400">(Optional)</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="accountPaymentReference"
+                            name="payment_reference"
+                            maxlength="100"
+                            class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-olive focus:outline-none focus:ring-1 focus:ring-olive"
+                            placeholder="Transaction or receipt number"
+                        >
+                    </div>
+
+                    <div>
+                        <label
+                            for="accountPaymentNotes"
+                            class="mb-1.5 block text-xs font-semibold text-slate-700"
+                        >
+                            Notes
+                            <span class="font-normal text-slate-400">(Optional)</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="accountPaymentNotes"
+                            name="notes"
+                            class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-olive focus:outline-none focus:ring-1 focus:ring-olive"
+                            placeholder="Additional payment details"
+                        >
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
+                    <button
+                        type="button"
+                        id="cancelAccountPaymentForm"
+                        class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="rounded-lg bg-olive px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+                    >
+                        Save Payment
+                    </button>
+                </div>
+            </form>
+        </div>
+
 <div class="space-y-4">
 
     <!-- 1. SUMMARY CARDS -->
@@ -44,6 +209,11 @@
         <div class="px-4 py-3 border-b border-[#E4DECB] bg-slate-50/50">
             <h3 class="text-xs font-bold text-slate-600 uppercase tracking-wider">Assigned Pack Releases</h3>
         </div>
+
+        
+
+
+
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse bg-white">
                 <thead>
@@ -95,4 +265,50 @@
     </div>
 
 </div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggleBtn = document.getElementById('toggleAccountPaymentForm');
+        const cancelBtn = document.getElementById('cancelAccountPaymentForm');
+        const paymentFormContainer = document.getElementById('accountPaymentForm');
+        const paymentAmountInput = document.getElementById('accountPaymentAmount');
+        const fillFullAmountBtn = document.getElementById('fillFullPaymentAmount');
+
+        // Toggle form open/close
+        if (toggleBtn && paymentFormContainer) {
+            toggleBtn.addEventListener('click', function() {
+                const isHidden = paymentFormContainer.classList.contains('hidden');
+                if (isHidden) {
+                    paymentFormContainer.classList.remove('hidden');
+                    toggleBtn.setAttribute('aria-expanded', 'true');
+                } else {
+                    paymentFormContainer.classList.add('hidden');
+                    toggleBtn.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
+
+        // Hide form on Cancel click
+        if (cancelBtn && paymentFormContainer) {
+            cancelBtn.addEventListener('click', function() {
+                paymentFormContainer.classList.add('hidden');
+                if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+            });
+        }
+
+        // Automatically fill full outstanding balance when helper link is clicked
+        if (fillFullAmountBtn && paymentAmountInput) {
+            fillFullAmountBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                // Safely grab max value set by Django context dynamically
+                const maxAmount = paymentAmountInput.getAttribute('max');
+                if (maxAmount) {
+                    paymentAmountInput.value = maxAmount;
+                }
+            });
+        }
+    });
+</script>
+
 {% endblock %}

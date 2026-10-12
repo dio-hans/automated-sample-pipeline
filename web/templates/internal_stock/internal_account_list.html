@@ -22,6 +22,15 @@ Manage the internal purposes to which Nonda can issue coffee.
 
 {% endblock %}
 
+{% block header_action %}
+      <a
+            href="{% url 'internal_account_create' %}"
+            class="px-2.5 py-2.5 rounded-lg bg-green-700 text-white text-sm font-bold hover:bg-green-800"
+        >
+            Create Account
+        </a>
+{% endblock %}
+
 {% block content %}
 
 <div class="max-w-6xl mx-auto space-y-6">
@@ -38,12 +47,7 @@ Manage the internal purposes to which Nonda can issue coffee.
             </p>
         </div>
 
-        <a
-            href="{% url 'internal_account_create' %}"
-            class="px-4 py-2.5 rounded-lg bg-rust text-white text-sm font-bold hover:bg-rust-dark"
-        >
-            + Create Account
-        </a>
+      
 
     </div>
 

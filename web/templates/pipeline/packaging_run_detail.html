@@ -1,134 +1,60 @@
 {% extends "pipeline/base.html" %}
-
+{% load humanize %}
 {% block title %}Packaging Run #{{ run.pk }} | Nonda{% endblock %}
-
-{% block breadcrumb %}
-Inventory / Packaging Runs / Run #{{ run.pk }}
-{% endblock %}
-
-{% block header_action %}
-<a href="{% url 'packaging_run_list' %}"
-   class="px-3.5 py-1.5 text-xs font-semibold border border-line bg-white text-ink rounded-lg hover:bg-paper transition">
-    Back to Runs
-</a>
-{% endblock %}
-
+{% block breadcrumb %}Inventory / Packaging Runs / #{{ run.pk }}{% endblock %}
+{% block page_title %}Packaging Run #{{ run.pk }}{% endblock %}
+{% block header_action %}<a href="{% url 'packaging_run_list' %}" class="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold">All Packaging Runs</a>{% endblock %}
 {% block content %}
-<div class="max-w-5xl mx-auto space-y-4">
-
-    <!-- HEADER BANNER -->
-    <div class="bg-white border border-line rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-        <div>
-            <div class="flex items-center gap-2">
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-paper text-ink border border-line">Run #{{ run.pk }}</span>
-                <h1 class="font-display text-lg font-bold text-ink">{{ run.product.blend.name }}</h1>
-            </div>
-            <p class="text-xs text-clay mt-0.5">
-                {{ run.product.pack_size.label }} · {{ run.product.get_form_display }}
-            </p>
-        </div>
-        <div class="text-left sm:text-right text-xs">
-            <p class="text-[10px] uppercase font-bold text-clay">Recorded Date</p>
-            <p class="font-semibold text-ink mt-0.5">{{ run.run_date|date:"d M Y, H:i" }}</p>
-        </div>
-    </div>
-
-    <!-- KPI ACCOUNTABILITY METRICS -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <!-- Input -->
-        <div class="bg-white border border-line rounded-xl p-3.5 shadow-sm">
-            <p class="text-[9px] uppercase tracking-wider font-bold text-clay">Input Weight</p>
-            <p class="text-xl font-bold text-ink mt-1">
-                {{ run.input_kg }} <span class="text-xs font-normal text-clay">kg</span>
-            </p>
-        </div>
-
-        <!-- In Packs -->
-        <div class="bg-white border border-line rounded-xl p-3.5 shadow-sm">
-            <p class="text-[9px] uppercase tracking-wider font-bold text-clay">Represented In Packs</p>
-            <p class="text-xl font-bold text-ink mt-1">
-                {{ represented_kg|default:"0" }} <span class="text-xs font-normal text-clay">kg</span>
-            </p>
-        </div>
-
-        <!-- Loss -->
-        <div class="bg-amber-50/50 border border-amber-200/70 rounded-xl p-3.5 shadow-sm">
-            <p class="text-[9px] uppercase tracking-wider font-bold text-amber-800">Packaging Loss</p>
-            <p class="text-xl font-bold text-amber-900 mt-1">
-                {{ run.loss_kg }} <span class="text-xs font-normal text-amber-700">kg</span>
-            </p>
-        </div>
-
-        <!-- Packs Produced -->
-        <div class="bg-white border border-line rounded-xl p-3.5 shadow-sm">
-            <p class="text-[9px] uppercase tracking-wider font-bold text-clay">Packs Produced</p>
-            <p class="text-xl font-bold text-rust mt-1">
-                {{ run.packs_produced }} <span class="text-xs font-normal text-clay">units</span>
-            </p>
-        </div>
-    </div>
-
-    <!-- DETAILS GRID -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-        <!-- SPECIFICATION RESULT -->
-        <div class="bg-white border border-line rounded-xl p-4 shadow-sm space-y-3">
-            <h2 class="text-[10px] uppercase font-bold tracking-wider text-clay border-b border-line pb-2">
-                Production Specification
-            </h2>
-
-            <div class="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                    <p class="text-[9px] uppercase font-bold text-clay">Blend</p>
-                    <p class="font-semibold text-ink mt-0.5">{{ run.product.blend.name }}</p>
-                </div>
-
-                <div>
-                    <p class="text-[9px] uppercase font-bold text-clay">Pack Size</p>
-                    <p class="font-semibold text-ink mt-0.5">{{ run.product.pack_size.label }}</p>
-                </div>
-
-                <div>
-                    <p class="text-[9px] uppercase font-bold text-clay">Form</p>
-                    <p class="font-semibold text-ink mt-0.5">{{ run.product.get_form_display }}</p>
-                </div>
-
-                <div>
-                    <p class="text-[9px] uppercase font-bold text-clay">Total Output</p>
-                    <p class="font-bold text-ink mt-0.5">{{ run.packs_produced }} units</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- SOURCE BATCH & NOTES -->
-        <div class="bg-white border border-line rounded-xl p-4 shadow-sm space-y-3">
-            <h2 class="text-[10px] uppercase font-bold tracking-wider text-clay border-b border-line pb-2">
-                Source Coffee Batch
-            </h2>
-
-            <div class="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                    <p class="text-[9px] uppercase font-bold text-clay">Batch Number</p>
-                    <p class="font-semibold text-ink mt-0.5">{{ run.stock.batch_number }}</p>
-                </div>
-
-                <div>
-                    <p class="text-[9px] uppercase font-bold text-clay">Variety</p>
-                    <p class="font-semibold text-ink mt-0.5">{{ run.stock.variety.name }}</p>
-                </div>
-            </div>
-
-            {% if run.notes %}
-            <div class="mt-3 pt-3 border-t border-line text-xs">
-                <p class="text-[9px] uppercase font-bold text-clay mb-1">Notes</p>
-                <p class="text-ink/80 leading-relaxed bg-paper/60 p-2.5 rounded-lg border border-line/60">
-                    {{ run.notes }}
-                </p>
-            </div>
-            {% endif %}
-        </div>
-
-    </div>
-
+<div class="max-w-5xl space-y-3">
+  <section class="rounded-lg border border-slate-200 bg-white p-3">
+    <div class="flex flex-wrap items-start justify-between gap-2"><div><span class="inline-block rounded border px-2 py-1 text-[10px] font-bold uppercase {% if run.status == 'open' %}border-amber-200 bg-amber-50 text-amber-800{% elif run.status == 'completed' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-slate-200 bg-slate-50 text-slate-600{% endif %}">{{ run.get_status_display }}</span><p class="mt-2 text-xs text-slate-500">Source stage: <strong>{{ run.get_source_stage_display }}</strong> · Started {{ run.issued_at|date:"d M Y, H:i" }}</p>{% if run.completed_at %}<p class="text-xs text-slate-500">Completed {{ run.completed_at|date:"d M Y, H:i" }}</p>{% endif %}</div><div class="text-right"><p class="text-[10px] uppercase tracking-wide text-slate-400">Total input</p><p class="text-xl font-bold">{{ run.input_kg|floatformat:2 }} kg</p><p class="text-[10px] text-slate-500">{{ input_batch_count }} source batch(es)</p></div></div>
+  </section>
+  <section class="rounded-lg border border-slate-200 bg-white p-3">
+    <h2 class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600">Source batches issued</h2>
+    <div class="overflow-x-auto"><table class="w-full text-left text-xs"><thead class="bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th class="p-2">Batch</th><th class="p-2">Variety</th><th class="p-2 text-right">Issued (kg)</th></tr></thead><tbody>{% for line in input_lines %}<tr class="border-t border-slate-100"><td class="p-2 font-semibold">{{ line.stock.batch_number }}</td><td class="p-2">{{ line.stock.variety.name }}</td><td class="p-2 text-right">{{ line.input_kg|floatformat:2 }}</td></tr>{% empty %}<tr><td colspan="3" class="p-3 text-slate-500">No input rows recorded.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+  {% if run.status == "open" %}
+  <section class="rounded-lg border border-amber-200 bg-white p-3 space-y-3">
+    <div><h2 class="text-sm font-bold text-slate-900">Complete packaging run</h2><p class="text-[11px] text-slate-500">Enter the actual quantity made for each product/pack size. The system calculates packed kg and loss automatically.</p></div>
+    <form method="post" action="{% url 'packaging_run_complete' run.pk %}" class="space-y-3">
+      {% csrf_token %}
+      <div class="overflow-x-auto"><table class="w-full text-left text-xs"><thead class="bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th class="p-2">Product / pack size</th><th class="p-2 w-36">Packs produced</th><th class="p-2 w-16"></th></tr></thead><tbody id="output-rows">
+        <tr class="output-row border-t border-slate-100"><td class="p-2"><select name="output_product[]" required class="w-full rounded border border-slate-300 px-2 py-2 text-xs"><option value="">Select product…</option>{% for product in output_products %}<option value="{{ product.pk }}" data-blend="{{ product.blend_id }}" data-form="{{ product.form }}">{{ product.blend.name }} — {{ product.pack_size.label }} — {{ product.get_form_display }} ({{ product.kg_per_pack }} kg/pack)</option>{% endfor %}</select></td><td class="p-2"><input name="output_packs[]" required type="number" min="1" step="1" class="w-full rounded border border-slate-300 px-2 py-2 text-xs" placeholder="e.g. 10"></td><td class="p-2"><button type="button" class="remove-output-row text-slate-500 hover:text-rose-600">Remove</button></td></tr>
+      </tbody></table></div>
+      <button type="button" id="add-output-row" class="rounded border border-slate-300 px-2.5 py-1.5 text-xs font-semibold">+ Add pack size</button>
+      <div><label class="mb-1 block text-xs font-semibold text-slate-700">Completion notes</label><textarea name="completion_notes" rows="2" class="w-full rounded border border-slate-300 px-2 py-2 text-xs" placeholder="Optional notes about output or wastage"></textarea></div>
+      <p class="rounded bg-slate-50 p-2 text-[11px] text-slate-600">Only pack sizes for the same blend and form can be combined in a run. Packed kilograms must not exceed {{ run.input_kg|floatformat:2 }} kg input.</p>
+      <div class="flex justify-end"><button type="submit" class="rounded bg-rust px-4 py-2 text-xs font-semibold text-white">Complete Run & Update Inventory</button></div>
+    </form>
+  </section>
+  {% else %}
+  <section class="rounded-lg border border-slate-200 bg-white p-3">
+    <h2 class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600">Finished products</h2>
+    <div class="overflow-x-auto"><table class="w-full text-left text-xs"><thead class="bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th class="p-2">Product</th><th class="p-2 text-right">Packs</th><th class="p-2 text-right">Coffee represented (kg)</th></tr></thead><tbody>{% for line in output_lines %}<tr class="border-t border-slate-100"><td class="p-2">{{ line.product.blend.name }} — {{ line.product.pack_size.label }} — {{ line.product.get_form_display }}</td><td class="p-2 text-right font-semibold">{{ line.packs_produced }}</td><td class="p-2 text-right">{{ line.coffee_used_kg|floatformat:3 }}</td></tr>{% empty %}<tr><td colspan="3" class="p-3 text-slate-500">No output rows recorded.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-2"><div class="rounded-lg border bg-white p-3"><p class="text-[10px] uppercase text-slate-500">Total packs</p><p class="text-xl font-bold">{{ run.packs_produced|default:0 }}</p></div><div class="rounded-lg border bg-white p-3"><p class="text-[10px] uppercase text-slate-500">Coffee packed</p><p class="text-xl font-bold">{{ run.coffee_used_kg|floatformat:3 }} kg</p></div><div class="rounded-lg border border-amber-200 bg-amber-50 p-3"><p class="text-[10px] uppercase text-amber-700">Packaging loss</p><p class="text-xl font-bold text-amber-900">{{ run.loss_kg|floatformat:3 }} kg</p></div><div class="rounded-lg border bg-white p-3"><p class="text-[10px] uppercase text-slate-500">Accounted input</p><p class="text-xl font-bold">{{ run.accounted_kg|floatformat:2 }} kg</p></div></div>
+  {% endif %}
+  {% if run.notes %}<section class="rounded-lg border border-slate-200 bg-white p-3"><h2 class="mb-1 text-xs font-bold uppercase tracking-wide text-slate-600">Notes</h2><p class="whitespace-pre-line text-xs text-slate-700">{{ run.notes }}</p></section>{% endif %}
 </div>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const rows = document.getElementById("output-rows");
+  const add = document.getElementById("add-output-row");
+  if (!rows || !add) return;
+  add.addEventListener("click", () => {
+    const row = rows.querySelector(".output-row").cloneNode(true);
+    row.querySelector("select").value = "";
+    row.querySelector("input").value = "";
+    rows.appendChild(row);
+  });
+  rows.addEventListener("click", event => {
+    if (!event.target.classList.contains("remove-output-row")) return;
+    const all = rows.querySelectorAll(".output-row");
+    if (all.length === 1) {
+      all[0].querySelector("select").value = "";
+      all[0].querySelector("input").value = "";
+    } else event.target.closest(".output-row").remove();
+  });
+});
+</script>
 {% endblock %}

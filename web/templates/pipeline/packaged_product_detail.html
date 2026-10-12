@@ -5,6 +5,15 @@
 {{ product.blend.name }} {{ product.pack_size.label }} | Nonda
 {% endblock %}
 
+{% block header_action %}
+ <div>
+            <a href="{% url 'packaging_run_create' %}"
+               class="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-rust hover:bg-rust-dark text-white text-xs font-semibold shadow-xs transition">
+                Record Packaging
+            </a>
+        </div>
+{% endblock %}
+
 {% block content %}
 <div class="space-y-3">
 
@@ -24,12 +33,7 @@
                 </span>
             </div>
         </div>
-        <div>
-            <a href="{% url 'packaging_run_create' %}"
-               class="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-rust hover:bg-rust-dark text-white text-xs font-semibold shadow-xs transition">
-                Record Packaging
-            </a>
-        </div>
+       
     </div>
 
     <!-- 1. COMPACT KPI SUMMARY CARDS -->
@@ -77,51 +81,6 @@
         </div>
     </div>
 
-    <!-- 2. PACKAGING ACCOUNTABILITY TABLE -->
-    <div class="bg-white border border-[#E4DECB] rounded-lg shadow-2xs overflow-hidden">
-        <div class="px-3 py-2 bg-slate-50/80 border-b border-[#E4DECB] flex items-center justify-between">
-            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-700">Packaging Accountability</h2>
-            <span class="text-[11px] text-slate-400">Conversion from bulk to packaged stock</span>
-        </div>
-        <div class="overflow-x-auto w-full">
-            <table class="w-full text-xs text-left border-collapse bg-white min-w-[750px]">
-                <thead>
-                    <tr class="bg-slate-100/80 border-b border-[#E4DECB] text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
-                        <th class="px-3 py-2">Run Date</th>
-                        <th class="px-3 py-2 text-right">Input Mass</th>
-                        <th class="px-3 py-2 text-right">Packs Produced</th>
-                        <th class="px-3 py-2 text-right">Yield Mass</th>
-                        <th class="px-3 py-2 text-right">Loss</th>
-                        <th class="px-3 py-2 text-right">Accounted Total</th>
-                        <th class="px-3 py-2 text-center">Action</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-[#E4DECB] text-slate-700">
-                    {% for run in packaging_runs %}
-                    <tr class="hover:bg-slate-50/80 transition">
-                        <td class="px-3 py-2 text-slate-400 font-medium whitespace-nowrap">{{ run.run_date|date:"d M Y, H:i" }}</td>
-                        <td class="px-3 py-2 text-right font-semibold text-slate-800">{{ run.input_kg }} kg</td>
-                        <td class="px-3 py-2 text-right font-bold text-slate-900">{{ run.packs_produced }}</td>
-                        <td class="px-3 py-2 text-right text-slate-500">{{ run.packs_produced|default:"0" }} {{ product.kg_per_pack }} kg</td>
-                        <td class="px-3 py-2 text-right font-medium text-amber-600">{{ run.loss_kg }} kg</td>
-                        <td class="px-3 py-2 text-right font-bold text-emerald-700 bg-slate-50/50">{{ run.input_kg }} kg</td>
-                        <td class="px-3 py-2 text-center whitespace-nowrap">
-                            <a href="{% url 'packaging_run_detail' run.pk %}" class="font-semibold text-rust hover:underline text-xs">
-                                View
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="px-3 py-6 text-center text-slate-400 italic bg-white">
-                            No packaging runs recorded for this product yet.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
 
     <!-- 3. RELEASE & RETURN HISTORY TABLE -->
     <div class="bg-white border border-[#E4DECB] rounded-lg shadow-2xs overflow-hidden">

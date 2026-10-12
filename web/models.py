@@ -1309,6 +1309,8 @@ class PackagingRun(models.Model):
         PackagedProduct,
         on_delete=models.PROTECT,
         related_name="packaging_runs",
+        null=True,
+        blank=True,
     )
 
     source_stage = models.CharField(
@@ -1334,8 +1336,8 @@ class PackagingRun(models.Model):
     # Actual coffee represented by those packs
     coffee_used_kg = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
-        default=Decimal("0.00"),
+        decimal_places=4,
+        
     )
 
     selling_price = models.DecimalField(
@@ -1346,9 +1348,8 @@ class PackagingRun(models.Model):
 
     # Difference between input and coffee in completed packs
     loss_kg = models.DecimalField(
-        max_digits=10,
         decimal_places=2,
-        default=Decimal("0.00"),
+        max_digits=12,
     )
 
     status = models.CharField(
@@ -1390,10 +1391,8 @@ class PackagingRun(models.Model):
         ordering = ["-issued_at"]
 
     def __str__(self):
-        return (
-            f"{self.product} â€” "
-            f"{self.input_kg} kg"
-        )
+        product_label = str(self.product) if self.product_id else "outputs pending"
+        return f"Packaging run #{self.pk} — {self.input_kg} kg — {product_label}"
 
     @property
     def accounted_kg(self):
@@ -1421,7 +1420,93 @@ class PackagingRun(models.Model):
             self.input_kg /
             self.product.kg_per_pack
         )
+
     
+    @property
+    def packs_produced(self):
+        return self.outputs.aggregate(
+            total=Sum("packs_produced")
+        )["total"] or 0
+
+
+        # New runs: count only output rows for this exact sellable product.
+        output_total = (
+            PackagingRunOutput.objects
+            .filter(product=self.product, run__status="completed")
+            .aggregate(total=Sum("packs_produced"))["total"]
+            or 0
+        )
+
+        # Legacy runs: no output rows, one product on the parent run.
+        legacy_total = (
+            self.product.packaging_runs
+            .filter(status="completed", outputs__isnull=True)
+            .aggregate(total=Sum("packs_produced"))["total"]
+            or 0
+        )
+        return output_total + legacy_total
+
+class PackagingRunInput(models.Model):
+    """Coffee taken from one source batch for a packaging run."""
+    run = models.ForeignKey(
+        PackagingRun,
+        on_delete=models.PROTECT,
+        related_name="inputs",
+    )
+    stock = models.ForeignKey(
+        CoffeeStock,
+        on_delete=models.PROTECT,
+        related_name="packaging_run_inputs",
+    )
+    input_kg = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        ordering = ["pk"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(input_kg__gt=0),
+                name="packrun_input_kg_gt0",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Packaging run #{self.run_id}: {self.input_kg} kg from {self.stock}"
+
+
+class PackagingRunOutput(models.Model):
+    """A finished product/pack-size quantity produced by a packaging run."""
+    run = models.ForeignKey(
+        PackagingRun,
+        on_delete=models.PROTECT,
+        related_name="outputs",
+    )
+    product = models.ForeignKey(
+        PackagedProduct,
+        on_delete=models.PROTECT,
+        related_name="packaging_outputs",
+    )
+    packs_produced = models.PositiveIntegerField()
+
+    class Meta:
+        ordering = ["product__pack_size__grams", "pk"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(packs_produced__gt=0),
+                name="packrun_output_gt0",
+            ),
+            models.UniqueConstraint(
+                fields=["run", "product"],
+                name="uniq_packrun_product",
+            ),
+        ]
+
+    @property
+    def coffee_used_kg(self):
+        return self.product.kg_per_pack * self.packs_produced
+
+    def __str__(self):
+        return f"Run #{self.run_id}: {self.packs_produced} × {self.product}"
+
 # 6. PACKAGED INVENTORY  (live stock per product)
 #    packs_in - packs_released + packs_returned
 class PackagedInventory(models.Model):
@@ -1445,8 +1530,8 @@ class PackagedInventory(models.Model):
     @property
     def packs_produced(self):
         return sum(
-            (run.packs_produced or 0)
-            for run in self.product.packaging_runs.filter(status="completed")
+            output.packs_produced
+            for output in self.product.packaging_outputs.filter(run__status="completed")
         )
 
     @property

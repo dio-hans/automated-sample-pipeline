@@ -12,11 +12,12 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from . import models
+
 from .models import (
     AccountHolder,
     BranchStockLedger,
     CompanyBranch,
-    ConsignmentInventory,
     PackagedInventory,
     PackagedProduct,
     PackRelease,

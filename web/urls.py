@@ -62,8 +62,11 @@ path('packaged-product/<int:pk>/', views.PackagedProductDetailView.as_view(), na
 
 # --- Packaging Runs ---
 path('packaging-runs/', views.PackagingRunListView.as_view(), name='packaging_run_list'),
-path('packaging-runs/add/', views.PackagingRunCreateView.as_view(), name='packaging_run_create'),
-path('packaging-runs/<int:pk>/', views.PackagingRunDetailView.as_view(), name='packaging_run_detail'),
+path("packaging-runs/", views.PackagingRunListView.as_view(), name="packaging_run_list"),
+path("packaging-runs/add/", views.PackagingRunCreateView.as_view(), name="packaging_run_create"),
+path("packaging-runs/<int:pk>/complete/", views.CompletePackagingRunView.as_view(), name="packaging_run_complete"),
+path("packaging-runs/<int:pk>/", views.PackagingRunDetailView.as_view(), name="packaging_run_detail"),
+
 
 # --- Pack Releases ---
 path('pack-releases/', views.PackReleaseListView.as_view(), name='pack_release_list'),

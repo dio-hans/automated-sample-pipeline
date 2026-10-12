@@ -27,8 +27,8 @@ from .consignment_forms import (
 
 from .consignment_forms import BranchForm, ConsignmentDeliveryForm, ShelfTransferForm, BranchReturnForm, AuditDecisionForm
 from .models import (
-    BranchStockLedger, Company, CompanyBranch, ConsignmentInventory,
-    ConsignmentInvoice, PackagedProduct, PackRelease, StockAudit, User,
+    BranchStockLedger, Company, CompanyBranch, 
+    ConsignmentInvoice, PackagedProduct, PackRelease, ConsignmentInventory, StockAudit, User,
 )
 from .sales_views import RoleRequiredMixin
 from .services.consignments import (

@@ -5,6 +5,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.core.paginator import Paginator
 from django.db.models import Q, Prefetch
+from django.template import context
 from django.utils import timezone
 from django.conf import settings
 from django.core.paginator import Paginator
@@ -22,7 +23,7 @@ from django.forms import formset_factory
 from .sales_forms import PaymentReceiptForm
 from .sales_workflow import create_stock_request, fulfill_request_item, process_supermarket_audit, record_installment_payment
 from .sales_forms import PackReturnForm
-from .models import  AccountHolder, CompanyBranch, ConsignmentInventory, PackagedProduct, StockAudit
+from .models import  AccountHolder, CompanyBranch, ConsignmentInventory, PackagedProduct, PackagingRun, PackagingRun, StockAudit
 from .models import (
     Company,
     PackRelease,
@@ -100,7 +101,7 @@ class InventoryDashboardView(RoleRequiredMixin, TemplateView):
             status__in=("pending", "partially_fulfilled")
         ).select_related("requested_by", "company").prefetch_related(
             "items__product__blend", "items__product__pack_size"
-        ).order_by("-requested_at")  # ✅ Matches model schema
+        ).order_by("-requested_at")
 
         pending_count = pending_qs.count()
         pending_requests = list(pending_qs[:8])
@@ -111,7 +112,6 @@ class InventoryDashboardView(RoleRequiredMixin, TemplateView):
         ).order_by("-released_at")[:20]
 
         # 4. 🧮 SAFE BULK COFFEE QUANTITY COMPUTATION
-        # Computes quantities safely using model properties/fallbacks without throwing SQL FieldErrors
         stocks = CoffeeStock.objects.all()
 
         total_green = Decimal("0.00")
@@ -119,7 +119,6 @@ class InventoryDashboardView(RoleRequiredMixin, TemplateView):
         total_ground = Decimal("0.00")
 
         for stock in stocks:
-            # Fallback checks handle dynamic model properties safely
             green_val = getattr(stock, "quantity_green", getattr(stock, "quantity_after_sorting", 0)) or 0
             total_green += Decimal(str(green_val))
 
@@ -129,7 +128,7 @@ class InventoryDashboardView(RoleRequiredMixin, TemplateView):
             ground_val = getattr(stock, "quantity_ground", 0) or 0
             total_ground += Decimal(str(ground_val))
 
-        # 5. CONTEXT INJECTION
+        # 5. CONTEXT INJECTION (Assigned directly to ctx)
         ctx.update({
             "inventory": inventory,
             "low_stock_items": low_stock_items,
@@ -139,12 +138,15 @@ class InventoryDashboardView(RoleRequiredMixin, TemplateView):
             "pending_request_count": pending_count,
             "recent_releases": releases,
 
-            # Warehouse lot capacity values
             "total_green_kg": total_green,
             "total_roasted_kg": total_roasted,
             "total_ground_kg": total_ground,
             "total_bulk_kg": total_green + total_roasted + total_ground,
+
+            "open_packaging_runs": PackagingRun.objects.filter(status="open").order_by("issued_at")[:5],
+            "open_packaging_runs_count": PackagingRun.objects.filter(status="open").count(),
         })
+
         return ctx
 
 class SalesWorkspaceView(RoleRequiredMixin, TemplateView):
@@ -220,46 +222,128 @@ class SalesWorkspaceView(RoleRequiredMixin, TemplateView):
         ctx["account_holder"] = account_holder
         return ctx
 
+
+from django.urls import reverse
+
+
+def get_stock_request_redirect_url(user, stock_request=None):
+    """
+    Return the correct destination after submitting a stock request.
+    """
+    role = getattr(user, "role", None)
+
+    # Cashiers go to the order queue.
+    if role == User.Role.CASHIER:
+        return reverse("order_queue")
+
+    # Sales staff return to the sales workspace.
+    if role == User.Role.SALES:
+        return reverse("record_sale")
+
+    # Managers may proceed to fulfilment.
+    if role == User.Role.MANAGER:
+        if stock_request:
+            return reverse(
+                "stock_request_detail",
+                kwargs={"pk": stock_request.pk},
+            )
+        return reverse("stock_request_list")
+
+    # Admins should review requests, not automatically fulfil them.
+    if role == User.Role.ADMIN:
+        if stock_request:
+            return reverse(
+                "stock_request_detail",
+                kwargs={"pk": stock_request.pk},
+            )
+        return reverse("stock_request_list")
+
+    # Accounts staff should go to their own workspace.
+    if role == User.Role.ACCOUNTS:
+        return reverse("stock_request_list")
+
+    return reverse("stock_request_list")
+
+
 class StockRequestCreateView(RoleRequiredMixin, View):
-    allowed_roles = (User.Role.SALES, User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER)
+    allowed_roles = (
+        User.Role.SALES,
+        User.Role.MANAGER,
+        User.Role.ADMIN,
+        User.Role.CASHIER,
+    )
     template_name = "pipeline/stock_request_form.html"
 
     def get(self, request):
-        return render(request, self.template_name, {
-            "form": StockRequestForm(),
-            "item_formset": StockRequestItemFormSet(prefix="items"),
-        })
+        return render(
+            request,
+            self.template_name,
+            {
+                "form": StockRequestForm(),
+                "item_formset": StockRequestItemFormSet(prefix="items"),
+            },
+        )
 
     def post(self, request):
         form = StockRequestForm(request.POST)
-        formset = StockRequestItemFormSet(request.POST, prefix="items")
+        formset = StockRequestItemFormSet(
+            request.POST,
+            prefix="items",
+        )
+
         if form.is_valid() and formset.is_valid():
             try:
                 items = [
-                    (row.cleaned_data["product"], row.cleaned_data["quantity_requested"])
+                    (
+                        row.cleaned_data["product"],
+                        row.cleaned_data["quantity_requested"],
+                    )
                     for row in formset.forms
-                    if row.cleaned_data and not row.cleaned_data.get("DELETE")
+                    if row.cleaned_data
+                    and not row.cleaned_data.get("DELETE")
                 ]
+
                 stock_request = create_stock_request(
                     user=request.user,
                     purpose=form.cleaned_data.get("purpose"),
-                    destination_type=form.cleaned_data.get("destination_type", ""),  # Fixed using .get()
+                    destination_type=form.cleaned_data.get(
+                        "destination_type", ""
+                    ),
                     company=form.cleaned_data.get("company"),
                     account_holder=form.cleaned_data.get("account_holder"),
                     notes=form.cleaned_data.get("notes", ""),
                     items=items,
                 )
-                messages.success(request, f"Stock request {stock_request.short_number} submitted to the store.")
 
-                if request.user.role == "CASHIER":
-                    return redirect("order_queue")
-                return redirect("record_sale")
-            
+                messages.success(
+                    request,
+                    f"Stock request {stock_request.short_number} "
+                    "submitted to the store.",
+                )
+
+                return redirect(
+                    get_stock_request_redirect_url(
+                        request.user,
+                        stock_request,
+                    )
+                )
+
             except ValidationError as exc:
-                msg = exc.messages[0] if hasattr(exc, "messages") else str(exc)
+                msg = (
+                    exc.messages[0]
+                    if hasattr(exc, "messages")
+                    else str(exc)
+                )
                 form.add_error(None, msg)
-        return render(request, self.template_name, {"form": form, "item_formset": formset})
 
+        return render(
+            request,
+            self.template_name,
+            {
+                "form": form,
+                "item_formset": formset,
+            },
+        )
     
 class MyStockRequestListView(RoleRequiredMixin, ListView):
     allowed_roles = (User.Role.SALES, User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER)
@@ -298,7 +382,7 @@ class StockRequestDetailView(RoleRequiredMixin, DetailView):
 
     
 class StockRequestFulfillView(RoleRequiredMixin, View):
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
+    allowed_roles = (User.Role.MANAGER)
     template_name = "pipeline/stock_request_fulfill.html"
 
     def get_request(self, pk):

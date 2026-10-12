@@ -10,13 +10,14 @@ Inventory / Packaging Runs
 Packaging Runs
 {% endblock %}
 
-{% block header_action %}
+
+{% block page_subtitle %}<p class="text-xs text-slate-500">Track packaging operations from source-batch issue through finished pack quantities and loss reconciliation.</p>{% endblock %}
+{% block header_action %}<a href="{% url 'packaging_run_create' %}" class="rounded bg-rust px-3 py-2 text-xs font-semibold text-white">Start Packaging Run</a>{% endblock %}
 <a href="{% url 'packaging_run_create' %}"
    class="px-4 py-2 text-xs font-semibold text-white bg-rust rounded-lg hover:bg-rust-dark transition shadow-sm inline-flex items-center gap-1.5">
     
     Record Packaging
 </a>
-{% endblock %}
 
 {% block content %}
 

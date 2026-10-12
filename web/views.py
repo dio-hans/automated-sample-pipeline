@@ -14,7 +14,7 @@ from .services.reporting.export import pdf_bytes
 from .services.reporting.finance import get_finance_report
 from .services.reporting.executive import get_executive_report
 from .services.reporting.operations import get_operations_report
-from .services.reporting.sales import get_sales_report
+from .services.reporting.sales import get_sales_control_report, get_sales_report
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.shortcuts import get_object_or_404, redirect
@@ -31,14 +31,14 @@ from .sales_workflow import (
     record_installment_payment,
 )
 from .models import AccountHolder, InternalAccount, InternalStockIssue, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from .services.processing import complete_roasting, complete_sorting
 from django.views.generic import TemplateView
 from .models import CoffeeStock, PackagedInventory, RoastedSackSale
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError
-from .services.packaging import execute_pack_return
+from .services.packaging import complete_packaging_run, execute_pack_return, start_packaging_run
 from django.db import models, transaction
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -63,6 +63,7 @@ from .forms import (
     PackagedProductBulkForm,
     PackagingRunForm,
     PackReleaseForm,
+    PackagingRunStartForm,
     SampleForm,
     UserLoginForm,
     UserRegistrationForm,
@@ -205,113 +206,156 @@ class InventoryRoleRequiredMixin:
         messages.error(request, "You do not have permission to access inventory operations.")
         return redirect("record_sale")  
           
-@method_decorator(login_required, name='dispatch')  
+@method_decorator(login_required, name="dispatch")
 class PackagingRunListView(InventoryRoleRequiredMixin, ListView):
-    allowed_roles = (User.Role.MANAGER, User.Role.ACCOUNTS)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS)
     model = PackagingRun
     template_name = "pipeline/packaging_run_list.html"
     context_object_name = "packaging_runs"
 
     def get_queryset(self):
-        return PackagingRun.objects.select_related(
-            "product__blend", "product__pack_size", "stock"
-        ).order_by("-issued_at")
-    
-@method_decorator(login_required, name='dispatch')
+        return (
+            PackagingRun.objects
+            .select_related("product__blend", "product__pack_size", "stock", "issued_by", "completed_by")
+            .prefetch_related("inputs__stock", "outputs__product__blend", "outputs__product__pack_size")
+            .order_by("-issued_at")
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["open_packaging_runs_count"] = PackagingRun.objects.filter(status="open").count()
+        return context
+
+
+@method_decorator(login_required, name="dispatch")
 class PackagingRunDetailView(InventoryRoleRequiredMixin, DetailView):
     allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS)
     model = PackagingRun
     template_name = "pipeline/packaging_run_detail.html"
     context_object_name = "run"
 
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        run = self.object
-        kg_per_pack = run.product.kg_per_pack
-        ctx["represented_kg"] = Decimal(run.packs_produced or 0) * kg_per_pack
-        return ctx
+    def get_queryset(self):
+        return PackagingRun.objects.select_related(
+            "product__blend", "product__pack_size", "stock", "issued_by", "completed_by"
+        ).prefetch_related(
+            "inputs__stock", "outputs__product__blend", "outputs__product__pack_size"
+        )
 
-@method_decorator(login_required, name='dispatch')
-class PackagingRunCreateView(InventoryRoleRequiredMixin, CreateView):
-    model = PackagingRun
-    form_class = PackagingRunForm
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        run = self.object
+        context["input_lines"] = run.inputs.select_related("stock").all()
+        context["output_lines"] = run.outputs.select_related(
+            "product__blend", "product__pack_size"
+        ).all()
+        output_form = "beans" if run.source_stage == "roasted" else "ground"
+        context["output_products"] = PackagedProduct.objects.filter(
+            is_active=True, form=output_form
+        ).select_related("blend", "pack_size").order_by("blend__name", "pack_size__grams")
+        context["represented_kg"] = run.coffee_used_kg or Decimal("0.00")
+        context["input_batch_count"] = run.inputs.count()
+        return context
+
+
+@method_decorator(login_required, name="dispatch")
+class PackagingRunCreateView(InventoryRoleRequiredMixin, FormView):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS)
+    form_class = PackagingRunStartForm
     template_name = "pipeline/packaging_run_form.html"
-    success_url = reverse_lazy("packaging_run_list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["stocks"] = CoffeeStock.objects.select_related("variety").order_by("batch_number")
+        return context
 
     def form_valid(self, form):
-        try:
-            execute_packaging_run(
-                stock=form.cleaned_data["stock"],
-                product=form.cleaned_data["product"],
-                source_stage=form.cleaned_data["source_stage"],
-                input_kg=form.cleaned_data["input_kg"],
-                packs_produced=form.cleaned_data["packs_produced"],
-                user=current_user(self.request),
-                notes=form.cleaned_data.get("notes", "")
-            )
-            messages.success(self.request, "Packaging run recorded successfully.")
-            return redirect(self.success_url)
-        except ValidationError as e:
-            form.add_error(None, e.message)
+        stock_ids = self.request.POST.getlist("input_stock[]")
+        quantities = self.request.POST.getlist("input_kg[]")
+        if len(stock_ids) != len(quantities):
+            form.add_error(None, "The batch rows were incomplete. Please check the source batches and quantities.")
             return self.form_invalid(form)
 
+        input_rows = []
+        for stock_id, raw_quantity in zip(stock_ids, quantities):
+            stock_id = (stock_id or "").strip()
+            raw_quantity = (raw_quantity or "").strip()
+            if not stock_id and not raw_quantity:
+                continue
+            if not stock_id or not raw_quantity:
+                form.add_error(None, "Every batch row needs both a source batch and kilogram quantity.")
+                return self.form_invalid(form)
+            try:
+                quantity = Decimal(raw_quantity)
+                stock = CoffeeStock.objects.get(pk=int(stock_id))
+            except (InvalidOperation, ValueError, TypeError, CoffeeStock.DoesNotExist):
+                form.add_error(None, "One of the source batch rows has an invalid batch or quantity.")
+                return self.form_invalid(form)
+            input_rows.append((stock, quantity))
 
-# ===================== PACK RELEASE & RETURN VIEWS =====================
-@method_decorator(login_required, name='dispatch')
-class PackReleaseListView(InventoryRoleRequiredMixin, ListView):
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER, User.Role.ACCOUNTS)
-    model = PackRelease
-    template_name = "pipeline/pack_release_list.html"
-    context_object_name = "releases"
+        try:
+            run = start_packaging_run(
+                inputs=input_rows,
+                source_stage=form.cleaned_data["source_stage"],
+                user=self.request.user,
+                notes=form.cleaned_data.get("notes", ""),
+            )
+        except (ValidationError, ValueError) as exc:
+            form.add_error(None, "; ".join(exc.messages) if isinstance(exc, ValidationError) else str(exc))
+            return self.form_invalid(form)
 
-    def get_queryset(self):
-        # Optimized database query joining your product lots and client profiles
-        qs = PackRelease.objects.select_related(
-            "product__blend", "product__pack_size", "released_to"
-        ).prefetch_related("returns", "payments").order_by("-released_at")
+        messages.success(self.request, f"Packaging run #{run.pk} started and source coffee issued successfully.")
+        return redirect("packaging_run_detail", pk=run.pk)
 
-        # Dynamically apply date filters based on your timeline presets
-        from .utils.util import apply_date_filters
-        qs, preset, today, start, end = apply_date_filters(self.request, qs, "released_at")
-        self._preset = preset
-        return qs
 
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        all_filtered_releases = ctx["releases"]
+@method_decorator(login_required, name="dispatch")
+class CompletePackagingRunView(InventoryRoleRequiredMixin, View):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS)
 
-        # 🦺 CRASH-PROOF ERP FINANCIAL AGGREGATIONS
-        # We calculate the total stock value safely. If the property 'stock_value' 
-        # is missing from the model, we calculate it dynamically via (packs_out * selling_price)
-        total_value_issued = sum(
-            getattr(r, "stock_value", Decimal(r.packs_out) * r.selling_price) 
-            for r in all_filtered_releases
+    def post(self, request, pk):
+        run = get_object_or_404(PackagingRun, pk=pk)
+        product_ids = request.POST.getlist("output_product[]")
+        pack_counts = request.POST.getlist("output_packs[]")
+        if len(product_ids) != len(pack_counts):
+            messages.error(request, "The output rows were incomplete. Check the product and pack quantities.")
+            return redirect("packaging_run_detail", pk=pk)
+
+        outputs = []
+        for product_id, raw_count in zip(product_ids, pack_counts):
+            product_id = (product_id or "").strip()
+            raw_count = (raw_count or "").strip()
+            if not product_id and not raw_count:
+                continue
+            if not product_id or not raw_count:
+                messages.error(request, "Every output row needs both a product and a pack quantity.")
+                return redirect("packaging_run_detail", pk=pk)
+            try:
+                product = PackagedProduct.objects.get(pk=int(product_id))
+                count = int(raw_count)
+            except (ValueError, TypeError, PackagedProduct.DoesNotExist):
+                messages.error(request, "One of the output rows has an invalid product or pack quantity.")
+                return redirect("packaging_run_detail", pk=pk)
+            outputs.append((product, count))
+
+        try:
+            completed_run = complete_packaging_run(
+                packaging_run=run,
+                outputs=outputs,
+                user=request.user,
+                notes=request.POST.get("completion_notes", ""),
+            )
+        except (ValidationError, ValueError) as exc:
+            message = "; ".join(exc.messages) if isinstance(exc, ValidationError) else str(exc)
+            messages.error(request, message)
+            return redirect("packaging_run_detail", pk=pk)
+
+        messages.success(
+            request,
+            f"Packaging run #{completed_run.pk} completed. "
+            f"{completed_run.packs_produced} packs recorded; loss: {completed_run.loss_kg} kg.",
         )
-        
-        # Sum initial deposits plus any later cashier collections safely
-        total_collected_revenue = sum(
-            getattr(r, "total_amount_paid", Decimal(r.amount_paid_on_take if hasattr(r, "amount_paid_on_take") else 0)) 
-            for r in all_filtered_releases
-        )
-        
-        # Calculate outstanding balances due in the field safely
-        total_outstanding_debt = sum(
-            getattr(r, "outstanding_balance", (Decimal(r.packs_out) * r.selling_price) - getattr(r, "total_amount_paid", 0)) 
-            for r in all_filtered_releases
-        )
+        return redirect("packaging_run_detail", pk=pk)
 
-        ctx.update({
-            "preset": getattr(self, "_preset", "this_month"),
-            
-            # Safe Financial Metrics Context passed to your cards
-            "total_value_issued": total_value_issued,
-            "total_collected_revenue": total_collected_revenue,
-            "total_outstanding_debt": total_outstanding_debt,
-        })
-        return ctx
-
-
-
+    
 @method_decorator(login_required, name='dispatch')
 class PackReleaseDetailView(InventoryRoleRequiredMixin, DetailView):
     model = PackRelease
@@ -1113,6 +1157,119 @@ class CompleteProcessingRunView(RoleRequiredMixin, View):
 
         return redirect("processing_workspace")
 
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+from django.views.generic import ListView
+
+from django.utils import timezone
+from django.utils.dateparse import parse_date
+
+
+@method_decorator(login_required, name="dispatch")
+class PackReleaseListView(InventoryRoleRequiredMixin, ListView):
+    model = PackRelease
+    template_name = "pipeline/pack_release_list.html"
+    context_object_name = "releases"
+    ordering = ["-released_at"]
+    paginate_by = 25
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        today = timezone.localdate()
+        preset = self.request.GET.get("period", "overall").strip()
+
+        start_date = None
+        end_date = None
+        date_filter_error = ""
+
+        if preset == "today":
+            start_date = today
+            end_date = today
+
+        elif preset == "yesterday":
+            start_date = today - timedelta(days=1)
+            end_date = start_date
+
+        elif preset == "this_week":
+            start_date = today - timedelta(days=today.weekday())
+            end_date = start_date + timedelta(days=6)
+
+        elif preset == "this_month":
+            start_date = today.replace(day=1)
+
+            # Find the first day of the next month.
+            next_month = (
+                start_date.replace(day=28) + timedelta(days=4)
+            ).replace(day=1)
+
+            end_date = next_month - timedelta(days=1)
+
+        elif preset == "custom":
+            start_date = parse_date(
+                self.request.GET.get("start_date", "")
+            )
+            end_date = parse_date(
+                self.request.GET.get("end_date", "")
+            )
+
+            if (
+                start_date is not None
+                and end_date is not None
+                and start_date > end_date
+            ):
+                date_filter_error = (
+                    "The start date cannot be later than the end date."
+                )
+
+        elif preset != "overall":
+            # Unknown preset: safely fall back to the complete ledger.
+            preset = "overall"
+
+        self.preset = preset
+        self.period = {
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+        self.date_filter_error = date_filter_error
+
+        # Apply filters to the actual records shown in the ledger.
+        # A custom range may contain only a start or only an end date.
+        if not date_filter_error:
+            if start_date is not None:
+                queryset = queryset.filter(
+                    released_at__date__gte=start_date
+                )
+
+            if end_date is not None:
+                queryset = queryset.filter(
+                    released_at__date__lte=end_date
+                )
+
+        return queryset.select_related(
+            "product__blend",
+            "product__pack_size",
+            "released_to",
+            "request_item__request",
+        ).order_by("-released_at")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["preset"] = getattr(self, "preset", "overall")
+        context["period"] = getattr(
+            self,
+            "period",
+            {"start_date": None, "end_date": None},
+        )
+        context["date_filter_error"] = getattr(
+            self,
+            "date_filter_error",
+            "",
+        )
+
+        return context
+    
 # PACKAGED INVENTORY VIEWS
 @method_decorator(login_required, name='dispatch')
 class PackagedInventoryListView(InventoryRoleRequiredMixin, ListView):
@@ -1157,9 +1314,26 @@ class PackagedProductDetailView(InventoryRoleRequiredMixin, DetailView):
         inventory, _ = PackagedInventory.objects.get_or_create(product=product)
         ctx["inventory"] = inventory
         
-        ctx["packaging_runs"] = PackagingRun.objects.filter(
-            product=product
-        ).select_related("stock", "stock__variety").order_by("-issued_at")
+        ctx["packaging_runs"] = (
+            PackagingRun.objects
+            .filter(
+                Q(product=product, outputs__isnull=True)
+                | Q(outputs__product=product)
+            )
+            .distinct()
+            .select_related(
+                "stock",
+                "stock__variety",
+                "product__blend",
+                "product__pack_size",
+            )
+            .prefetch_related(
+                "inputs__stock__variety",
+                "outputs__product__blend",
+                "outputs__product__pack_size",
+            )
+            .order_by("-issued_at")
+        )
         
         ctx["releases"] = PackRelease.objects.filter(
             product=product
@@ -2749,39 +2923,177 @@ from .models import AccountHolder, PackRelease
 from .utils.util import apply_date_filters  # Adjust import path if needed
 
 
+
 @login_required
 def account_holder_detail(request, pk):
     account = get_object_or_404(AccountHolder, pk=pk)
 
-    # 1. Base QuerySet
-    releases = PackRelease.objects.filter(released_to=account).select_related(
-        'product__blend', 
-        'product__pack_size'
-    ).order_by('-released_at')
-
-    # 2. Apply Date Filter on 'released_at'
-    releases, preset, today, start, end = apply_date_filters(
-        request, 
-        releases, 
-        date_field="released_at"
+    payment_roles = (
+        User.Role.CASHIER,
+        User.Role.ACCOUNTS,
+        User.Role.MANAGER,
+        User.Role.ADMIN,
     )
 
-    # 3. Calculate total gross value directly in SQL on filtered queryset
-    value_aggregate = releases.aggregate(
-        total_value=Sum(
-            ExpressionWrapper(
-                F('packs_out') * F('selling_price'),
-                output_field=DecimalField()
+    can_collect_payment = (
+        request.user.is_superuser
+        or getattr(request.user, "role", None) in payment_roles
+    )
+
+    # --------------------------------------------------
+    # RECORD AN ACCOUNT-LEVEL PAYMENT
+    # --------------------------------------------------
+    if request.method == "POST":
+        if request.POST.get("action") != "record_account_payment":
+            messages.error(request, "Invalid account action.")
+            return redirect(request.get_full_path())
+
+        if not can_collect_payment:
+            messages.error(
+                request,
+                "You do not have permission to record account payments.",
             )
+            return redirect(request.get_full_path())
+
+        try:
+            amount = Decimal(request.POST.get("amount", "").strip())
+
+            method = request.POST.get("method", "").strip()
+            payment_reference = request.POST.get(
+                "payment_reference", ""
+            ).strip()
+            notes = request.POST.get("notes", "").strip()
+
+            if not amount.is_finite() or amount <= Decimal("0.00"):
+                raise ValidationError(
+                    "Enter a payment amount greater than zero."
+                )
+
+            with transaction.atomic():
+                # Lock this account's releases while allocating the payment.
+                account_releases = list(
+                    PackRelease.objects
+                    .select_for_update()
+                    .filter(released_to=account)
+                    .prefetch_related(
+                        "settlements",
+                        "payments",
+                        "returns",
+                    )
+                    .order_by("released_at", "pk")
+                )
+
+                # Only releases with an outstanding debt receive money.
+                debts = [
+                    (release, release.outstanding_balance)
+                    for release in account_releases
+                    if release.outstanding_balance > Decimal("0.00")
+                ]
+
+                total_due = sum(
+                    (balance for _, balance in debts),
+                    Decimal("0.00"),
+                )
+
+                if total_due <= Decimal("0.00"):
+                    raise ValidationError(
+                        "This account has no outstanding debt to collect."
+                    )
+
+                if amount > total_due:
+                    raise ValidationError(
+                        f"Payment exceeds the account's outstanding "
+                        f"balance of UGX {total_due:,.2f}."
+                    )
+
+                remaining = amount
+
+                # Allocate oldest outstanding debt first.
+                for release, balance in debts:
+                    if remaining <= Decimal("0.00"):
+                        break
+
+                    allocation = min(balance, remaining)
+
+                    if allocation <= Decimal("0.00"):
+                        continue
+
+                    record_installment_payment(
+                        release=release,
+                        amount=allocation,
+                        method=method,
+                        payment_reference=payment_reference,
+                        collected_by=request.user,
+                        notes=notes,
+                    )
+
+                    remaining -= allocation
+
+            messages.success(
+                request,
+                f"Payment of UGX {amount:,.2f} recorded successfully "
+                f"for {account.name}.",
+            )
+
+        except (InvalidOperation, AttributeError):
+            messages.error(
+                request,
+                "Enter a valid payment amount.",
+            )
+
+        except ValidationError as exc:
+            error_message = (
+                "; ".join(exc.messages)
+                if hasattr(exc, "messages")
+                else str(exc)
+            )
+            messages.error(request, error_message)
+
+        return redirect(request.get_full_path())
+
+    # --------------------------------------------------
+    # ALL ACCOUNT RELEASES
+    # --------------------------------------------------
+    all_releases_qs = (
+        PackRelease.objects
+        .filter(released_to=account)
+        .select_related(
+            "product__blend",
+            "product__pack_size",
         )
+        .prefetch_related(
+            "settlements",
+            "payments",
+            "returns",
+        )
+        .order_by("-released_at")
     )
-    total_value = value_aggregate['total_value'] or 0
 
-    # 4. Calculate total_paid and total_outstanding across filtered releases
-    total_paid = sum(r.total_amount_paid for r in releases)
-    total_outstanding = sum(r.outstanding_balance for r in releases)
+    # Apply the selected date filter to the table only.
+    releases, preset, today, start, end = apply_date_filters(
+        request,
+        all_releases_qs,
+        date_field="released_at",
+    )
 
-    # 5. Range label for summary cards
+    all_releases = list(all_releases_qs)
+
+    # Lifetime account figures, not just the selected date range.
+    total_value = sum(
+        (release.gross_amount for release in all_releases),
+        Decimal("0.00"),
+    )
+
+    total_paid = sum(
+        (release.total_amount_paid for release in all_releases),
+        Decimal("0.00"),
+    )
+
+    total_outstanding = sum(
+        (release.outstanding_balance for release in all_releases),
+        Decimal("0.00"),
+    )
+
     labels = {
         "today": "Today",
         "yesterday": "Yesterday",
@@ -2790,26 +3102,38 @@ def account_holder_detail(request, pk):
         "this_month": "This Month",
         "overall": "All Time",
     }
+
     if preset == "custom" and start and end:
-        range_label = f"{start.strftime('%d %b %Y')} – {end.strftime('%d %b %Y')}"
+        range_label = (
+            f"{start.strftime('%d %b %Y')} – "
+            f"{end.strftime('%d %b %Y')}"
+        )
     else:
         range_label = labels.get(preset, "All Time")
 
     context = {
-        'account': account,
-        'releases': releases,
-        'total_value': total_value,
-        'total_paid': total_paid,
-        'total_outstanding': total_outstanding,
-        # Required by report_filters.html
-        'preset': preset,
-        'period': {
-            'start_date': start,
-            'end_date': end,
+        "account": account,
+        "releases": releases,
+        "total_value": total_value,
+        "total_paid": total_paid,
+        "total_outstanding": total_outstanding,
+        "preset": preset,
+        "period": {
+            "start_date": start,
+            "end_date": end,
         },
-        'selected_range_label': range_label,
-    }
-    return render(request, 'pipeline/account_holder_detail.html', context)
+        "selected_range_label": range_label,
+        "can_collect_payment": can_collect_payment,
+        "payment_methods": PaymentReceipt._meta.get_field(
+            "payment_method"
+        ).choices,
+            }
+
+    return render(
+        request,
+        "pipeline/account_holder_detail.html",
+        context,
+    )
 
 # ---------------------------------------------------------
 # ITEM FULFILLMENT & PACK RELEASE
@@ -3704,38 +4028,28 @@ class StockConsumptionReportView(
 
         return context
 
-@method_decorator(login_required, name="dispatch")
 class SalesReportView(
     RoleRequiredMixin,
     TemplateView,
 ):
     template_name = "reports/sales.html"
-
     allowed_roles = (
         User.Role.ADMIN,
         User.Role.ACCOUNTS,
     )
-
+    
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(
-            **kwargs
-        )
-
-        period = resolve_report_period(
-            self.request
-        )
-
-        report = get_sales_report(
-            period
-        )
-
+        context = super().get_context_data(**kwargs)
+        period = resolve_report_period(self.request)
+        report = get_sales_report(period)
+        control = get_sales_control_report(period)
         context.update({
             "period": period,
             "period_label": period.label,
             "preset": period.preset,
             **report,
+            **control,
         })
-
         return context
 
 @method_decorator(login_required, name='dispatch')

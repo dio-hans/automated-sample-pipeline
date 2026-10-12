@@ -1,267 +1,315 @@
-{% extends "reports/print/base.html" %}
+{% extends "pipeline/base.html" %}
 {% load humanize %}
 
-{% block print_title %}
-Sales & Revenue Report | Nonda Commodities
+{% block title %}
+Sales & Revenue Report | Nonda
 {% endblock %}
 
-{% block report_name %}
+{% block breadcrumb %}
+Management / Reports / Sales & Revenue
+{% endblock %}
+
+{% block page_title %}
 Sales & Revenue Report
 {% endblock %}
 
-{% block report_content %}
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Revenue trends and channel performance for {{ period_label }}.
+</p>
+{% endblock %}
 
-<section class="section">
+{% block header_action %}
+<button
+    onclick="window.print()"
+    class="px-3 py-2 rounded-lg border border-line bg-white text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+>
+    Print Report
+</button>
+{% endblock %}
 
-    <div class="kpis">
-
-        <div class="kpi">
-            <div class="kpi-label">Total Sales</div>
-            <div class="kpi-value">
-                UGX {{ total_sales_value|floatformat:0|intcomma }}
+{% block content %}
+<div class="space-y-3 pb-4">
+    
+    <!-- =====================================================
+         1. COMPACT FILTER + GLOBAL METRICS STRIP (TOP)
+         ===================================================== -->
+    <div class="space-y-1">
+        {% include "reports/components/report_filters.html" %}
+        
+        <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
+            <!-- Metric 1: Reconciled Grand Total -->
+            <div class="p-2.5 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <p class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Total Sales</p>
+                <p class="font-display text-base font-bold text-slate-800 mt-1">
+                    UGX {{ total_sales_value|floatformat:0|intcomma }}
+                </p>
+            </div>
+            <!-- Metric 2: Direct Account Holders -->
+            <div class="p-2.5 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <p class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Packaged Revenue</p>
+                <p class="font-display text-base font-bold text-emerald-700 mt-1">
+                    UGX {{ packaged_sales_value|floatformat:0|intcomma }}
+                </p>
+            </div>
+            <!-- Metric 3: Supermarket Audit Closures -->
+            <div class="p-2.5 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <p class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Supermarket Revenue</p>
+                <p class="font-display text-base font-bold text-blue-700 mt-1">
+                    UGX {{ consignment_sales_value|default:"0"|floatformat:0|intcomma }}
+                </p>
+            </div>
+            <!-- Metric 4: Bulk Sack Actions -->
+            <div class="p-2.5 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <p class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Bulk Revenue</p>
+                <p class="font-display text-base font-bold text-amber-700 mt-1">
+                    UGX {{ bulk_sales_value|floatformat:0|intcomma }}
+                </p>
+            </div>
+            <!-- Metric 5: Combined Volume Metrics -->
+            <div class="p-2.5 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <p class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Packs Sold</p>
+                <p class="font-display text-base font-bold text-slate-800 mt-1">
+                    {{ packaged_packs_sold|add:consignment_packs_sold|intcomma }}
+                </p>
+            </div>
+            <!-- Metric 6: Net Physical Footprint -->
+            <div class="p-2.5 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <p class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Coffee Sold</p>
+                <p class="font-display text-base font-bold text-slate-800 mt-1">
+                    {{ total_coffee_sold_kg|floatformat:2|intcomma }} <span class="text-[10px] text-slate-400">kg</span>
+                </p>
             </div>
         </div>
-
-        <div class="kpi">
-            <div class="kpi-label">Packaged Revenue</div>
-            <div class="kpi-value">
-                UGX {{ packaged_sales_value|floatformat:0|intcomma }}
-            </div>
-        </div>
-
-        <div class="kpi">
-            <div class="kpi-label">Bulk Revenue</div>
-            <div class="kpi-value">
-                UGX {{ bulk_sales_value|floatformat:0|intcomma }}
-            </div>
-        </div>
-
-        <div class="kpi">
-            <div class="kpi-label">Packs Sold</div>
-            <div class="kpi-value">
-                {{ packaged_packs_sold|intcomma }}
-            </div>
-        </div>
-
-        <div class="kpi">
-            <div class="kpi-label">Coffee Sold</div>
-            <div class="kpi-value">
-                {{ total_coffee_sold_kg|floatformat:2|intcomma }} kg
-            </div>
-        </div>
-
     </div>
 
-</section>
+    <!-- =====================================================
+         2. TREND ANALYSIS ENVIRONMENT (MIDDLE)
+         ===================================================== -->
+    <section class="bg-white border border-line rounded-lg shadow-sm overflow-hidden">
+        <div class="px-3 py-2.5 border-b border-line">
+            <h2 class="text-xs font-bold text-slate-800">Revenue Overview</h2>
+            <p class="text-[9px] text-slate-400 mt-0.5">
+                Reconciled performance matrix timeline · {{ period_label }}
+            </p>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3">
+            <!-- LINE GRAPH CONTAINER -->
+            <div class="lg:col-span-2 p-3 lg:border-r border-line">
+                {% if trend_values %}
+                    <div class="relative h-[180px] sm:h-[210px] lg:h-[225px]">
+                        <canvas id="salesTrendChart"></canvas>
+                    </div>
+                {% else %}
+                    <div class="h-[180px] flex items-center justify-center">
+                        <p class="text-[10px] text-slate-400">No confirmed sales data available for this timeline selection.</p>
+                    </div>
+                {% endif %}
+            </div>
+            <!-- REVENUE SHARE DONUT GRAPH -->
+            <div class="p-3 border-t lg:border-t-0 border-line">
+                <p class="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-2">Revenue Source Share</p>
+                {% if sales_channels %}
+                    <div class="relative h-[130px] sm:h-[140px]">
+                        <canvas id="salesChannelChart"></canvas>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1 mt-2">
+                        {% for row in sales_channels %}
+                            <div class="p-1.5 rounded bg-slate-50 border border-gray-100">
+                                <p class="text-[8px] text-slate-400 truncate" title="{{ row.label }}">
+                                    {{ row.label }}
+                                </p>
+                                <p class="text-[10px] font-bold text-slate-800">
+                                    {{ row.percentage }}%
+                                </p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="h-[140px] flex items-center justify-center">
+                        <p class="text-[10px] text-slate-400">No channel metrics mapped.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <!-- =====================================================
+         3. PRODUCT PERFORMANCE WORKING REAL ESTATE (BOTTOM)
+         ===================================================== -->
+    <section class="bg-white border border-line rounded-lg shadow-sm overflow-hidden">
+        <div class="px-3 py-2 border-b border-line flex flex-wrap items-center justify-between gap-2">
+            <div>
+                <h2 class="text-xs font-bold text-slate-800">Product Performance</h2>
+                <p class="text-[9px] text-slate-400 mt-0.5">
+                    Dynamic velocity rankings without layout shifting.
+                </p>
+            </div>
+            <div class="flex items-center gap-1 bg-slate-100 rounded-md p-0.5">
+                <button type="button" id="bestProductsBtn" class="px-2.5 py-1 rounded text-[9px] font-semibold bg-white text-slate-800 shadow-sm">
+                    Best Selling
+                </button>
+                <button type="button" id="slowProductsBtn" class="px-2.5 py-1 rounded text-[9px] font-semibold text-slate-500">
+                    Lowest Selling
+                </button>
+            </div>
+        </div>
+
+        <!-- BEST SELLING SUB-PANEL -->
+        <div id="bestProductsPanel" class="overflow-x-auto">
+            <table class="w-full min-w-[600px] text-left">
+                <thead class="bg-slate-50 text-[8px] uppercase tracking-wider text-slate-400">
+                    <tr>
+                        <th class="px-3 py-2 w-12">#</th>
+                        <th class="px-3 py-2">Product Variant Architecture</th>
+                        <th class="px-3 py-2 text-right">Packs Distributed</th>
+                        <th class="px-3 py-2 text-right">Net Weight (Kg)</th>
+                        <th class="px-3 py-2 text-right">Gross Revenue</th>
+                        <th class="px-3 py-2 text-right">Share</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-line text-xs font-medium text-slate-700">
+                    {% for row in top_products %}
+                        <tr class="hover:bg-slate-50/60">
+                            <td class="px-3 py-2 text-[9px] text-slate-400">{{ forloop.counter }}</td>
+                            <td class="px-3 py-2 font-bold text-slate-900">{{ row.product }}</td>
+                            <td class="px-3 py-2 text-right tabular-nums">{{ row.packs|intcomma }}</td>
+                            <td class="px-3 py-2 text-right tabular-nums">{{ row.kg|floatformat:2 }}</td>
+                            <td class="px-3 py-2 text-right font-bold text-slate-900 tabular-nums">UGX {{ row.revenue|floatformat:0|intcomma }}</td>
+                            <td class="px-3 py-2 text-right text-slate-500 tabular-nums">{{ row.revenue_share }}%</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="p-5 text-center text-[10px] text-slate-400 italic">No direct packaged sales cataloged.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- LOWEST SELLING SUB-PANEL -->
+        <div id="slowProductsPanel" class="hidden overflow-x-auto">
+            <table class="w-full min-w-[600px] text-left">
+                <thead class="bg-slate-50 text-[8px] uppercase tracking-wider text-slate-400">
+                    <tr>
+                        <th class="px-3 py-2 w-12">#</th>
+Product Variant Architecture
+Packs Distributed
+Gross Revenue
+{% for row in slow_products %}
+{{ forloop.counter }}
+{{ row.product }}
+{{ row.packs|intcomma }}
+UGX {{ row.revenue|floatformat:0|intcomma }}
+{% empty %}
+No slow-moving inventory detected.
+{% endfor %}
+View Salespeople & Bulk Buyers Sub-Ledgers →
 
 
-<section class="section">
 
-    <h2>Sales Summary</h2>
+{{ trend_labels|json_script:"sales-trend-labels" }}
+{{ trend_values|json_script:"sales-trend-values" }}
+{{ channel_labels|json_script:"sales-channel-labels" }}
+{{ channel_values|json_script:"sales-channel-values" }}
+document.addEventListener("DOMContentLoaded", function () {
+// 1. DYNAMIC SWITCH ACTIONS FOR PRODUCT PERFORMANCE
+const bestBtn = document.getElementById("bestProductsBtn");
+const slowBtn = document.getElementById("slowProductsBtn");
+const bestPanel = document.getElementById("bestProductsPanel");
+const slowPanel = document.getElementById("slowProductsPanel");
+function setProductRanking(mode) {
+const isBest = mode === "best";
+bestPanel.classList.toggle("hidden", !isBest);
+slowPanel.classList.toggle("hidden", isBest);
+bestBtn.classList.toggle("bg-white", isBest);
+bestBtn.classList.toggle("text-slate-800", isBest);
+bestBtn.classList.toggle("shadow-sm", isBest);
+bestBtn.classList.toggle("text-slate-500", !isBest);
+slowBtn.classList.toggle("bg-white", !isBest);
+slowBtn.classList.toggle("text-slate-800", !isBest);
+slowBtn.classList.toggle("shadow-sm", !isBest);
+slowBtn.classList.toggle("text-slate-500", isBest);
+}
+if (bestBtn && slowBtn) {
+bestBtn.addEventListener("click", () => setProductRanking("best"));
+slowBtn.addEventListener("click", () => setProductRanking("slow"));
+}
+// 2. LINE GRAPH TREND IMPLEMENTATION
+const trendCanvas = document.getElementById("salesTrendChart");
+if (trendCanvas) {
+const labels = JSON.parse(document.getElementById("sales-trend-labels").textContent);
+const values = JSON.parse(document.getElementById("sales-trend-values").textContent);
+new Chart(trendCanvas, {
+type: "line",
+data: {
+labels: labels,
+datasets: [{
+label: "Revenue",
+data: values,
+borderColor: "#556B2F",
+backgroundColor: "rgba(85,107,47,0.04)",
+fill: true,
+tension: 0.2,
+borderWidth: 2,
+pointRadius: 1.5,
+pointHoverRadius: 4
+}]
+},
+options: {
+responsive: true,
+maintainAspectRatio: false,
+plugins: { legend: { display: false } },
+scales: {
+y: {
+beginAtZero: true,
+ticks: {
+font: { size: 9 },
+callback: (value) => "UGX " + Number(value).toLocaleString()
+}
+},
+x: { ticks: { font: { size: 9 } } }
+}
+}
+});
+}
+// 3. REVENUE SOURCE DOUGHNUT LOGIC (Including your new Supermarket data split)
+const channelCanvas = document.getElementById("salesChannelChart");
+if (channelCanvas) {
+const labels = JSON.parse(document.getElementById("sales-channel-labels").textContent);
+const values = JSON.parse(document.getElementById("sales-channel-values").textContent);
+new Chart(channelCanvas, {
+type: "doughnut",
+data: {
+labels: labels,
+datasets: [{
+data: values,
+backgroundColor: ["#556B2F", "#1D4ED8", "#B66A3C"], // Added distinctive Blue for Supermarkets
+borderColor: "#ffffff",
+borderWidth: 2
+}]
+},
+options: {
+responsive: true,
+maintainAspectRatio: false,
+cutout: "70%",
+plugins: { legend: { display: false } }
+}
+});
+}
+});
+@media print {
+aside, nav, button, form, footer { display: none !important; }
+body { background: white !important; }
+.shadow-sm { box-shadow: none !important; }
+section { break-inside: avoid; }
+}
 
-    <table>
-        <thead>
-            <tr>
-                <th>Metric</th>
-                <th class="right">Value</th>
-            </tr>
-        </thead>
-
-        <tbody>
-            <tr>
-                <td>Packaged Revenue</td>
-                <td class="right">
-                    UGX {{ packaged_sales_value|floatformat:0|intcomma }}
-                </td>
-            </tr>
-
-            <tr>
-                <td>Bulk Coffee Revenue</td>
-                <td class="right">
-                    UGX {{ bulk_sales_value|floatformat:0|intcomma }}
-                </td>
-            </tr>
-
-            <tr>
-                <td>Total Sales</td>
-                <td class="right">
-                    <strong>
-                        UGX {{ total_sales_value|floatformat:0|intcomma }}
-                    </strong>
-                </td>
-            </tr>
-
-            <tr>
-                <td>Packaged Coffee Sold</td>
-                <td class="right">
-                    {{ packaged_kg_sold|floatformat:2|intcomma }} kg
-                </td>
-            </tr>
-
-            <tr>
-                <td>Bulk Coffee Sold</td>
-                <td class="right">
-                    {{ bulk_kg_sold|floatformat:2|intcomma }} kg
-                </td>
-            </tr>
-
-            <tr>
-                <td>Total Coffee Sold</td>
-                <td class="right">
-                    <strong>
-                        {{ total_coffee_sold_kg|floatformat:2|intcomma }} kg
-                    </strong>
-                </td>
-            </tr>
-        </tbody>
-    </table>
-
-</section>
-
-
-<section class="section">
-
-    <h2>Top Products</h2>
-
-    {% if top_products %}
-    <table>
-        <thead>
-            <tr>
-                <th>Product</th>
-                <th class="right">Packs</th>
-                <th class="right">Kg</th>
-                <th class="right">Revenue</th>
-            </tr>
-        </thead>
-
-        <tbody>
-            {% for row in top_products %}
-            <tr>
-                <td>{{ row.product }}</td>
-                <td class="right">{{ row.packs|intcomma }}</td>
-                <td class="right">{{ row.kg|floatformat:2|intcomma }}</td>
-                <td class="right">
-                    UGX {{ row.revenue|floatformat:0|intcomma }}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-        <p class="note">No packaged product sales recorded for this period.</p>
-    {% endif %}
-
-</section>
-
-
-<section class="section">
-
-    <h2>Salespeople / Account Holders</h2>
-
-    {% if salespeople %}
-    <table>
-        <thead>
-            <tr>
-                <th>Account Holder</th>
-                <th class="right">Packs</th>
-                <th class="right">Revenue</th>
-            </tr>
-        </thead>
-
-        <tbody>
-            {% for row in salespeople %}
-            <tr>
-                <td>{{ row.name }}</td>
-                <td class="right">{{ row.packs|intcomma }}</td>
-                <td class="right">
-                    UGX {{ row.revenue|floatformat:0|intcomma }}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-        <p class="note">No packaged sales recorded for this period.</p>
-    {% endif %}
-
-</section>
+{% endblock content %}
+{% block footer %}
 
 
-<section class="section">
-
-    <h2>Bulk Coffee Buyers</h2>
-
-    {% if bulk_buyers %}
-    <table>
-        <thead>
-            <tr>
-                <th>Buyer</th>
-                <th class="right">Kg</th>
-                <th class="right">Revenue</th>
-            </tr>
-        </thead>
-
-        <tbody>
-            {% for row in bulk_buyers %}
-            <tr>
-                <td>{{ row.name }}</td>
-                <td class="right">
-                    {{ row.kg|floatformat:2|intcomma }}
-                </td>
-                <td class="right">
-                    UGX {{ row.revenue|floatformat:0|intcomma }}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-        <p class="note">No bulk coffee sales recorded for this period.</p>
-    {% endif %}
-
-</section>
+{% include "reports/components/report_nav.html" %}
 
 
-<section class="section">
-
-    <h2>Sales Channels</h2>
-
-    {% if sales_channels %}
-    <table>
-        <thead>
-            <tr>
-                <th>Channel</th>
-                <th class="right">Value</th>
-            </tr>
-        </thead>
-
-        <tbody>
-            {% for row in sales_channels %}
-            <tr>
-                <td>{{ row.label }}</td>
-                <td class="right">
-                    UGX {{ row.value|floatformat:0|intcomma }}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-        <p class="note">No channel data available.</p>
-    {% endif %}
-
-</section>
-
-
-<section class="section">
-
-    <h2>Reporting Note</h2>
-
-    <p class="note">
-        This report uses confirmed packaged settlements and recorded bulk
-        roasted-coffee sales for the selected reporting period.
-    </p>
-
-</section>
-
-{% endblock %}
+{% endblock footer %}

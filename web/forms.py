@@ -625,7 +625,6 @@ class PackagingRunForm(forms.ModelForm):
             "product",
             "source_stage",
             "input_kg",
-            "packs_produced",
             "notes",
         ]
         widgets = {
@@ -633,7 +632,6 @@ class PackagingRunForm(forms.ModelForm):
             "product": forms.Select(attrs={"class": FIELD_CLASS, "id": "id_product"}),
             "source_stage": forms.Select(attrs={"class": FIELD_CLASS, "id": "id_source_stage"}),
             "input_kg": forms.NumberInput(attrs={"class": FIELD_CLASS, "step": "0.01", "min": "0.01"}),
-            "packs_produced": forms.NumberInput(attrs={"class": FIELD_CLASS, "min": "1"}),
             "notes": forms.Textarea(attrs={"class": FIELD_CLASS, "rows": 3}),
         }
 
@@ -701,6 +699,22 @@ class PackagingRunForm(forms.ModelForm):
 
         return cleaned
 
+
+class PackagingRunStartForm(forms.Form):
+    source_stage = forms.ChoiceField(
+        label="Coffee stage",
+        choices=[("roasted", "Roasted coffee (whole beans)"), ("ground", "Ground coffee")],
+        widget=forms.Select(attrs={"class": FIELD_CLASS}),
+    )
+    notes = forms.CharField(
+        required=False,
+        label="Run notes",
+        widget=forms.Textarea(attrs={
+            "class": FIELD_CLASS,
+            "rows": 2,
+            "placeholder": "Optional instructions or run notes",
+        }),
+    )
 
 class PackReleaseForm(forms.ModelForm):
 
