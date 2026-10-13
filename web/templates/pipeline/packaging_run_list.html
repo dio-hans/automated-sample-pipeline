@@ -1,4 +1,5 @@
 {% extends "pipeline/base.html" %}
+{% load humanize %}
 
 {% block title %}Packaging Runs | Nonda{% endblock %}
 
@@ -10,19 +11,18 @@ Inventory / Packaging Runs
 Packaging Runs
 {% endblock %}
 
+{% block page_subtitle %}
+<p class="text-xs text-slate-500">Track packaging operations from source-batch issue through finished pack quantities and loss reconciliation.</p>
+{% endblock %}
 
-{% block page_subtitle %}<p class="text-xs text-slate-500">Track packaging operations from source-batch issue through finished pack quantities and loss reconciliation.</p>{% endblock %}
-{% block header_action %}<a href="{% url 'packaging_run_create' %}" class="rounded bg-rust px-3 py-2 text-xs font-semibold text-white">Start Packaging Run</a>{% endblock %}
-<a href="{% url 'packaging_run_create' %}"
-   class="px-4 py-2 text-xs font-semibold text-white bg-rust rounded-lg hover:bg-rust-dark transition shadow-sm inline-flex items-center gap-1.5">
-    
+{% block header_action %}
+<a href="{% url 'packaging_run_create' %}" class="px-4 py-2 text-xs font-semibold text-white bg-rust rounded-lg hover:bg-rust-dark transition shadow-sm inline-flex items-center gap-1.5">
     Record Packaging
 </a>
+{% endblock %}
 
 {% block content %}
-
-<div class="space-y-6">
-
+<div class="space-y-4">
     <div>
         <p class="text-xs text-slate-500">
             History of coffee converted from roasted or ground kilograms into packaged products.
@@ -30,10 +30,14 @@ Packaging Runs
     </div>
 
     <!-- =========================================================
+         DATE & TIMELINE FILTERS
+         ========================================================= -->
+    {% include "reports/components/report_filters.html" %}
+
+    <!-- =========================================================
          PACKAGING RUNS TABLE
          ========================================================= -->
     <div class="bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm space-y-4">
-
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-sm font-semibold text-slate-800">
@@ -49,7 +53,7 @@ Packaging Runs
             </span>
             {% endif %}
         </div>
-
+        
         <div class="overflow-x-auto border border-[#E4DECB] rounded-lg">
             <table class="w-full text-sm text-left bg-white border-collapse">
                 <thead>
@@ -66,19 +70,21 @@ Packaging Runs
                 <tbody class="divide-y divide-[#E4DECB] text-slate-700 text-xs">
                     {% for run in packaging_runs %}
                     <tr class="hover:bg-slate-50/50 transition">
+                        
+                        <!-- 🎯 FIXED: Uses issued_at (or fallback timestamps) instead of run.run_date -->
                         <td class="px-6 py-4 text-slate-500 font-medium whitespace-nowrap">
-                            {{ run.run_date|date:"d M Y, H:i" }}
+                            {{ run.issued_at|date:"d M Y, H:i" }}
                         </td>
-
+                        
                         <td class="px-6 py-4">
                             <div class="font-bold text-slate-900">
-                                {{ run.product.blend.name }}
+                                {{ run.product.blend.name|default:run.product }}
                             </div>
                             <div class="text-[10px] text-slate-400 mt-0.5">
                                 {{ run.product.pack_size.label }} • {{ run.product.get_form_display }}
                             </div>
                         </td>
-
+                        
                         <td class="px-6 py-4">
                             {% if run.source_stage == "roasted" %}
                                 <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
@@ -90,26 +96,26 @@ Packaging Runs
                                 </span>
                             {% else %}
                                 <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">
-                                    {{ run.source_stage|title }}
+                                    {{ run.get_source_stage_display|default:run.source_stage|title }}
                                 </span>
                             {% endif %}
                         </td>
-
-                        <td class="px-6 py-4 text-right text-slate-500">
+                        
+                        <td class="px-6 py-4 text-right text-slate-500 font-mono">
                             {{ run.input_kg|floatformat:2 }} kg
                         </td>
-
-                        <td class="px-6 py-4 text-right font-bold text-slate-900">
+                        
+                        <td class="px-6 py-4 text-right font-bold text-slate-900 font-mono">
                             {{ run.packs_produced }}
                         </td>
-
-                        <td class="px-6 py-4 text-right text-amber-700 font-medium">
+                        
+                        <td class="px-6 py-4 text-right text-amber-700 font-medium font-mono">
                             {{ run.loss_kg|floatformat:2 }} kg
                         </td>
-
+                        
                         <td class="px-6 py-4 text-center">
                             <a href="{% url 'packaging_run_detail' run.pk %}"
-                               class="inline-flex items-center px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg font-semibold text-xs shadow-sm transition">
+                               class="inline-flex items-center px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg font-semibold text-xs shadow-xs transition">
                                 View Details
                             </a>
                         </td>
@@ -117,16 +123,13 @@ Packaging Runs
                     {% empty %}
                     <tr>
                         <td colspan="7" class="px-6 py-10 text-center text-slate-400 italic">
-                            No packaging runs recorded yet.
+                            No packaging runs recorded for this selected time period.
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-
     </div>
-
 </div>
-
 {% endblock %}

@@ -58,7 +58,7 @@ class RoleRequiredMixin:
 
 
 class AdminDashboardView(RoleRequiredMixin, TemplateView):
-    allowed_roles = (User.Role.ADMIN,)
+    allowed_roles = (User.Role.ADMIN, User.Role.ACCOUNTS)
     template_name = "pipeline/admin_dashboard.html"
 
     def get_context_data(self, **kwargs):
@@ -247,7 +247,7 @@ def get_stock_request_redirect_url(user, stock_request=None):
                 "stock_request_detail",
                 kwargs={"pk": stock_request.pk},
             )
-        return reverse("stock_request_list")
+        return reverse("order_queue")
 
     # Admins should review requests, not automatically fulfil them.
     if role == User.Role.ADMIN:
@@ -263,6 +263,7 @@ def get_stock_request_redirect_url(user, stock_request=None):
         return reverse("stock_request_list")
 
     return reverse("stock_request_list")
+
 
 
 class StockRequestCreateView(RoleRequiredMixin, View):
@@ -344,26 +345,34 @@ class StockRequestCreateView(RoleRequiredMixin, View):
                 "item_formset": formset,
             },
         )
-    
+
+from decimal import Decimal
+
 class MyStockRequestListView(RoleRequiredMixin, ListView):
     allowed_roles = (User.Role.SALES, User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER)
-    model = StockRequest
-    template_name = "pipeline/stock_request_list.html"
-    context_object_name = "requests"
-
+    model = PackRelease
+    template_name = "pipeline/sales_stock.html"
+    context_object_name = "releases"
 
     def get_queryset(self):
         qs = (
-            StockRequest.objects
-            .filter(status__in=("pending", "partially_fulfilled"))  # ✂️ Hides fulfilled & cancelled orders
-            .select_related("requested_by", "company")
-            .prefetch_related("items__product__blend", "items__product__pack_size")
-            .order_by("-requested_at")
+            PackRelease.objects
+            .select_related("product__blend", "product__pack_size", "released_to")
+            .prefetch_related("settlements", "payments", "returns")
+            .order_by("-released_at")
         )
+        
+        # Filter by the system user if they are a sales agent
         if self.request.user.role == User.Role.SALES:
-            qs = qs.filter(requested_by=self.request.user)
-        return qs
-
+            qs = qs.filter(released_to__system_user=self.request.user)
+            
+        # Exclude fully cleared or settled releases where the outstanding balance is 0 or less
+        active_releases = [
+            release for release in qs 
+            if release.outstanding_balance > Decimal("0.00")
+        ]
+        
+        return active_releases
 
 class StockRequestDetailView(RoleRequiredMixin, DetailView):
     allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
@@ -609,14 +618,17 @@ class CashierQueueView(RoleRequiredMixin, ListView):
             for item in order.items.all():
                 total_remaining += item.outstanding_quantity
                 for release in item.releases.all():
-                    releases.append(release)
                     total_issued += release.packs_out
                     total_value += release.gross_amount
                     total_paid += release.total_amount_paid
                     total_outstanding += release.outstanding_balance
+                    
+                    # 🎯 FIX: Only append releases that have an active outstanding balance
+                    if release.outstanding_balance > Decimal("0.00"):
+                        releases.append(release)
 
-            # Keep order in queue if stock has been issued and balance remains
-            if not releases or total_outstanding <= Decimal("0.00"):
+            # Keep order in queue if balance remains
+            if total_outstanding <= Decimal("0.00"):
                 continue
 
             # Attach transient values used only by the template.

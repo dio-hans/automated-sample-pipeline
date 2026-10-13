@@ -112,8 +112,10 @@ def redirect_user_by_role(user):
         return redirect("inventory_dashboard")
     if user.role == User.Role.SALES:
         return redirect("record_sale")
-    if user.role in {User.Role.CASHIER, User.Role.ACCOUNTS}:
+    if user.role == User.Role.CASHIER:
         return redirect("order_queue")
+    if user.role == User.Role.ACCOUNTS:
+        return redirect("admin_dashboard")
     return redirect("login")
 
 def user_login(request):
@@ -206,26 +208,47 @@ class InventoryRoleRequiredMixin:
         messages.error(request, "You do not have permission to access inventory operations.")
         return redirect("record_sale")  
           
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+from django.views.generic import ListView
+from .models import PackagingRun, User
+from .utils.util import apply_date_filters  # Ensure this utility is imported
+
 @method_decorator(login_required, name="dispatch")
 class PackagingRunListView(InventoryRoleRequiredMixin, ListView):
     allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS)
     model = PackagingRun
     template_name = "pipeline/packaging_run_list.html"
     context_object_name = "packaging_runs"
-
+ 
     def get_queryset(self):
-        return (
+        qs = (
             PackagingRun.objects
             .select_related("product__blend", "product__pack_size", "stock", "issued_by", "completed_by")
             .prefetch_related("inputs__stock", "outputs__product__blend", "outputs__product__pack_size")
             .order_by("-issued_at")
         )
-
+        
+        # 🎯 Apply timeline filters based on the run's timestamp field
+        qs, preset, today, start, end = apply_date_filters(
+            self.request,
+            qs,
+            "issued_at",
+        )
+        self._preset = preset
+        return qs
+ 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["open_packaging_runs_count"] = PackagingRun.objects.filter(status="open").count()
+        context.update({
+            "preset": getattr(
+                self,
+                "_preset",
+                self.request.GET.get("preset", "this_month"),
+            ),
+            "open_packaging_runs_count": PackagingRun.objects.filter(status="open").count(),
+        })
         return context
-
 
 @method_decorator(login_required, name="dispatch")
 class PackagingRunDetailView(InventoryRoleRequiredMixin, DetailView):
@@ -1540,12 +1563,12 @@ def redirect_after_return_submission(user):
     elif role == User.Role.ADMIN:
         return redirect("admin_dashboard")
     elif role == User.Role.ACCOUNTS:
-        return redirect("inventory_dashboard")  # or "credit_control_ledger"
+        return redirect("admin_dashboard")  # or "credit_control_ledger"
     elif role == User.Role.MANAGER:
         return redirect("inventory_dashboard")
     
     # Fallback default route
-    return redirect("dashboard")
+    return redirect("order_queue")
 
 @method_decorator(login_required, name='dispatch')
 class PackReturnConfirmationView(InventoryRoleRequiredMixin, TemplateView):
@@ -2047,6 +2070,84 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
             "total_outstanding_debt": total_outstanding_debt,
         })
         return ctx
+    
+from decimal import Decimal, InvalidOperation
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.db import transaction
+from django.core.exceptions import ValidationError
+from .models import StockRequest, User
+# Ensure record_installment_payment is imported from your services/utils module where defined
+
+@login_required
+def record_order_payment(request, order_pk):
+    order = get_object_or_404(StockRequest, pk=order_pk)
+    
+    payment_roles = (User.Role.CASHIER, User.Role.ACCOUNTS, User.Role.MANAGER, User.Role.ADMIN)
+    if not (request.user.is_superuser or getattr(request.user, "role", None) in payment_roles):
+        messages.error(request, "You do not have permission to record payments.")
+        return redirect('order_queue')
+        
+    if request.method == "POST":
+        try:
+            amount_str = request.POST.get("amount", "").strip()
+            # Support both modal 'method' and standard form 'payment_method' naming
+            method = request.POST.get("method", "").strip() or request.POST.get("payment_method", "").strip()
+            payment_reference = request.POST.get("payment_reference", "").strip()
+            notes = request.POST.get("notes", "").strip()
+            
+            amount = Decimal(amount_str)
+            if not amount.is_finite() or amount <= Decimal("0.00"):
+                raise ValidationError("Enter a payment amount greater than zero.")
+            
+            with transaction.atomic():
+                # Gather active releases under this order with outstanding balance, locked for update
+                order_releases = []
+                for item in order.items.all():
+                    for release in item.releases.select_for_update().all():
+                        if release.outstanding_balance > Decimal("0.00"):
+                            order_releases.append((release, release.outstanding_balance))
+                
+                # Sort oldest first to match application credit rules
+                order_releases.sort(key=lambda x: (x[0].released_at, x[0].pk))
+                
+                total_due = sum((bal for _, bal in order_releases), Decimal("0.00"))
+                
+                if total_due <= Decimal("0.00"):
+                    raise ValidationError("This order has no outstanding balance to collect.")
+                if amount > total_due:
+                    raise ValidationError(f"Payment exceeds the order's outstanding balance of UGX {total_due:,.2f}.")
+                
+                remaining = amount
+                for release, balance in order_releases:
+                    if remaining <= Decimal("0.00"):
+                        break
+                    allocation = min(balance, remaining)
+                    if allocation <= Decimal("0.00"):
+                        continue
+                    
+                    # 🎯 EXACT SAME DATABASE FUNCTION USED BY THE REST OF THE APP
+                    record_installment_payment(
+                        release=release,
+                        amount=allocation,
+                        method=method,
+                        payment_reference=payment_reference,
+                        collected_by=request.user,
+                        notes=notes,
+                    )
+                    remaining -= allocation
+                    
+            messages.success(request, f"Payment of UGX {amount:,.2f} recorded successfully for Order #{order.short_number}.")
+        except (ValueError, InvalidOperation):
+            messages.error(request, "Enter a valid payment amount.")
+        except ValidationError as exc:
+            error_msg = "; ".join(exc.messages) if hasattr(exc, "messages") else str(exc)
+            messages.error(request, error_msg)
+        except Exception as e:
+            messages.error(request, f"Error recording payment: {e}")
+            
+    return redirect('order_queue')
 
 
 @method_decorator(login_required, name='dispatch')
@@ -3326,6 +3427,7 @@ class InternalAccountListView(
         User.Role.ADMIN,
         User.Role.MANAGER,
         User.Role.ACCOUNTS,
+        User.Role.CASHIER,
     )
 
     def get_queryset(self):
@@ -3356,6 +3458,7 @@ class InternalAccountCreateView(
         User.Role.ADMIN,
         User.Role.MANAGER,
         User.Role.ACCOUNTS,
+        User.Role.CASHIER,
     )
 
     def form_valid(self, form):
@@ -3384,6 +3487,7 @@ class InternalStockIssueListView(
         User.Role.ADMIN,
         User.Role.MANAGER,
         User.Role.ACCOUNTS,
+        User.Role.CASHIER,
     )
 
     def get_queryset(self):
@@ -3458,6 +3562,7 @@ class InternalStockIssueCreateView(
         User.Role.ADMIN,
         User.Role.MANAGER,
         User.Role.ACCOUNTS,
+        User.Role.CASHIER,
     )
 
     def get(self, request):
@@ -3892,6 +3997,7 @@ class InternalStockIssueDetailView(
         User.Role.ADMIN,
         User.Role.MANAGER,
         User.Role.ACCOUNTS,
+        User.Role.CASHIER,
     )
 
     def get_queryset(self):

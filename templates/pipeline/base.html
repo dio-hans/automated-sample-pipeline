@@ -132,6 +132,11 @@
                             <i class="fa-solid fa-gears nav-icon"></i>
                             <span>Processing</span>
                         </a>
+
+                        <a href="{% url 'packaging_run_list' %}" class="nav-link">
+    <i class="fa-solid fa-boxes-stacked nav-icon"></i>
+    <span>Packaging Runs List</span>
+</a>
                     </div>
                 </div>
             {% endif %}
@@ -252,7 +257,7 @@
                             <i class="fa-solid fa-arrows-rotate nav-icon"></i>
                             <span>Follow-ups</span>
                         </a>
-                        <a href="{% url 'contract_list' %}" class="nav-link">
+            ]            <a href="{% url 'contract_list' %}" class="nav-link">
                             <i class="fa-solid fa-file-contract nav-icon"></i>
                             <span>Contracts</span>
                         </a>
@@ -273,7 +278,7 @@
 
             <!-- Internal Stock Navigation Block -->
 
-            {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" or request.user.role == "CASHIER" %}
+            {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" or request.user.role == "CASHIER" or request.user.role == "MANAGER" %}
                 <div>
                <div class="sidebar-section">
 
