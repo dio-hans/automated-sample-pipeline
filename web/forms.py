@@ -170,23 +170,23 @@ class CoffeeStockForm(forms.ModelForm):
         fields = (
             "coffee_type",
             "received_date",
-            "supplier",
+            # "supplier",
             "source",
             "grade",
             "moisture_content",
-            "fermentation_type",
+            # "fermentation_type",
             "process",
             "season_of_harvest",
             "foreign_smell",
             "foreign_matter",
             "prints",
-            "physical_damages",
+            # "physical_damages",
             "defects",
             "quantity_after_sorting",
             "checked_by",
             "verified_by",
             "delivered_by",
-            "car_number",
+            # "car_number",
             "received_by",
             "reorder_level",
         )
@@ -199,10 +199,10 @@ class CoffeeStockForm(forms.ModelForm):
                 "type": "date",
             }),
 
-            "supplier": forms.TextInput(attrs={
-                "class": FIELD_CLASS,
-                "placeholder": "e.g. Darling Coffee Uganda",
-            }),
+            # "supplier": forms.TextInput(attrs={
+             #   "class": FIELD_CLASS,
+              #  "placeholder": "e.g. Darling Coffee Uganda",
+           # }),
 
             "source": forms.TextInput(attrs={
                 "class": FIELD_CLASS,
@@ -220,10 +220,10 @@ class CoffeeStockForm(forms.ModelForm):
                 "min": "0",
             }),
 
-            "fermentation_type": forms.TextInput(attrs={
-                "class": FIELD_CLASS,
-                "placeholder": "e.g. Aerobic fermentation",
-            }),
+            # "fermentation_type": forms.TextInput(attrs={
+              #  "class": FIELD_CLASS,
+               # "placeholder": "e.g. Aerobic fermentation",
+           # }),
 
             "process": forms.TextInput(attrs={
                 "class": FIELD_CLASS,
@@ -250,10 +250,10 @@ class CoffeeStockForm(forms.ModelForm):
                 "placeholder": "e.g. None",
             }),
 
-            "physical_damages": forms.TextInput(attrs={
-                "class": FIELD_CLASS,
-                "placeholder": "Yes / No",
-            }),
+            # "physical_damages": forms.TextInput(attrs={
+             #   "class": FIELD_CLASS,
+              #  "placeholder": "Yes / No",
+           # }),
 
             "defects": forms.NumberInput(attrs={
                 "class": FIELD_CLASS,
@@ -283,10 +283,10 @@ class CoffeeStockForm(forms.ModelForm):
                 "placeholder": "Name",
             }),
 
-            "car_number": forms.TextInput(attrs={
-                "class": FIELD_CLASS,
-                "placeholder": "e.g. UAB 123X",
-            }),
+            # "car_number": forms.TextInput(attrs={
+              #  "class": FIELD_CLASS,
+               # "placeholder": "e.g. UAB 123X",
+           # }),
 
             "received_by": forms.TextInput(attrs={
                 "class": FIELD_CLASS,

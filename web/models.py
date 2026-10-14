@@ -791,6 +791,14 @@ class ProcessingRun(models.Model):
         blank=True,
     )
 
+    output_stock = models.ForeignKey(
+    CoffeeStock,
+    on_delete=models.PROTECT,
+    null=True,
+    blank=True,
+    related_name="processing_outputs",
+)
+
     secondary_output_quantity = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -1602,6 +1610,7 @@ class AccountHolder(models.Model):
 
     def __str__(self):
         return self.name
+    
 
 from django.db import models
 from django.conf import settings

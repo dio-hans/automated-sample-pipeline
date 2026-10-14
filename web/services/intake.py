@@ -121,23 +121,55 @@ def generate_batch_number(variety, received_date=None):
 
     return candidate
 
+def generate_roast_batch_number(roast_date=None):
+    roast_date = roast_date or timezone.localdate()
+    prefix = roast_date.strftime("%y")
+
+    existing_numbers = (
+        CoffeeStock.objects
+        .filter(batch_number__startswith=prefix)
+        .values_list("batch_number", flat=True)
+    )
+
+    used_sequences = [
+        int(number[2:])
+        for number in existing_numbers
+        if number[2:].isdigit()
+    ]
+
+    sequence = max(used_sequences, default=0) + 1
+    candidate = f"{prefix}{sequence:02d}"
+
+    while CoffeeStock.objects.filter(
+        batch_number=candidate
+    ).exists():
+        sequence += 1
+        candidate = f"{prefix}{sequence:02d}"
+
+    return candidate
 
 def find_open_batch(variety, batch_data):
-    """
-    Find the batch this intake belongs to: same variety, same supplier,
-    same receiving date. Anything else is a physically different delivery
-    and must stay a separate, traceable batch.
-    """
+    supplier = (
+        batch_data.get("supplier") or ""
+    ).strip()
 
-    lookup = {"variety": variety}
+    received_date = batch_data.get("received_date")
 
-    for field in BATCH_IDENTITY_FIELDS:
-        lookup[field] = batch_data.get(field) or None
-
-    if lookup["received_date"] is None:
+    # Without both identifiers, don't assume this is
+    # the same physical delivery as an existing batch.
+    if not supplier or not received_date:
         return None
 
-    return CoffeeStock.objects.filter(**lookup).order_by("-created_at").first()
+    return (
+        CoffeeStock.objects
+        .filter(
+            variety=variety,
+            supplier__iexact=supplier,
+            received_date=received_date,
+        )
+        .order_by("-created_at")
+        .first()
+    )
 
 
 @transaction.atomic
