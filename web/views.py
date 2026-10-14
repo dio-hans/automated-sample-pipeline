@@ -1368,23 +1368,27 @@ class PackagedProductDetailView(InventoryRoleRequiredMixin, DetailView):
 
 @method_decorator(login_required, name='dispatch')
 class PackagedProductCreateView(InventoryRoleRequiredMixin, FormView):
-    # 1. Cleanly assign the class type here
     form_class = PackagedProductBulkForm
     template_name = "pipeline/packaged_product_form.html"  
     success_url = reverse_lazy("packaged_inventory_list")
-    allowed_roles =(User.Role.MANAGER, User.Role.ADMIN)  
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)  
 
-    # 2. Modify the form instance dynamically before it goes to the template
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         
-        #  FIXED: Loop dynamically through every actual field name in the form
+        # Loop dynamically through every actual field name in the form
         for name, field in form.fields.items():
             field.widget.attrs.update({
                 'class': 'w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-rust'
             })
-                    
+                
         return form
+
+    def form_valid(self, form):
+        with transaction.atomic():
+            form.save()
+        messages.success(self.request, "Packaged products saved successfully.")
+        return super().form_valid(form)
   
 
 
