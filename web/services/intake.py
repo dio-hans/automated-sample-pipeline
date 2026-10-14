@@ -177,12 +177,34 @@ def record_intake(variety_name, batch_data, quantity_received, user=None):
     batch_data = dict(batch_data)
 
     received_date = batch_data.get("received_date")
-
     batch_number_date = (
         received_date
         if isinstance(received_date, date)
         else None
     )
+
+    received_qty = Decimal(str(quantity_received or "0.00"))
+    defects_qty = Decimal(str(batch_data.get("defects") or "0.00"))
+
+    if received_qty <= 0:
+        raise ValidationError(
+            "Quantity received must be greater than zero."
+        )
+
+    if defects_qty < 0:
+        raise ValidationError("Defects cannot be negative.")
+
+    if defects_qty > received_qty:
+        raise ValidationError(
+            "Defects cannot exceed the quantity received."
+        )
+
+    # Net usable green coffee after defects are removed.
+    usable_qty = received_qty - defects_qty
+
+    batch_data["defects"] = defects_qty
+    batch_data["quantity_sorted_out"] = defects_qty
+    batch_data["quantity_after_sorting"] = usable_qty
 
     variety, variety_created = resolve_variety(
         variety_name,
@@ -208,31 +230,60 @@ def record_intake(variety_name, batch_data, quantity_received, user=None):
         )
 
     else:
-        # We are receiving more coffee into the same physical batch.
-        # Do NOT calculate sorting here.
-        #
-        # Sorting happens later as a separate transaction.
+        # Accumulate the new intake's figures on the existing batch.
+        stock.defects = (
+            stock.defects or Decimal("0.00")
+        ) + defects_qty
+
+        stock.quantity_sorted_out = (
+            stock.quantity_sorted_out or Decimal("0.00")
+        ) + defects_qty
+
+        stock.quantity_after_sorting = (
+            stock.quantity_after_sorting or Decimal("0.00")
+        ) + usable_qty
+
+        update_fields = [
+            "defects",
+            "quantity_sorted_out",
+            "quantity_after_sorting",
+            "updated_at",
+        ]
 
         if "reorder_level" in batch_data:
             stock.reorder_level = batch_data["reorder_level"]
-            stock.save(
-                update_fields=[
-                    "reorder_level",
-                    "updated_at",
-                ]
-            )
+            update_fields.append("reorder_level")
 
+        stock.save(update_fields=update_fields)
+
+    # Record the full physical delivery first.
     record_receipt(
         stock,
-        quantity_received,
+        received_qty,
         user=user,
         reference=stock.batch_number,
     )
+
+    # Then deduct defects from available green inventory.
+    if defects_qty > 0:
+        StockMovement.objects.create(
+            stock=stock,
+            movement_type="loss",
+            from_stage=StockStage.GREEN,
+            to_stage=None,
+            quantity=defects_qty,
+            reference=f"Intake defects - {stock.batch_number}",
+            notes=(
+                f"{defects_qty} kg of defects removed at intake "
+                f"from {received_qty} kg received."
+            ),
+            created_by=user,
+        )
 
     return IntakeResult(
         stock=stock,
         variety=variety,
         variety_created=variety_created,
         batch_created=batch_created,
-        quantity_received=quantity_received,
+        quantity_received=received_qty,
     )
