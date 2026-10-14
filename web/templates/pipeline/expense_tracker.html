@@ -16,11 +16,7 @@ Accounts / Expenses / Record Expense
 
      {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
 
-     <div class="expense-history-link">
-        <a href="{% url 'expense_list' %}">
-            View Expense History →
-        </a>
-    </div>
+     
 
     {% endif %}
     <!-- FORM CARD -->
