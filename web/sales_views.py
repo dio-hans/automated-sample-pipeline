@@ -30,7 +30,6 @@ from .models import (
     PackReturn,
     PackSettlement,
     PackagedInventory,
-    PackagingRunOutput,
     StockRequest,
     StockRequestItem,
     User,
@@ -77,7 +76,10 @@ class AdminDashboardView(RoleRequiredMixin, TemplateView):
 
 from django.db.models import Sum
 from .models import PackagedInventory, StockRequest, PackRelease, CoffeeStock
-from .services.inventory import get_stock_rows_with_cached_inventory
+from .services.inventory import (
+    cache_packaged_inventory_totals,
+    get_stock_rows_with_cached_inventory,
+)
 
 from decimal import Decimal, InvalidOperation
 from django.views.generic import TemplateView
@@ -90,45 +92,9 @@ class InventoryDashboardView(RoleRequiredMixin, TemplateView):
         ctx = super().get_context_data(**kwargs)
 
         # 1. 📦 PACKAGED INVENTORY & ALERTS
-        inventory = list(
+        inventory = cache_packaged_inventory_totals(
             PackagedInventory.objects.select_related("product__blend", "product__pack_size")
         )
-        product_ids = [item.product_id for item in inventory]
-        produced_by_product = dict(
-            PackagingRunOutput.objects
-            .filter(
-                run__status="completed",
-                product_id__in=product_ids,
-            )
-            .values("product_id")
-            .annotate(total=Sum("packs_produced"))
-            .values_list("product_id", "total")
-        )
-        released_by_product = dict(
-            PackRelease.objects
-            .filter(product_id__in=product_ids)
-            .values("product_id")
-            .annotate(total=Sum("packs_out"))
-            .values_list("product_id", "total")
-        )
-        returned_by_product = dict(
-            PackReturn.objects
-            .filter(
-                release__product_id__in=product_ids,
-                status="approved",
-                condition="good",
-            )
-            .values("release__product_id")
-            .annotate(total=Sum("packs_returned"))
-            .values_list("release__product_id", "total")
-        )
-
-        for item in inventory:
-            item._available_cache = (
-                produced_by_product.get(item.product_id, 0)
-                - released_by_product.get(item.product_id, 0)
-                + returned_by_product.get(item.product_id, 0)
-            )
 
         low_stock_items = [
             item for item in inventory

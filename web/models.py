@@ -1564,6 +1564,9 @@ class PackagedInventory(models.Model):
 
     @property
     def packs_produced(self):
+        if "_packs_produced_cache" in self.__dict__:
+            return self.__dict__["_packs_produced_cache"]
+
         return sum(
             output.packs_produced
             for output in self.product.packaging_outputs.filter(run__status="completed")
@@ -1571,6 +1574,9 @@ class PackagedInventory(models.Model):
 
     @property
     def packs_released(self):
+        if "_packs_released_cache" in self.__dict__:
+            return self.__dict__["_packs_released_cache"]
+
         return sum(
             release.packs_out
             for release in self.product.releases.all()
@@ -1578,6 +1584,9 @@ class PackagedInventory(models.Model):
 
     @property
     def packs_returned(self):
+        if "_packs_returned_cache" in self.__dict__:
+            return self.__dict__["_packs_returned_cache"]
+
         return sum(
             ret.packs_returned
             for release in self.product.releases.all()

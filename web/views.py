@@ -92,6 +92,7 @@ from .services.followup import (
 )
 from .services.intake import record_intake
 from .services.inventory import (
+    cache_packaged_inventory_totals,
     get_stage_inventory,
     get_stock_rows_with_cached_inventory,
 )
@@ -1308,7 +1309,7 @@ class PackagedInventoryListView(InventoryRoleRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         
         # 1. Turn the inventory queryset into a list
-        inv = list(ctx["inventory"])
+        inv = cache_packaged_inventory_totals(ctx["inventory"])
         
         # 2. 📊 Sort the list in memory using your 'available' property (lowest stock first)
         inv_sorted = sorted(inv, key=lambda i: i.available)

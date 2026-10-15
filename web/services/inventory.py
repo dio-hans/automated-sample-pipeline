@@ -11,6 +11,7 @@ from ..models import (
     PackagedProduct,
     PackagedInventory,
     PackagingRun,
+    PackagingRunOutput,
     PackRelease,
     PackReturn,
     RoastedSackSale,
@@ -19,6 +20,54 @@ from ..models import (
 
 
 ZERO = Decimal("0.00")
+
+
+def cache_packaged_inventory_totals(inventory):
+    inventory = list(inventory)
+    product_ids = [item.product_id for item in inventory]
+    if not product_ids:
+        return inventory
+
+    produced_by_product = dict(
+        PackagingRunOutput.objects
+        .filter(
+            run__status="completed",
+            product_id__in=product_ids,
+        )
+        .values("product_id")
+        .annotate(total=Sum("packs_produced"))
+        .values_list("product_id", "total")
+    )
+    released_by_product = dict(
+        PackRelease.objects
+        .filter(product_id__in=product_ids)
+        .values("product_id")
+        .annotate(total=Sum("packs_out"))
+        .values_list("product_id", "total")
+    )
+    returned_by_product = dict(
+        PackReturn.objects
+        .filter(
+            release__product_id__in=product_ids,
+            status="approved",
+            condition="good",
+        )
+        .values("release__product_id")
+        .annotate(total=Sum("packs_returned"))
+        .values_list("release__product_id", "total")
+    )
+
+    for item in inventory:
+        item._packs_produced_cache = produced_by_product.get(item.product_id, 0)
+        item._packs_released_cache = released_by_product.get(item.product_id, 0)
+        item._packs_returned_cache = returned_by_product.get(item.product_id, 0)
+        item._available_cache = (
+            item._packs_produced_cache
+            - item._packs_released_cache
+            + item._packs_returned_cache
+        )
+
+    return inventory
 
 
 # ============================================================
@@ -568,5 +617,4 @@ def sell_roasted_sack(
 )
 
     return sale
-
 
