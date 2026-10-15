@@ -283,12 +283,35 @@ class StockRequestCreateView(RoleRequiredMixin, View):
     template_name = "pipeline/stock_request_form.html"
 
     def get(self, request):
+        item_formset = StockRequestItemFormSet(prefix="items")
+        products = list(
+            item_formset.forms[0].fields["product"].queryset
+        )
+        product_ids = [product.pk for product in products]
+        inventory = cache_packaged_inventory_totals(
+            PackagedInventory.objects
+            .filter(product_id__in=product_ids)
+            .select_related("product__blend", "product__pack_size")
+        )
+        available_by_product = {
+            item.product_id: item.available
+            for item in inventory
+        }
+        catalog_products = [
+            {
+                "product": product,
+                "available": available_by_product.get(product.pk, 0),
+            }
+            for product in products
+        ]
+
         return render(
             request,
             self.template_name,
             {
                 "form": StockRequestForm(),
-                "item_formset": StockRequestItemFormSet(prefix="items"),
+                "item_formset": item_formset,
+                "catalog_products": catalog_products,
             },
         )
 

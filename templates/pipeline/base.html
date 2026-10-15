@@ -189,10 +189,14 @@
                             <span>Account Holders</span>
                         </a>
 
+                        {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
+
                         <a href="{% url 'expense_list' %}" class="nav-link">
                            <i class="fa-solid fa-receipt nav-icon"></i>
                             <span>Expenses</span>
                         </a>
+                        
+                        {% endif %}
                     </div>
                 </div>
             {% endif %}

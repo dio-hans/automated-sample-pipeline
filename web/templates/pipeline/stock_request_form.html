@@ -86,8 +86,8 @@
                 id="catalog-grid"
                 class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[450px] overflow-y-auto pr-1"
             >
-                {% for product in item_formset.forms.0.fields.product.queryset %}
-                    {% with available=product.inventory.available %}
+                {% for catalog_item in catalog_products %}
+                    {% with product=catalog_item.product available=catalog_item.available %}
                         <button
                             type="button"
                             class="product-card text-left p-3.5 border border-[#E4DECB] bg-white rounded-xl hover:border-rust hover:bg-rust/5 transition flex flex-col justify-between group active:scale-95"
