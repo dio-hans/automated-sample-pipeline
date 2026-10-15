@@ -180,19 +180,8 @@ def user_login(request):
             login(request, user)
             messages.success(request, f"Welcome back, {user.username}!")
             return redirect_user_by_role(user)
-        else:
-            username = request.POST.get('username')
-            if username:
-                try:
-                    existing_user = User.objects.get(username=username)
-                    if not existing_user.is_active or getattr(existing_user, 'is_suspended', False):
-                        messages.error(request, "Access Denied: Your account has been suspended.")
-                        return redirect('login')
-                except User.DoesNotExist:
-                    pass
-
-            form.errors.clear()
-            form.add_error(None, "Invalid login credentials.")
+        form.errors.clear()
+        form.add_error(None, "Invalid login credentials.")
     else:
         form = UserLoginForm()
     return render(request, 'pipeline/login.html', {'form': form})

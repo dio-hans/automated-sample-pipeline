@@ -12,7 +12,7 @@
     <!-- FONT AWESOME 6 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <!-- TAILWIND -->
-    <script src="https://cdn.tailwindcss.com" defer></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -133,7 +133,6 @@
     <span>Packaging Runs List</span>
 </a>
                     </div>
-                </div>
             {% endif %}
 
              {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" %}
@@ -143,7 +142,7 @@
                             <i class="fa-solid fa-gears nav-icon"></i>
                             <span>Processing</span>
                         </a>
-
+                    </div>
                     {% endif %}
 
             {% if request.user.role == "ADMIN" or request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" %}
