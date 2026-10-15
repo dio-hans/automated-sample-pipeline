@@ -142,3 +142,4 @@ AUTH_USER_MODEL = 'web.User'
 CONSIGNMENT_AUDIT_INTERVAL_DAYS = 14
 # settings.py
 LOGIN_URL = 'login'
+CSRF_TRUSTED_ORIGINS = ['[https://automated-sample-pipeline-2.onrender.com](https://automated-sample-pipeline-2.onrender.com)']
