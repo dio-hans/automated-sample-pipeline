@@ -586,6 +586,11 @@ class CoffeeStock(models.Model):
         return self.variety.name
 
     def stage_quantity(self, stage):
+        cached = self.__dict__.get("_stage_quantity_cache")
+
+        if cached is not None and stage in cached:
+            return cached[stage]
+
         incoming = (
             self.movements
             .filter(to_stage=stage)
@@ -596,6 +601,28 @@ class CoffeeStock(models.Model):
         outgoing = (
             self.movements
             .filter(from_stage=stage)
+            .aggregate(total=Sum("quantity"))["total"]
+            or Decimal("0.00")
+        )
+
+        return incoming - outgoing
+
+
+    @property
+    def quantity_available(self):
+        if "_quantity_available_cache" in self.__dict__:
+            return self.__dict__["_quantity_available_cache"]
+
+        incoming = (
+            self.movements
+            .exclude(to_stage=None)
+            .aggregate(total=Sum("quantity"))["total"]
+            or Decimal("0.00")
+        )
+
+        outgoing = (
+            self.movements
+            .exclude(from_stage=None)
             .aggregate(total=Sum("quantity"))["total"]
             or Decimal("0.00")
         )
