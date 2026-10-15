@@ -202,11 +202,6 @@ document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll(".product-card");
     const searchInput =
         document.getElementById("catalog-search");
-    const requestForm =
-        document.getElementById("stock-request-form");
-    const submitButton =
-        document.getElementById("submit-request-button");
-
     if (!totalFormsInput) {
         console.error(
             "Django formset management form not found. Expected id_items-TOTAL_FORMS."
@@ -409,20 +404,6 @@ document.addEventListener("DOMContentLoaded", function () {
             updateFormsetValues();
         });
     });
-
-    if (requestForm) {
-        requestForm.addEventListener("submit", function () {
-            if (submitButton) {
-                submitButton.disabled = true;
-                submitButton.textContent =
-                    "Submitting...";
-                submitButton.classList.add(
-                    "opacity-60",
-                    "cursor-not-allowed"
-                );
-            }
-        });
-    }
 
     updateFormsetValues();
 });

@@ -15,6 +15,20 @@ input[type="submit"] {
     transition: background-color 150ms ease, transform 100ms ease;
 }
 
+button[data-submitting="true"],
+input[data-submitting="true"] {
+    cursor: wait;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.submit-progress {
+    display: inline-block;
+    margin-inline-start: 0.5rem;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
 .deny-button{
     background-color: rgb(188, 30, 30);
 }

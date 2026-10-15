@@ -2,7 +2,7 @@
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 from ..models import (
@@ -85,6 +85,56 @@ def get_stock_available(stock):
         + get_ground_available(stock)
         + get_quaker_available(stock)
     )
+
+
+def get_stock_rows_with_cached_inventory(queryset):
+    zero = Decimal("0.00")
+    stages = (
+        ("green", StockStage.GREEN),
+        ("roasted", StockStage.ROASTED),
+        ("ground", StockStage.GROUND),
+        ("quakers", StockStage.QUAKERS),
+    )
+
+    annotations = {
+        "inventory_in_calc": Sum(
+            "movements__quantity",
+            filter=Q(movements__to_stage__isnull=False),
+        ),
+        "inventory_out_calc": Sum(
+            "movements__quantity",
+            filter=Q(movements__from_stage__isnull=False),
+        ),
+    }
+
+    for name, stage in stages:
+        annotations[f"{name}_in_calc"] = Sum(
+            "movements__quantity",
+            filter=Q(movements__to_stage=stage),
+        )
+        annotations[f"{name}_out_calc"] = Sum(
+            "movements__quantity",
+            filter=Q(movements__from_stage=stage),
+        )
+
+    stocks = list(queryset.annotate(**annotations))
+
+    for stock in stocks:
+        stock._quantity_available_cache = (
+            stock.inventory_in_calc or zero
+        ) - (
+            stock.inventory_out_calc or zero
+        )
+        stock._stage_quantity_cache = {
+            stage: (
+                getattr(stock, f"{name}_in_calc") or zero
+            ) - (
+                getattr(stock, f"{name}_out_calc") or zero
+            )
+            for name, stage in stages
+        }
+
+    return stocks
 
 
 # NOTE:
@@ -518,6 +568,5 @@ def sell_roasted_sack(
 )
 
     return sale
-
 
 

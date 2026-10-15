@@ -91,7 +91,10 @@ from .services.followup import (
     mark_guide_sent,
 )
 from .services.intake import record_intake
-from .services.inventory import get_stage_inventory
+from .services.inventory import (
+    get_stage_inventory,
+    get_stock_rows_with_cached_inventory,
+)
 from .services.packaging import (
     execute_pack_release,
     execute_pack_return,
@@ -103,57 +106,6 @@ from .services.processing import (
 from .utils.util import apply_date_filters
 from .sales_forms import AccountHolderForm, PackReturnForm
 
-
-def _stock_rows_with_cached_inventory(queryset):
-    zero = Decimal("0.00")
-
-    annotations = {
-        "inventory_in_calc": Sum(
-            "movements__quantity",
-            filter=Q(movements__to_stage__isnull=False),
-        ),
-        "inventory_out_calc": Sum(
-            "movements__quantity",
-            filter=Q(movements__from_stage__isnull=False),
-        ),
-    }
-
-    stages = (
-        ("green", StockStage.GREEN),
-        ("roasted", StockStage.ROASTED),
-        ("ground", StockStage.GROUND),
-        ("quakers", StockStage.QUAKERS),
-    )
-
-    for name, stage in stages:
-        annotations[f"{name}_in_calc"] = Sum(
-            "movements__quantity",
-            filter=Q(movements__to_stage=stage),
-        )
-        annotations[f"{name}_out_calc"] = Sum(
-            "movements__quantity",
-            filter=Q(movements__from_stage=stage),
-        )
-
-    stocks = list(queryset.annotate(**annotations))
-
-    for stock in stocks:
-        stock._quantity_available_cache = (
-            stock.inventory_in_calc or zero
-        ) - (
-            stock.inventory_out_calc or zero
-        )
-
-        stock._stage_quantity_cache = {
-            stage: (
-                getattr(stock, f"{name}_in_calc") or zero
-            ) - (
-                getattr(stock, f"{name}_out_calc") or zero
-            )
-            for name, stage in stages
-        }
-
-    return stocks
 
 def redirect_user_by_role(user):
     """Send each authenticated user to the workspace for their role."""
@@ -679,7 +631,7 @@ class CoffeeStockListViews(RoleRequiredMixin, ListView):
 
         # 🎯 DRILL-DOWN TOGGLE LOOKUP
         # We cache the full filtered timeline list in memory first to calculate stable counters
-        self._all_records = _stock_rows_with_cached_inventory(qs)
+        self._all_records = get_stock_rows_with_cached_inventory(qs)
         
         self._current_status_filter = self.request.GET.get("status", "all")
         if self._current_status_filter == "exhausted":
@@ -1090,7 +1042,7 @@ class DashboardView(TemplateView):
 
 
 def low_stock_list(request):
-    stocks = _stock_rows_with_cached_inventory(
+    stocks = get_stock_rows_with_cached_inventory(
         CoffeeStock.objects.select_related("variety")
     )
     low_stocks = [s for s in stocks if s.quantity_available <= s.reorder_level]
@@ -1113,7 +1065,7 @@ class ProcessingWorkspaceView(RoleRequiredMixin, View):
 
     template_name = "pipeline/processing_workspace.html"
     def get(self, request):
-        stocks = (
+        stocks = get_stock_rows_with_cached_inventory(
             CoffeeStock.objects
             .select_related("variety")
             .order_by("variety__name", "batch_number")
@@ -2214,7 +2166,7 @@ class LowStockListView(RoleRequiredMixin, TemplateView):
 
         # 🟤 1. RAW BULK COFFEE BATCHES (Kilograms)
         # Filters batches that have dropped to or below their safety levels
-        bulk_stocks = _stock_rows_with_cached_inventory(
+        bulk_stocks = get_stock_rows_with_cached_inventory(
             CoffeeStock.objects.select_related("variety")
         )
         low_bulk_batches = [

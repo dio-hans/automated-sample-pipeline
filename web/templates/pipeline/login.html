@@ -186,8 +186,7 @@
                 {% endif %}
 
                 <!-- LOGIN FORM -->
-                <form id="login-form"
-                      method="POST"
+                <form method="POST"
                       action=""
                       autocomplete="off"
                       novalidate
@@ -207,14 +206,13 @@
                     </div>
 
                     <div class="pt-2">
-                        <button id="login-submit"
-                                type="submit"
+                        <button type="submit"
                                 class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold
                                        py-3 rounded-xl text-xs uppercase tracking-wider
                                        transition-all shadow-sm flex items-center justify-center gap-2
-                                       cursor-pointer active:scale-[0.99] disabled:cursor-wait disabled:opacity-70">
+                                       cursor-pointer active:scale-[0.99]">
                             <i class="fa-solid fa-right-to-bracket text-sm"></i>
-                            <span id="login-submit-label">Sign In</span>
+                            <span>Sign In</span>
                         </button>
                     </div>
 
@@ -234,25 +232,6 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const loginForm = document.getElementById('login-form');
-        const submitButton = document.getElementById('login-submit');
-        const submitLabel = document.getElementById('login-submit-label');
-        let loginSubmitting = false;
-
-        if (loginForm && submitButton && submitLabel) {
-            loginForm.addEventListener('submit', function (event) {
-                if (loginSubmitting) {
-                    event.preventDefault();
-                    return;
-                }
-
-                loginSubmitting = true;
-                submitButton.disabled = true;
-                submitButton.setAttribute('aria-busy', 'true');
-                submitLabel.textContent = 'Signing in...';
-            });
-        }
-
         const passwordContainer = document.getElementById('div_id_password');
         const passwordInput = document.getElementById('id_password');
 

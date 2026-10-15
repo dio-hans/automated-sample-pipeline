@@ -1587,6 +1587,9 @@ class PackagedInventory(models.Model):
 
     @property
     def available(self):
+        if "_available_cache" in self.__dict__:
+            return self.__dict__["_available_cache"]
+
         return (
             self.packs_produced
             - self.packs_released

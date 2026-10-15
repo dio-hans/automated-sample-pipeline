@@ -27,8 +27,10 @@ from .models import  AccountHolder, CompanyBranch, ConsignmentInventory, Package
 from .models import (
     Company,
     PackRelease,
+    PackReturn,
     PackSettlement,
     PackagedInventory,
+    PackagingRunOutput,
     StockRequest,
     StockRequestItem,
     User,
@@ -75,6 +77,7 @@ class AdminDashboardView(RoleRequiredMixin, TemplateView):
 
 from django.db.models import Sum
 from .models import PackagedInventory, StockRequest, PackRelease, CoffeeStock
+from .services.inventory import get_stock_rows_with_cached_inventory
 
 from decimal import Decimal, InvalidOperation
 from django.views.generic import TemplateView
@@ -90,10 +93,46 @@ class InventoryDashboardView(RoleRequiredMixin, TemplateView):
         inventory = list(
             PackagedInventory.objects.select_related("product__blend", "product__pack_size")
         )
+        product_ids = [item.product_id for item in inventory]
+        produced_by_product = dict(
+            PackagingRunOutput.objects
+            .filter(
+                run__status="completed",
+                product_id__in=product_ids,
+            )
+            .values("product_id")
+            .annotate(total=Sum("packs_produced"))
+            .values_list("product_id", "total")
+        )
+        released_by_product = dict(
+            PackRelease.objects
+            .filter(product_id__in=product_ids)
+            .values("product_id")
+            .annotate(total=Sum("packs_out"))
+            .values_list("product_id", "total")
+        )
+        returned_by_product = dict(
+            PackReturn.objects
+            .filter(
+                release__product_id__in=product_ids,
+                status="approved",
+                condition="good",
+            )
+            .values("release__product_id")
+            .annotate(total=Sum("packs_returned"))
+            .values_list("release__product_id", "total")
+        )
+
+        for item in inventory:
+            item._available_cache = (
+                produced_by_product.get(item.product_id, 0)
+                - released_by_product.get(item.product_id, 0)
+                + returned_by_product.get(item.product_id, 0)
+            )
 
         low_stock_items = [
-            item for item in inventory 
-            if getattr(item, "is_low_stock", (item.available or 0) <= getattr(item, "reorder_level", 10))
+            item for item in inventory
+            if item.available <= getattr(item, "reorder_level", 10)
         ]
 
         # 2. 📋 PENDING PIPELINE REQUESTS
@@ -112,20 +151,22 @@ class InventoryDashboardView(RoleRequiredMixin, TemplateView):
         ).order_by("-released_at")[:20]
 
         # 4. 🧮 SAFE BULK COFFEE QUANTITY COMPUTATION
-        stocks = CoffeeStock.objects.all()
+        stocks = get_stock_rows_with_cached_inventory(
+            CoffeeStock.objects.all()
+        )
 
         total_green = Decimal("0.00")
         total_roasted = Decimal("0.00")
         total_ground = Decimal("0.00")
 
         for stock in stocks:
-            green_val = getattr(stock, "quantity_green", getattr(stock, "quantity_after_sorting", 0)) or 0
+            green_val = stock.quantity_green or 0
             total_green += Decimal(str(green_val))
 
-            roasted_val = getattr(stock, "quantity_roasted", 0) or 0
+            roasted_val = stock.quantity_roasted or 0
             total_roasted += Decimal(str(roasted_val))
 
-            ground_val = getattr(stock, "quantity_ground", 0) or 0
+            ground_val = stock.quantity_ground or 0
             total_ground += Decimal(str(ground_val))
 
         # 5. CONTEXT INJECTION (Assigned directly to ctx)

@@ -1,3 +1,50 @@
+document.addEventListener("submit", function (event) {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    if (event.defaultPrevented) return;
+
+    if (form.dataset.submitting === "true") {
+        event.preventDefault();
+        return;
+    }
+
+    form.dataset.submitting = "true";
+    form.setAttribute("aria-busy", "true");
+
+    const submitter = event.submitter;
+    const indicatorTarget = submitter || form.querySelector(
+        'button:not([type]), button[type="submit"], input[type="submit"]'
+    );
+
+    if (indicatorTarget) {
+        indicatorTarget.setAttribute("aria-disabled", "true");
+        indicatorTarget.setAttribute("aria-busy", "true");
+        indicatorTarget.dataset.submitting = "true";
+
+        if (indicatorTarget instanceof HTMLButtonElement) {
+            const status = document.createElement("span");
+            status.className = "submit-progress";
+            status.setAttribute("aria-hidden", "true");
+            status.textContent = "Submitting...";
+            indicatorTarget.appendChild(status);
+        } else if (indicatorTarget.parentElement) {
+            const status = document.createElement("span");
+            status.className = "submit-progress";
+            status.setAttribute("role", "status");
+            status.textContent = "Submitting...";
+            indicatorTarget.insertAdjacentElement("afterend", status);
+        }
+    }
+
+    form.querySelectorAll(
+        'button:not([type]), button[type="submit"], input[type="submit"], input[type="image"]'
+    ).forEach(function (control) {
+        if (control !== submitter) {
+            control.disabled = true;
+        }
+    });
+});
+
 document.addEventListener("DOMContentLoaded", function () {
     const sidebar = document.getElementById("mainSidebar");
     const toggle = document.getElementById("sidebarToggle");
