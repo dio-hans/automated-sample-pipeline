@@ -8,6 +8,7 @@ from ...models import (
     ConsignmentInventory,
     PackRelease,
     PackSettlement,
+    CoffeeBatchSale,
     RoastedSackSale,
     StockAuditItem,
     Company,
@@ -210,6 +211,17 @@ def get_sales_report(period):
         bulk_sales,
         "sale_date",
     )
+    bulk_sales = list(bulk_sales)
+    request_bulk_sales = period.filter_datetime(
+        CoffeeBatchSale.objects.select_related(
+            "stock__variety",
+            "account_holder",
+            "company",
+            "created_by",
+        ),
+        "sold_at",
+    )
+    bulk_sales.extend(request_bulk_sales)
     
     bulk_kg_sold = ZERO
     bulk_sales_value = ZERO
@@ -231,13 +243,20 @@ def get_sales_report(period):
         bulk_kg_sold += quantity
         bulk_sales_value += value
         
-        buyer_name = sale.buyer_name.strip() if sale.buyer_name else "Unknown Buyer"
+        if sale.buyer_name:
+            buyer_name = sale.buyer_name.strip()
+        else:
+            account_holder = getattr(sale, "account_holder", None)
+            company = getattr(sale, "company", None)
+            buyer_name = str(account_holder or company or "Unknown Buyer")
         buyer = bulk_buyers[buyer_name.lower()]
         buyer["name"] = buyer_name
         buyer["kg"] += quantity
         buyer["revenue"] += value
         
-        sale_date = sale.sale_date.date()
+        sale_date = (
+            sale.sold_at if hasattr(sale, "sold_at") else sale.sale_date
+        ).date()
         daily_sales[sale_date] += value
 
     # ============================================================
@@ -309,7 +328,7 @@ def get_sales_report(period):
         })
     if bulk_sales_value > 0:
         channels.append({
-            "label": "Bulk Roasted Coffee",
+            "label": "Bulk Coffee",
             "value": bulk_sales_value,
             "percentage": ((bulk_sales_value / total_sales_value) * Decimal("100")).quantize(Decimal("0.1")) if total_sales_value > 0 else ZERO,
         })

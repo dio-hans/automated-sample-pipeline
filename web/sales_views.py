@@ -21,7 +21,15 @@ from django.views import View
 from django.views.generic import DetailView, ListView, TemplateView
 from django.forms import formset_factory
 from .sales_forms import PaymentReceiptForm
-from .sales_workflow import create_stock_request, fulfill_request_item, process_supermarket_audit, record_installment_payment
+from .sales_workflow import (
+    create_stock_request,
+    fulfill_bulk_request_item,
+    fulfill_request_item,
+    process_supermarket_audit,
+    record_installment_payment,
+    refresh_stock_request_status,
+    record_bulk_sale_payment,
+)
 from .sales_forms import PackReturnForm
 from .models import  AccountHolder, CompanyBranch, ConsignmentInventory, PackagedProduct, PackagingRun, PackagingRun, StockAudit
 from .models import (
@@ -29,9 +37,11 @@ from .models import (
     PackRelease,
     PackReturn,
     PackSettlement,
+    CoffeeBatchSale,
     PackagedInventory,
     StockRequest,
     StockRequestItem,
+    BulkStockRequestItem,
     User,
 )
 from .sales_forms import (
@@ -39,6 +49,9 @@ from .sales_forms import (
     SettlementForm,
     StockRequestForm,
     StockRequestItemFormSet,
+    BulkStockRequestItemFormSet,
+    BulkFulfillFormSet,
+    BulkSalePaymentForm,
 )
 
 
@@ -279,11 +292,19 @@ class StockRequestCreateView(RoleRequiredMixin, View):
         User.Role.MANAGER,
         User.Role.ADMIN,
         User.Role.CASHIER,
+        User.Role.ACCOUNTS,
     )
     template_name = "pipeline/stock_request_form.html"
 
     def get(self, request):
         item_formset = StockRequestItemFormSet(prefix="items")
+        stock_queryset = CoffeeStock.objects.select_related(
+            "variety"
+        ).order_by("batch_number")
+        bulk_formset = BulkStockRequestItemFormSet(
+            prefix="bulk",
+            stock_queryset=stock_queryset,
+        )
         products = list(
             item_formset.forms[0].fields["product"].queryset
         )
@@ -304,25 +325,49 @@ class StockRequestCreateView(RoleRequiredMixin, View):
             }
             for product in products
         ]
+        stocks = get_stock_rows_with_cached_inventory(stock_queryset)
+        bulk_stock_options = [
+            {
+                "stock": stock,
+                "green": stock._stage_quantity_cache.get("green_received", 0),
+                "roasted": stock._stage_quantity_cache.get("roasted", 0),
+                "ground": stock._stage_quantity_cache.get("ground", 0),
+            }
+            for stock in stocks
+        ]
 
         return render(
             request,
             self.template_name,
             {
-                "form": StockRequestForm(),
+                "form": StockRequestForm(user=request.user),
                 "item_formset": item_formset,
+                "bulk_formset": bulk_formset,
                 "catalog_products": catalog_products,
+                "bulk_stock_options": bulk_stock_options,
             },
         )
 
     def post(self, request):
-        form = StockRequestForm(request.POST)
+        is_sales_request = (
+            request.user.role == User.Role.SALES
+            and not request.user.is_superuser
+        )
+        form = StockRequestForm(request.POST, user=request.user)
         formset = StockRequestItemFormSet(
             request.POST,
             prefix="items",
         )
+        stock_queryset = CoffeeStock.objects.select_related(
+            "variety"
+        ).order_by("batch_number")
+        bulk_formset = BulkStockRequestItemFormSet(
+            request.POST,
+            prefix="bulk",
+            stock_queryset=stock_queryset,
+        )
 
-        if form.is_valid() and formset.is_valid():
+        if form.is_valid() and formset.is_valid() and bulk_formset.is_valid():
             try:
                 items = [
                     (
@@ -333,17 +378,41 @@ class StockRequestCreateView(RoleRequiredMixin, View):
                     if row.cleaned_data
                     and not row.cleaned_data.get("DELETE")
                 ]
+                bulk_items = [
+                    (
+                        row.cleaned_data["stock"],
+                        row.cleaned_data["stage"],
+                        row.cleaned_data["quantity_requested"],
+                        row.cleaned_data["price_per_kg"],
+                        row.cleaned_data.get("buyer_name", ""),
+                    )
+                    for row in bulk_formset.forms
+                    if row.cleaned_data
+                    and row.cleaned_data.get("stock")
+                    and not row.cleaned_data.get("DELETE")
+                ]
 
                 stock_request = create_stock_request(
                     user=request.user,
-                    purpose=form.cleaned_data.get("purpose"),
-                    destination_type=form.cleaned_data.get(
-                        "destination_type", ""
+                    purpose=(
+                        "sale"
+                        if is_sales_request
+                        else form.cleaned_data.get("purpose")
+                    ),
+                    destination_type=(
+                        "agent_float"
+                        if is_sales_request
+                        else form.cleaned_data.get("destination_type", "")
                     ),
                     company=form.cleaned_data.get("company"),
-                    account_holder=form.cleaned_data.get("account_holder"),
+                    account_holder=(
+                        form.sales_account_holder
+                        if is_sales_request
+                        else form.cleaned_data.get("account_holder")
+                    ),
                     notes=form.cleaned_data.get("notes", ""),
                     items=items,
+                    bulk_items=bulk_items,
                 )
 
                 messages.success(
@@ -367,12 +436,37 @@ class StockRequestCreateView(RoleRequiredMixin, View):
                 )
                 form.add_error(None, msg)
 
+        products = list(formset.forms[0].fields["product"].queryset)
+        product_ids = [product.pk for product in products]
+        inventory = cache_packaged_inventory_totals(
+            PackagedInventory.objects.filter(
+                product_id__in=product_ids
+            ).select_related("product__blend", "product__pack_size")
+        )
+        available_by_product = {item.product_id: item.available for item in inventory}
+        catalog_products = [
+            {"product": product, "available": available_by_product.get(product.pk, 0)}
+            for product in products
+        ]
         return render(
             request,
             self.template_name,
             {
                 "form": form,
                 "item_formset": formset,
+                "bulk_formset": bulk_formset,
+                "catalog_products": catalog_products,
+                "bulk_stock_options": [
+                    {
+                        "stock": stock,
+                        "green": stock._stage_quantity_cache.get("green_received", 0),
+                        "roasted": stock._stage_quantity_cache.get("roasted", 0),
+                        "ground": stock._stage_quantity_cache.get("ground", 0),
+                    }
+                    for stock in get_stock_rows_with_cached_inventory(
+                        stock_queryset
+                    )
+                ],
             },
         )
 
@@ -404,6 +498,96 @@ class MyStockRequestListView(RoleRequiredMixin, ListView):
         
         return active_releases
 
+
+class BulkSaleListView(RoleRequiredMixin, ListView):
+    allowed_roles = (
+        User.Role.SALES,
+        User.Role.MANAGER,
+        User.Role.ADMIN,
+        User.Role.ACCOUNTS,
+        User.Role.CASHIER,
+    )
+    model = CoffeeBatchSale
+    template_name = "pipeline/bulk_sale_list.html"
+    context_object_name = "bulk_sales"
+
+    def get_queryset(self):
+        qs = CoffeeBatchSale.objects.select_related(
+            "stock__variety",
+            "bulk_request_item__request",
+            "account_holder",
+            "company",
+            "created_by",
+        ).prefetch_related("payments")
+        if self.request.user.role == User.Role.SALES:
+            qs = qs.filter(account_holder__system_user=self.request.user)
+        return qs.order_by("-sold_at", "-pk")
+
+
+class BulkSalePaymentView(RoleRequiredMixin, View):
+    allowed_roles = (
+        User.Role.CASHIER,
+        User.Role.ACCOUNTS,
+        User.Role.MANAGER,
+        User.Role.ADMIN,
+    )
+    template_name = "pipeline/bulk_sale_payment.html"
+
+    def get_sale(self, pk):
+        return get_object_or_404(
+            CoffeeBatchSale.objects.select_related(
+                "stock__variety",
+                "bulk_request_item__request",
+                "account_holder",
+                "company",
+            ).prefetch_related("payments"),
+            pk=pk,
+        )
+
+    def get(self, request, pk):
+        sale = self.get_sale(pk)
+        if sale.outstanding_balance <= 0:
+            messages.info(request, "This bulk sale is fully paid.")
+            return redirect("bulk_sales")
+        return render(
+            request,
+            self.template_name,
+            {
+                "sale": sale,
+                "form": BulkSalePaymentForm(
+                    initial={"amount": sale.outstanding_balance}
+                ),
+            },
+        )
+
+    @transaction.atomic
+    def post(self, request, pk):
+        sale = self.get_sale(pk)
+        form = BulkSalePaymentForm(request.POST)
+        if form.is_valid():
+            try:
+                payment = record_bulk_sale_payment(
+                    bulk_sale=sale,
+                    amount=form.cleaned_data["amount"],
+                    method=form.cleaned_data["payment_method"],
+                    payment_reference=form.cleaned_data["payment_reference"],
+                    collected_by=request.user,
+                    notes=form.cleaned_data["notes"],
+                )
+                messages.success(
+                    request,
+                    f"UGX {payment.amount:,.2f} recorded against bulk sale #{sale.pk}.",
+                )
+                return redirect("bulk_sales")
+            except ValidationError as exc:
+                form.add_error(None, exc)
+        return render(
+            request,
+            self.template_name,
+            {"sale": sale, "form": form},
+        )
+
+
 class StockRequestDetailView(RoleRequiredMixin, DetailView):
     allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     model = StockRequest
@@ -412,8 +596,14 @@ class StockRequestDetailView(RoleRequiredMixin, DetailView):
     context_object_name = "stock_request"
 
     def get_queryset(self):
-        qs = StockRequest.objects.select_related("requested_by", "company").prefetch_related(
-            "items__product__blend", "items__product__pack_size", "items__releases"
+        qs = StockRequest.objects.select_related(
+            "requested_by", "company", "account_holder"
+        ).prefetch_related(
+            "items__product__blend",
+            "items__product__pack_size",
+            "items__releases",
+            "bulk_items__stock__variety",
+            "bulk_items__sales",
         )
         if self.request.user.role == User.Role.SALES:
             qs = qs.filter(requested_by=self.request.user)
@@ -426,8 +616,16 @@ class StockRequestFulfillView(RoleRequiredMixin, View):
 
     def get_request(self, pk):
         return get_object_or_404(
-            StockRequest.objects.select_related("requested_by", "company").prefetch_related(
-                "items__product__blend", "items__product__pack_size", "items__releases"
+            StockRequest.objects.select_related(
+                "requested_by", "company", "account_holder"
+            ).prefetch_related(
+                "items__product__blend",
+                "items__product__pack_size",
+                "items__releases__payments",
+                "items__releases__returns",
+                "items__releases__settlements",
+                "bulk_items__stock__variety",
+                "bulk_items__sales__payments",
             ),
             pk=pk,
         )
@@ -438,70 +636,106 @@ class StockRequestFulfillView(RoleRequiredMixin, View):
             {"item_id": item.pk, "issue_quantity": item.outstanding_quantity, "selling_price": item.product.selling_price}
             for item in stock_request.items.all()
         ]
+        bulk_initial = [
+            {
+                "item_id": item.pk,
+                "issue_quantity": item.outstanding_quantity,
+                "price_per_kg": item.price_per_kg,
+            }
+            for item in stock_request.bulk_items.all()
+        ]
         return render(request, self.template_name, {
             "stock_request": stock_request,
             "formset": FulfillFormSet(prefix="fulfill", initial=initial),
+            "bulk_formset": BulkFulfillFormSet(
+                prefix="bulk_fulfill",
+                initial=bulk_initial,
+            ),
         })
+
+    @transaction.atomic
+    def _fulfill_lines(self, *, request, stock_request, formset, bulk_formset):
+        issued = 0
+        for form in formset:
+            item = get_object_or_404(
+                StockRequestItem,
+                pk=form.cleaned_data["item_id"],
+                request=stock_request,
+            )
+            quantity = form.cleaned_data["issue_quantity"]
+            if quantity <= 0:
+                continue
+            if stock_request.purpose == "sale" and form.cleaned_data["selling_price"] <= 0:
+                raise ValidationError("A sale release must have a price per pack.")
+            fulfill_request_item(
+                item=item,
+                quantity=quantity,
+                selling_price=form.cleaned_data["selling_price"],
+                manager=request.user,
+                notes=form.cleaned_data.get("notes", ""),
+            )
+            issued += quantity
+
+        bulk_issued = Decimal("0.00")
+        for form in bulk_formset:
+            item = get_object_or_404(
+                BulkStockRequestItem,
+                pk=form.cleaned_data["item_id"],
+                request=stock_request,
+            )
+            quantity = form.cleaned_data["issue_quantity"]
+            if quantity <= 0:
+                continue
+            fulfill_bulk_request_item(
+                item=item,
+                quantity=quantity,
+                price_per_kg=form.cleaned_data["price_per_kg"],
+                user=request.user,
+            )
+            bulk_issued += quantity
+
+        return refresh_stock_request_status(stock_request), issued, bulk_issued
 
     def post(self, request, pk):
         stock_request = self.get_request(pk)
         formset = FulfillFormSet(request.POST, prefix="fulfill")
-        
-        if formset.is_valid():
+        bulk_formset = BulkFulfillFormSet(request.POST, prefix="bulk_fulfill")
+
+        if formset.is_valid() and bulk_formset.is_valid():
             try:
-                issued = 0
-                for form in formset:
-                    item_id = form.cleaned_data["item_id"]
-                    qty = form.cleaned_data["issue_quantity"]
-                    item = get_object_or_404(StockRequestItem, pk=item_id, request=stock_request)
-                    
-                    # ✅ FIXED: If they put 0, it means they have nothing to issue right now.
-                    # We skip issuing any stock, but leave the item line open as a partial delivery.
-                    if qty <= 0:
-                        continue
-
-                    if qty < 0:
-                        raise ValidationError("Issue quantity cannot be a negative number.")
-                        
-                    if stock_request.purpose == "sale" and form.cleaned_data["selling_price"] <= 0:
-                        raise ValidationError("A sale release must have a price per pack.")
-                        
-                    fulfill_request_item(
-                        item=item,
-                        quantity=qty,
-                        selling_price=form.cleaned_data["selling_price"],
-                        manager=request.user,
-                        notes=form.cleaned_data.get("notes", ""),
+                stock_request, issued, bulk_issued = self._fulfill_lines(
+                    request=request,
+                    stock_request=stock_request,
+                    formset=formset,
+                    bulk_formset=bulk_formset,
+                )
+                if stock_request.status == "fulfilled":
+                    messages.success(
+                        request,
+                        f"Stock request {stock_request.short_number} is fully fulfilled.",
                     )
-                    issued += qty
-
-                # 🔄 FORCE CACHE REFRESH: This completely wipes the old memory cache out
-                stock_request.refresh_from_db()
-                
-                # 📊 Fetch the brand-new quantities straight from the database now
-                fresh_items = stock_request.items.all()
-                
-                if all(i.outstanding_quantity == 0 for i in fresh_items):
-                    # If everything requested has been completely issued out, close the ticket!
-                    stock_request.status = "fulfilled"
-                    stock_request.fulfilled_at = timezone.now()
-                    messages.success(request, f"🎉 Stock request {stock_request.short_number} has been fully completed and closed.")
+                elif issued or bulk_issued:
+                    messages.warning(
+                        request,
+                        f"Partial dispatch recorded for request {stock_request.short_number}.",
+                    )
                 else:
-                    # If any item still has a remaining balance, it safely remains a partial dispatch
-                    stock_request.status = "partially_fulfilled"
-                    messages.warning(request, f"⏳ Partial dispatch recorded for request {stock_request.short_number}.")
-
-                stock_request.save(update_fields=["status", "fulfilled_at"])
-                
+                    messages.info(request, "No stock was dispatched. The request remains open.")
                 return redirect("stock_request_list")
-                
             except ValidationError as exc:
+                error = "; ".join(exc.messages) if hasattr(exc, "messages") else str(exc)
                 if formset.forms:
-                    formset.forms[0].add_error(None, exc.message)
+                    formset.forms[0].add_error(None, error)
+                elif bulk_formset.forms:
+                    bulk_formset.forms[0].add_error(None, error)
                 else:
-                    formset._non_form_errors = formset.error_class([str(exc)])
-                
-        return render(request, self.template_name, {"stock_request": stock_request, "formset": formset})
+                    formset._non_form_errors = formset.error_class([error])
+
+        return render(request, self.template_name, {
+            "stock_request": stock_request,
+            "formset": formset,
+            "bulk_formset": bulk_formset,
+        })
 
 
 
@@ -615,7 +849,15 @@ class CashierQueueView(RoleRequiredMixin, ListView):
                         "releases__returns",
                         "releases__settlements",
                     ),
-                )
+                ),
+                Prefetch(
+                    "bulk_items",
+                    queryset=BulkStockRequestItem.objects.select_related(
+                        "stock__variety",
+                    ).prefetch_related(
+                        "sales__payments",
+                    ),
+                ),
             )
             .order_by("-requested_at")
         )
@@ -642,7 +884,9 @@ class CashierQueueView(RoleRequiredMixin, ListView):
             total_paid = Decimal("0.00")
             total_outstanding = Decimal("0.00")
             total_issued = 0
+            total_bulk_issued = Decimal("0.00")
             total_remaining = 0
+            bulk_sales = []
 
             # Aggregate across all items and releases under this single order card
             for item in order.items.all():
@@ -657,16 +901,28 @@ class CashierQueueView(RoleRequiredMixin, ListView):
                     if release.outstanding_balance > Decimal("0.00"):
                         releases.append(release)
 
+            for item in order.bulk_items.all():
+                total_remaining += item.outstanding_quantity
+                for sale in item.sales.all():
+                    total_bulk_issued += sale.kg_sold
+                    total_value += sale.total_amount_due
+                    total_paid += sale.total_amount_paid
+                    total_outstanding += sale.outstanding_balance
+                    if sale.outstanding_balance > Decimal("0.00"):
+                        bulk_sales.append(sale)
+
             # Keep order in queue if balance remains
             if total_outstanding <= Decimal("0.00"):
                 continue
 
             # Attach transient values used only by the template.
             order.queue_releases = releases
+            order.queue_bulk_sales = bulk_sales
             order.total_value = total_value
             order.total_paid = total_paid
             order.total_outstanding = total_outstanding
             order.total_issued = total_issued
+            order.total_bulk_issued = total_bulk_issued
             order.total_remaining = total_remaining
             orders.append(order)
 

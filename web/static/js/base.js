@@ -2,6 +2,7 @@ document.addEventListener("submit", function (event) {
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
     if (event.defaultPrevented) return;
+    if (form.dataset.submitGuard === "inline") return;
 
     if (form.dataset.submitting === "true") {
         event.preventDefault();

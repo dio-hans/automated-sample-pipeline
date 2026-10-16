@@ -17,7 +17,10 @@ from . import models
 from .models import (
     AccountHolder,
     BranchStockLedger,
+    BulkStockRequestItem,
     CompanyBranch,
+    CoffeeBatchSale,
+    CoffeeStock,
     PackagedInventory,
     PackagedProduct,
     PackRelease,
@@ -26,6 +29,8 @@ from .models import (
     PaymentReceipt,
     PAYMENT_METHOD_CHOICES,
     StockAudit,
+    StockMovement,
+    StockStage,
     StockRequest,
     StockRequestItem,
 )
@@ -78,14 +83,35 @@ def _available(product):
 
 
 def _refresh_request_status(stock_request):
-    """Only called after releases are saved; it must not touch warehouse stock."""
-    if stock_request.is_fully_issued:
+    """Recompute request status across packaged and bulk request lines."""
+    items = list(stock_request.items.all())
+    bulk_items = list(stock_request.bulk_items.all())
+    has_items = bool(items or bulk_items)
+    fully_issued = (
+        has_items
+        and all(item.outstanding_quantity == 0 for item in items)
+        and all(item.outstanding_quantity == 0 for item in bulk_items)
+    )
+    any_issued = (
+        any(item.quantity_issued > 0 for item in items)
+        or any(item.quantity_issued > ZERO for item in bulk_items)
+    )
+    if fully_issued:
         stock_request.status = "fulfilled"
         stock_request.fulfilled_at = timezone.now()
-    else:
+    elif any_issued:
         stock_request.status = "partially_fulfilled"
         stock_request.fulfilled_at = None
+    else:
+        stock_request.status = "pending"
+        stock_request.fulfilled_at = None
     stock_request.save(update_fields=["status", "fulfilled_at"])
+
+
+def refresh_stock_request_status(stock_request):
+    stock_request = StockRequest.objects.get(pk=stock_request.pk)
+    _refresh_request_status(stock_request)
+    return stock_request
 
 
 @transaction.atomic
@@ -94,15 +120,14 @@ def create_stock_request(
     user,
     purpose,
     destination_type="agent_float",
-    items,
+    items=(),
+    bulk_items=(),
     account_holder=None,
     company=None,
     branch: CompanyBranch | None = None,
     notes="",
 ):
     """Create a request. Display requests cannot be fulfilled by ordinary dispatch."""
-    if not items:
-        raise ValidationError("Add at least one product to the request.")
     validated = []
     seen = set()
     for product, quantity in items:
@@ -112,6 +137,38 @@ def create_stock_request(
         seen.add(product.pk)
         validated.append((product, quantity))
 
+    validated_bulk = []
+    seen_bulk = set()
+    allowed_stages = {choice[0] for choice in BulkStockRequestItem.STAGE_CHOICES}
+    for stock, stage, quantity, price_per_kg, buyer_name in bulk_items:
+        if stage not in allowed_stages:
+            raise ValidationError("Quakers and the selected coffee stage cannot be sold as bulk coffee.")
+        try:
+            quantity = Decimal(str(quantity))
+            price_per_kg = _money(price_per_kg, "Price per kg")
+        except (InvalidOperation, TypeError, ValueError):
+            raise ValidationError("Bulk quantity and price must be valid amounts.")
+        if not quantity.is_finite() or quantity <= ZERO or quantity.as_tuple().exponent < -2:
+            raise ValidationError("Bulk kilograms must be positive with at most two decimal places.")
+        if price_per_kg <= ZERO:
+            raise ValidationError("Bulk sale price per kg must be greater than zero.")
+        key = (stock.pk, stage)
+        if key in seen_bulk:
+            raise ValidationError("Each batch and coffee stage may appear only once in a request.")
+        seen_bulk.add(key)
+        validated_bulk.append((stock, stage, quantity, price_per_kg, buyer_name))
+
+    if not validated and not validated_bulk:
+        raise ValidationError("Add at least one packaged or bulk coffee line to the request.")
+    if validated_bulk and (
+        purpose != "sale"
+        or destination_type == "event_display"
+        or purpose == "display"
+    ):
+        raise ValidationError(
+            "Bulk coffee can only be requested for sale; use the dedicated packaged consignment workflow for display stock."
+        )
+
     request = StockRequest.objects.create(
         requested_by=user, company=company, purpose=purpose, notes=notes,
         account_holder=account_holder, destination_type=destination_type, branch=branch
@@ -120,7 +177,99 @@ def create_stock_request(
         StockRequestItem.objects.create(
             request=request, product=product, quantity_requested=quantity,
         )
+    for stock, stage, quantity, price_per_kg, buyer_name in validated_bulk:
+        BulkStockRequestItem.objects.create(
+            request=request,
+            stock=stock,
+            stage=stage,
+            quantity_requested=quantity,
+            price_per_kg=price_per_kg,
+            buyer_name=buyer_name.strip(),
+        )
     return request
+
+
+@transaction.atomic
+def fulfill_bulk_request_item(*, item, quantity, price_per_kg, user):
+    """Fulfil a bulk kilogram line and record its ledger movement atomically."""
+    item = (
+        BulkStockRequestItem.objects
+        .select_for_update()
+        .select_related("request", "stock", "request__account_holder", "request__company")
+        .get(pk=item.pk)
+    )
+    request = StockRequest.objects.select_for_update().get(pk=item.request_id)
+    if request.status == "cancelled":
+        raise ValidationError("This stock request is cancelled.")
+    if request.purpose != "sale" or request.destination_type == "event_display":
+        raise ValidationError(
+            "Bulk coffee cannot be fulfilled through the display/consignment workflow."
+        )
+
+    try:
+        quantity = Decimal(str(quantity))
+        price_per_kg = _money(price_per_kg, "Price per kg")
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValidationError("Kilograms and price per kg must be valid amounts.")
+    if not quantity.is_finite() or quantity <= ZERO or quantity.as_tuple().exponent < -2:
+        raise ValidationError("Issue kilograms must be positive with at most two decimal places.")
+    if price_per_kg <= ZERO:
+        raise ValidationError("Price per kg must be greater than zero.")
+    if quantity > item.outstanding_quantity:
+        raise ValidationError(
+            f"Only {item.outstanding_quantity} kg remain to fulfil this line."
+        )
+
+    stock = CoffeeStock.objects.select_for_update().get(pk=item.stock_id)
+    from .services.inventory import get_stage_inventory
+
+    available = Decimal(str(get_stage_inventory(stock, item.stage)))
+    if quantity > available:
+        raise ValidationError(
+            f"Only {available} kg of {stock.batch_number} "
+            f"{item.get_stage_display().lower()} coffee are available."
+        )
+
+    account_holder = request.account_holder
+    if not account_holder and request.company_id and request.company.account_holder_id:
+        account_holder = request.company.account_holder
+    buyer_name = ""
+    if not account_holder and request.company_id:
+        buyer_name = request.company.name
+    elif not account_holder:
+        buyer_name = item.buyer_name.strip() or "Walk-in customer"
+
+    sale = CoffeeBatchSale.objects.create(
+        bulk_request_item=item,
+        stock=stock,
+        stage=item.stage,
+        kg_sold=quantity,
+        price_per_kg=price_per_kg,
+        account_holder=account_holder,
+        company=request.company,
+        buyer_name=buyer_name,
+        created_by=user,
+    )
+    StockMovement.objects.create(
+        stock=stock,
+        movement_type="dispatch",
+        from_stage=item.stage,
+        to_stage=None,
+        quantity=quantity,
+        reference=f"Bulk sale #{sale.pk}",
+        notes=f"Bulk sale for stock request {request.short_number}.",
+        created_by=user,
+    )
+    PackSettlement.objects.create(
+        bulk_sale=sale,
+        packs_sold=0,
+        amount_paid=ZERO,
+        status="partial",
+        cleared_by=user,
+        notes="Bulk sale quantity and price are recorded on the sale.",
+    )
+    _refresh_request_status(request)
+    return sale
 
 
 @transaction.atomic
@@ -556,24 +705,45 @@ def settle_release(
 
 
 @transaction.atomic
-def record_installment_payment(*, release, amount, method, payment_reference="",
-                               collected_by=None, notes=""):
-    """Record a collection in the single authoritative cash ledger."""
-    release = PackRelease.objects.select_for_update().get(pk=release.pk)
+def record_installment_payment(*, amount, method, release=None, bulk_sale=None,
+                               payment_reference="", collected_by=None, notes=""):
+    """Record a collection against exactly one packaged or bulk sale."""
+    if (release is None) == (bulk_sale is None):
+        raise ValidationError("Select exactly one sale to receive this payment.")
+    if release is not None:
+        target = PackRelease.objects.select_for_update().get(pk=release.pk)
+        target_field = "release"
+    else:
+        target = CoffeeBatchSale.objects.select_for_update().get(pk=bulk_sale.pk)
+        target_field = "bulk_sale"
     if collected_by is None:
         raise ValidationError("A cashier is required to record this payment.")
     amount = _money(amount)
     if amount <= ZERO:
         raise ValidationError("Payment amount must be greater than zero.")
     method = _valid_method(method, PAYMENT_METHOD_CHOICES)
-    owed = release.outstanding_balance
+    owed = target.outstanding_balance
     if owed <= ZERO:
-        raise ValidationError("This release is fully cleared or not yet billable.")
+        raise ValidationError("This sale is fully cleared or not yet billable.")
     if amount > owed:
         raise ValidationError(f"Payment exceeds the outstanding balance of UGX {owed:,.2f}.")
     return PaymentReceipt.objects.create(
-        release=release, amount=amount, payment_method=method,
+        **{target_field: target},
+        amount=amount,
+        payment_method=method,
         payment_reference=payment_reference, collected_by=collected_by, notes=notes,
+    )
+
+
+def record_bulk_sale_payment(*, bulk_sale, amount, method, payment_reference="",
+                             collected_by=None, notes=""):
+    return record_installment_payment(
+        bulk_sale=bulk_sale,
+        amount=amount,
+        method=method,
+        payment_reference=payment_reference,
+        collected_by=collected_by,
+        notes=notes,
     )
 
 

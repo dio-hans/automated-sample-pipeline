@@ -1322,7 +1322,12 @@ class StockRequest(models.Model):
     @property
     def is_fully_issued(self):
         items = list(self.items.all())
-        return bool(items) and all(item.outstanding_quantity == 0 for item in items)
+        bulk_items = list(self.bulk_items.all())
+        return (
+            bool(items or bulk_items)
+            and all(item.outstanding_quantity == 0 for item in items)
+            and all(item.outstanding_quantity == 0 for item in bulk_items)
+        )
 
 
 # 5. PACKAGING RUN
@@ -1987,6 +1992,15 @@ class PaymentReceipt(models.Model):
         PackRelease,
         on_delete=models.PROTECT,
         related_name="payments",
+        null=True,
+        blank=True,
+    )
+    bulk_sale = models.ForeignKey(
+        "CoffeeBatchSale",
+        on_delete=models.PROTECT,
+        related_name="payments",
+        null=True,
+        blank=True,
     )
 
     amount = models.DecimalField(
@@ -2024,10 +2038,20 @@ class PaymentReceipt(models.Model):
 
     class Meta:
         ordering = ["-collected_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(release__isnull=False, bulk_sale__isnull=True)
+                    | models.Q(release__isnull=True, bulk_sale__isnull=False)
+                ),
+                name="payment_exactly_one_sale_target",
+            ),
+        ]
 
     def __str__(self):
+        target = self.bulk_sale or self.release
         return (
-            f"{self.release.released_to} — "
+            f"{target} — "
             f"{self.amount} — "
             f"{self.get_payment_method_display()}"
         )
@@ -2138,6 +2162,136 @@ class StockRequestItem(models.Model):
         return max(self.quantity_requested - self.quantity_issued, 0)
 
 
+class BulkStockRequestItem(models.Model):
+    STAGE_CHOICES = (
+        (StockStage.GREEN, StockStage.GREEN.label),
+        (StockStage.ROASTED, StockStage.ROASTED.label),
+        (StockStage.GROUND, StockStage.GROUND.label),
+    )
+
+    request = models.ForeignKey(
+        StockRequest,
+        on_delete=models.CASCADE,
+        related_name="bulk_items",
+    )
+    stock = models.ForeignKey(
+        CoffeeStock,
+        on_delete=models.PROTECT,
+        related_name="bulk_request_items",
+    )
+    stage = models.CharField(max_length=30, choices=STAGE_CHOICES)
+    quantity_requested = models.DecimalField(max_digits=10, decimal_places=2)
+    price_per_kg = models.DecimalField(max_digits=12, decimal_places=2)
+    buyer_name = models.CharField(max_length=200, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("request", "stock", "stage"),
+                name="unique_bulk_request_stock_stage",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(quantity_requested__gt=0),
+                name="bulk_request_quantity_gt0",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(price_per_kg__gt=0),
+                name="bulk_request_price_gt0",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.stock.batch_number} · {self.get_stage_display()} · {self.quantity_requested} kg"
+
+    @property
+    def quantity_issued(self):
+        if "_quantity_issued_cache" in self.__dict__:
+            return self._quantity_issued_cache
+        return sum(
+            sale.kg_sold
+            for sale in self.sales.all()
+        )
+
+    @property
+    def outstanding_quantity(self):
+        return max(self.quantity_requested - self.quantity_issued, Decimal("0.00"))
+
+
+class CoffeeBatchSale(models.Model):
+    bulk_request_item = models.ForeignKey(
+        BulkStockRequestItem,
+        on_delete=models.PROTECT,
+        related_name="sales",
+    )
+    stock = models.ForeignKey(
+        CoffeeStock,
+        on_delete=models.PROTECT,
+        related_name="bulk_sales",
+    )
+    stage = models.CharField(
+        max_length=30,
+        choices=BulkStockRequestItem.STAGE_CHOICES,
+    )
+    kg_sold = models.DecimalField(max_digits=10, decimal_places=2)
+    price_per_kg = models.DecimalField(max_digits=12, decimal_places=2)
+    account_holder = models.ForeignKey(
+        "AccountHolder",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="bulk_sales",
+    )
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="bulk_sales",
+    )
+    buyer_name = models.CharField(max_length=200, blank=True, default="")
+    sold_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="coffee_batch_sales",
+    )
+
+    class Meta:
+        ordering = ["-sold_at", "-pk"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(kg_sold__gt=0),
+                name="coffee_batch_sale_kg_gt0",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(price_per_kg__gt=0),
+                name="coffee_batch_sale_price_gt0",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.kg_sold} kg {self.get_stage_display()} · {self.stock.batch_number}"
+
+    @property
+    def total_amount_due(self):
+        return self.kg_sold * self.price_per_kg
+
+    @property
+    def total_amount_paid(self):
+        return sum(
+            (payment.amount for payment in self.payments.all()),
+            Decimal("0.00"),
+        )
+
+    @property
+    def outstanding_balance(self):
+        return max(self.total_amount_due - self.total_amount_paid, Decimal("0.00"))
+
+
 class PackSettlement(models.Model):
 
     PAYMENT_CHOICES = PAYMENT_METHOD_CHOICES
@@ -2147,6 +2301,15 @@ class PackSettlement(models.Model):
         PackRelease,
         on_delete=models.PROTECT,
         related_name="settlements", 
+        null=True,
+        blank=True,
+    )
+    bulk_sale = models.ForeignKey(
+        CoffeeBatchSale,
+        on_delete=models.PROTECT,
+        related_name="settlements",
+        null=True,
+        blank=True,
     )
     packs_sold = models.PositiveIntegerField(default=0)
     # Deprecated for financial calculations; cash receipts belong in PaymentReceipt.
@@ -2168,14 +2331,26 @@ class PackSettlement(models.Model):
 
     class Meta:
         ordering = ["-cleared_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(release__isnull=False, bulk_sale__isnull=True)
+                    | models.Q(release__isnull=True, bulk_sale__isnull=False)
+                ),
+                name="settlement_exactly_one_sale_target",
+            ),
+        ]
 
     def __str__(self):
+        if self.bulk_sale_id:
+            return f"{self.bulk_sale.kg_sold} kg sold — {self.bulk_sale}"
         return f"{self.packs_sold} packs sold — {self.release.recipient_name}"
 
 
     @property
     def balance_after_payment(self):
-        return self.release.outstanding_balance
+        target = self.bulk_sale if self.bulk_sale_id else self.release
+        return target.outstanding_balance
 
     @property
     def is_cleared(self):

@@ -8,6 +8,7 @@ from ...models import (
     ProcessingRun,
     PackagingRun,
     RoastedSackSale,
+    CoffeeBatchSale,
 )
 
 
@@ -466,5 +467,12 @@ def _bulk_sales_consumption(period):
         total_kg += _decimal(
             sale.kg_sold
         )
+
+    request_sales = period.filter_datetime(
+        CoffeeBatchSale.objects.all(),
+        "sold_at",
+    )
+    for sale in request_sales:
+        total_kg += _decimal(sale.kg_sold)
 
     return total_kg

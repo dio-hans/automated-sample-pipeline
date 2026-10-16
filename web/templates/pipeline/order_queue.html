@@ -23,6 +23,11 @@ Order Queue
          DATE FILTER PRESET HEADER CONTROLS
          ========================================================= -->
     {% include "reports/components/report_filters.html" %}
+    <div class="flex justify-end">
+        <a href="{% url 'bulk_sales' %}" class="inline-flex items-center rounded-lg border border-[#E4DECB] bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
+            Bulk Coffee Sales History
+        </a>
+    </div>
 
     <!-- =========================================================
          ORDER QUEUE CARDS GRID
@@ -135,6 +140,22 @@ Order Queue
                                 </div>
                                 {% empty %}
                                 <p class="text-xs text-slate-400 text-center italic py-1">No active batch assignments.</p>
+                                {% endfor %}
+                                {% for sale in order.queue_bulk_sales %}
+                                    <div class="bg-amber-50 border border-amber-200/70 rounded-md px-2.5 py-1.5 flex justify-between items-center text-xs">
+                                        <div class="truncate">
+                                            <p class="font-bold text-slate-800 leading-tight truncate">{{ sale.stock.batch_number }} · {{ sale.get_stage_display }}</p>
+                                            <p class="text-[9px] text-slate-500 leading-tight">
+                                                {% if sale.account_holder %}{{ sale.account_holder.name }}
+                                                {% elif sale.company %}{{ sale.company.name }}
+                                                {% else %}{{ sale.buyer_name|default:"Walk-in" }}{% endif %}
+                                            </p>
+                                        </div>
+                                        <div class="text-right shrink-0">
+                                            <p class="font-mono font-bold text-slate-700">{{ sale.kg_sold }} kg</p>
+                                            <p class="text-[9px] font-mono text-slate-500">Bal: {{ sale.outstanding_balance|floatformat:0|intcomma }}</p>
+                                        </div>
+                                    </div>
                                 {% endfor %}
                             </div>
                         </div>

@@ -113,6 +113,40 @@
         </div>
     </div>
 
+    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b border-[#E4DECB] bg-slate-50/50">
+            <h3 class="text-xs font-bold text-slate-600 uppercase tracking-wider">Bulk Coffee Sales</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-[#E4DECB] text-slate-600 font-semibold text-[11px] uppercase tracking-wider">
+                        <th class="px-4 py-3">Date</th>
+                        <th class="px-4 py-3">Batch / Stage</th>
+                        <th class="px-4 py-3 text-right">Kilograms</th>
+                        <th class="px-4 py-3 text-right">Value (UGX)</th>
+                        <th class="px-4 py-3 text-right">Paid (UGX)</th>
+                        <th class="px-4 py-3 text-right">Balance Owed</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#E4DECB] text-slate-700 text-xs">
+                    {% for sale in bulk_sales %}
+                        <tr>
+                            <td class="px-4 py-3 whitespace-nowrap">{{ sale.sold_at|date:"d M Y, H:i" }}</td>
+                            <td class="px-4 py-3 font-bold">{{ sale.stock.batch_number }} · {{ sale.get_stage_display }}</td>
+                            <td class="px-4 py-3 text-right font-mono">{{ sale.kg_sold }} kg × {{ sale.price_per_kg|floatformat:2 }}</td>
+                            <td class="px-4 py-3 text-right font-mono">{{ sale.total_amount_due|floatformat:0|intcomma }}</td>
+                            <td class="px-4 py-3 text-right font-mono text-emerald-700">{{ sale.total_amount_paid|floatformat:0|intcomma }}</td>
+                            <td class="px-4 py-3 text-right font-mono font-bold text-rose-700">{{ sale.outstanding_balance|floatformat:0|intcomma }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="6" class="px-4 py-10 text-center text-slate-400 italic">No bulk coffee sales recorded for this account holder.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- =========================================================
          3. ORDER-QUEUE STYLE PAYMENT MODAL OVERLAY
          ========================================================= -->

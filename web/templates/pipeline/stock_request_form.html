@@ -2,71 +2,158 @@
     
 {% block title %}Request Stock | Nonda{% endblock %}
 {% block breadcrumb %}Sales / Stock Request{% endblock %}
-{% block page_title %}Request Packaged Coffee{% endblock %}
-
+{% block page_title %}Request Coffee Stock{% endblock %}
 {% block content %}
 <form
     method="post"
     id="stock-request-form"
     autocomplete="off"
-    class="space-y-6"
+    class="space-y-3 pb-24"
 >
     {% csrf_token %}
     {{ item_formset.management_form }}
+    {{ bulk_formset.management_form }}
     
     <!-- GLOBAL ERRORS -->
-    {% if form.non_field_errors or item_formset.non_form_errors %}
+    {% if form.non_field_errors or item_formset.non_form_errors or bulk_formset.non_form_errors %}
         <div class="rounded-lg border border-rust/20 bg-rust/5 px-4 py-3 text-sm text-rust">
             {{ form.non_field_errors }}
             {{ item_formset.non_form_errors }}
+            {{ bulk_formset.non_form_errors }}
         </div>
     {% endif %}
 
     <!-- 1. REQUEST DETAILS -->
-   <section class="bg-white border border-slate-200 rounded-lg p-3.5 shadow-sm max-w-2xl">
-    <!-- SECTION HEADER -->
-    <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-700 border-b border-slate-100 pb-1.5 mb-2.5">
-        1. Request Details
-    </h2>
-    
-    <!-- FORM GRID -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-        {% for field in form %}
-            <!-- 🎯 EXCLUDE COMPANY FIELD -->
-            {% if field.name != 'company' %}
-                <div class="{% if field.name == 'notes' %}md:col-span-2{% endif %}">
-                    <label for="{{ field.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
-                        {{ field.label }}
-                    </label>
-                    <div class="[&_input]:w-full [&_input]:rounded-md [&_input]:border [&_input]:border-slate-200 [&_input]:px-2.5 [&_input]:py-1.5 [&_input]:text-xs [&_input]:text-slate-800 [&_input]:focus:outline-none [&_input]:focus:ring-2 [&_input]:focus:ring-rust [&_input]:focus:border-rust [&_select]:w-full [&_select]:rounded-md [&_select]:border [&_select]:border-slate-200 [&_select]:px-2.5 [&_select]:py-1.5 [&_select]:text-xs [&_select]:text-slate-800 [&_select]:focus:outline-none [&_select]:focus:ring-2 [&_select]:focus:ring-rust [&_select]:focus:border-rust [&_textarea]:w-full [&_textarea]:rounded-md [&_textarea]:border [&_textarea]:border-slate-200 [&_textarea]:px-2.5 [&_textarea]:py-1.5 [&_textarea]:text-xs [&_textarea]:text-slate-800 [&_textarea]:rows-2 [&_textarea]:focus:outline-none [&_textarea]:focus:ring-2 [&_textarea]:focus:ring-rust [&_textarea]:focus:border-rust">
-                        {{ field }}
+    <section class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+        <!-- SECTION HEADER -->
+        <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-700 border-b border-slate-100 pb-1.5 mb-2.5">
+            1. Request Details
+        </h2>
+        
+        <!-- FORM GRID -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {% for field in form %}
+                {% if field.is_hidden %}
+                    {{ field }}
+                {% else %}
+                    <div class="{% if field.name == 'account_holder' %}md:col-span-2{% endif %}">
+                        <label for="{{ field.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
+                            {{ field.label }}
+                        </label>
+                        <div class="[&_input]:w-full [&_input]:rounded-md [&_input]:border [&_input]:border-slate-200 [&_input]:px-2.5 [&_input]:py-1.5 [&_input]:text-xs [&_input]:text-slate-800 [&_input]:focus:outline-none [&_input]:focus:ring-2 [&_input]:focus:ring-rust [&_input]:focus:border-rust [&_select]:w-full [&_select]:rounded-md [&_select]:border [&_select]:border-slate-200 [&_select]:px-2.5 [&_select]:py-1.5 [&_select]:text-xs [&_select]:text-slate-800 [&_select]:focus:outline-none [&_select]:focus:ring-2 [&_select]:focus:ring-rust [&_select]:focus:border-rust [&_textarea]:w-full [&_textarea]:rounded-md [&_textarea]:border [&_textarea]:border-slate-200 [&_textarea]:px-2.5 [&_textarea]:py-1.5 [&_textarea]:text-xs [&_textarea]:text-slate-800 [&_textarea]:rows-2 [&_textarea]:focus:outline-none [&_textarea]:focus:ring-2 [&_textarea]:focus:ring-rust [&_textarea]:focus:border-rust">
+                            {{ field }}
+                        </div>
+                        {% if field.errors %}
+                            {% for error in field.errors %}
+                                <p class="mt-1 text-[11px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
+                                    {{ error }}
+                                </p>
+                            {% endfor %}
+                        {% endif %}
                     </div>
-                    {% if field.errors %}
-                        {% for error in field.errors %}
-                            <p class="mt-1 text-[11px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
-                                {{ error }}
-                            </p>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-            {% endif %}
-        {% endfor %}
-    </div>
-</section>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- BULK STOCK REQUEST (MATCHED TO SECTION 1) -->
+    <section class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+        <div class="flex flex-col gap-2 border-b border-slate-100 pb-2 mb-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                    Bulk Stock Request
+                </h2>
+                <p class="text-[11px] text-slate-400">Add batches, quantities, coffee stages, and agreed prices per kilogram.</p>
+            </div>
+            <button type="button" id="add-bulk-line"
+                    class="inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-emerald-100">
+                <i class="fa-solid fa-plus text-[10px]" aria-hidden="true"></i>
+                Add Another Item
+            </button>
+        </div>
+
+        {% if bulk_formset.non_form_errors %}
+            <div class="mb-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-700">
+                {{ bulk_formset.non_form_errors }}
+            </div>
+        {% endif %}
+
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[760px] text-xs">
+                <thead>
+                    <tr class="text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <th class="w-[30%] px-1 pb-1">Batch <span class="text-rose-500">*</span></th>
+                        <th class="w-[18%] px-1 pb-1">Quantity (kg) <span class="text-rose-500">*</span></th>
+                        <th class="w-[24%] px-1 pb-1">Product Type <span class="text-rose-500">*</span></th>
+                        <th class="w-[23%] px-1 pb-1">Price (UGX/kg) <span class="text-rose-500">*</span></th>
+                        <th class="w-10 px-1 pb-1"><span class="sr-only">Remove line</span></th>
+                    </tr>
+                </thead>
+                <tbody id="bulk-request-rows" class="divide-y divide-slate-100">
+                    {% for bulk_form in bulk_formset %}
+                        <tr class="bulk-request-row" data-bulk-row>
+                            <td class="px-1 py-1 align-top">
+                                {{ bulk_form.stock }}
+                                {{ bulk_form.DELETE.as_hidden }}
+                                {% if bulk_form.stock.errors %}<p class="mt-0.5 text-[10px] text-rose-600">{{ bulk_form.stock.errors.0 }}</p>{% endif %}
+                            </td>
+                            <td class="px-1 py-1 align-top">
+                                {{ bulk_form.quantity_requested }}
+                                {% if bulk_form.quantity_requested.errors %}<p class="mt-0.5 text-[10px] text-rose-600">{{ bulk_form.quantity_requested.errors.0 }}</p>{% endif %}
+                            </td>
+                            <td class="px-1 py-1 align-top">
+                                {{ bulk_form.stage }}
+                                {% if bulk_form.stage.errors %}<p class="mt-0.5 text-[10px] text-rose-600">{{ bulk_form.stage.errors.0 }}</p>{% endif %}
+                            </td>
+                            <td class="px-1 py-1 align-top">
+                                {{ bulk_form.price_per_kg }}
+                                {% if bulk_form.price_per_kg.errors %}<p class="mt-0.5 text-[10px] text-rose-600">{{ bulk_form.price_per_kg.errors.0 }}</p>{% endif %}
+                            </td>
+                            <td class="px-1 py-1 align-top text-center">
+                                <button type="button" data-remove-bulk-line
+                                        class="rounded p-1 text-slate-400 transition hover:text-rose-600"
+                                        aria-label="Remove bulk request line">
+                                    <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% if bulk_form.non_form_errors %}
+                            <tr><td colspan="5" class="px-1 pb-1 text-[10px] text-rose-600">{{ bulk_form.non_form_errors }}</td></tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+            <template id="bulk-request-row-template">
+                <tr class="bulk-request-row" data-bulk-row>
+                    <td class="px-1 py-1 align-top">{{ bulk_formset.empty_form.stock }}{{ bulk_formset.empty_form.DELETE.as_hidden }}</td>
+                    <td class="px-1 py-1 align-top">{{ bulk_formset.empty_form.quantity_requested }}</td>
+                    <td class="px-1 py-1 align-top">{{ bulk_formset.empty_form.stage }}</td>
+                    <td class="px-1 py-1 align-top">{{ bulk_formset.empty_form.price_per_kg }}</td>
+                    <td class="px-1 py-1 align-top text-center">
+                        <button type="button" data-remove-bulk-line
+                                class="rounded p-1 text-slate-400 transition hover:text-rose-600"
+                                aria-label="Remove bulk request line">
+                            <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+                        </button>
+                    </td>
+                </tr>
+            </template>
+        </div>
+    </section>
 
     <!-- 2. ERP WORKSPACE -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         <!-- PRODUCT CATALOG -->
         <section
-            class="lg:col-span-7 bg-white border border-[#E4DECB] rounded-xl p-5 shadow-sm space-y-4"
+            class="lg:col-span-7 bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3"
         >
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
                 <div>
-                    <h2 class="text-sm font-semibold text-slate-800">
+                    <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-700">
                         2. Select Store Products
                     </h2>
                     <p class="text-[11px] text-slate-400 mt-0.5">
-                        Click a product card to add it to your request cart[cite: 14].
+                        Click a product card to add it to your request cart[cite: 9].
                     </p>
                 </div>
                 <!-- SEARCH -->
@@ -74,7 +161,7 @@
                     <input
                         type="text"
                         id="catalog-search"
-                        class="w-full rounded-lg border border-[#E4DECB] px-3 py-2 bg-slate-50 text-xs focus:outline-none focus:ring-2 focus:ring-rust focus:bg-white"
+                        class="w-full rounded-md border border-slate-200 px-2.5 py-1.5 bg-slate-50 text-xs focus:outline-none focus:ring-2 focus:ring-rust focus:bg-white"
                         placeholder="Search product name or size..."
                         aria-label="Search products"
                     >
@@ -84,13 +171,13 @@
             <!-- PRODUCT GRID -->
             <div
                 id="catalog-grid"
-                class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[450px] overflow-y-auto pr-1"
+                class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[450px] overflow-y-auto pr-1"
             >
                 {% for catalog_item in catalog_products %}
                     {% with product=catalog_item.product available=catalog_item.available %}
                         <button
                             type="button"
-                            class="product-card text-left p-3.5 border border-[#E4DECB] bg-white rounded-xl hover:border-rust hover:bg-rust/5 transition flex flex-col justify-between group active:scale-95"
+                            class="product-card text-left p-3 border border-slate-200 bg-white rounded-lg hover:border-rust hover:bg-rust/5 transition flex flex-col justify-between group active:scale-95"
                             data-product-id="{{ product.pk }}"
                             data-product-name="{{ product }}"
                         >
@@ -99,8 +186,7 @@
                             >
                                 {{ product }}
                             </span>
-                            <div class="mt-3 flex items-center justify-between text-[11px] font-medium text-slate-500">
-                                <!-- STOCK QUANTITY -->
+                            <div class="mt-2.5 flex items-center justify-between text-[11px] font-medium text-slate-500">
                                 <div class="flex items-center gap-2">
                                     <span
                                         class="uppercase tracking-wider px-1.5 py-0.5 bg-slate-100 rounded text-slate-400 font-bold text-[9px]"
@@ -111,7 +197,6 @@
                                         {{ available|default:"0" }} packs
                                     </span>
                                 </div>
-                                <!-- STATUS -->
                                 {% if available > 0 %}
                                     <span class="font-bold text-emerald-600">
                                         Available
@@ -134,19 +219,19 @@
 
         <!-- ACTIVE CART -->
         <section
-            class="lg:col-span-5 bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden flex flex-col"
+            class="lg:col-span-5 bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex flex-col"
         >
-            <div class="p-5 border-b border-slate-100 bg-slate-50/50">
-                <h2 class="text-sm font-semibold text-slate-800">
+            <div class="p-4 border-b border-slate-100 bg-slate-50/50">
+                <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-700">
                     3. Active Request Cart
                 </h2>
-                <p class="text-xs text-slate-400 mt-0.5">
-                    Adjust required quantities or remove line items[cite: 14].
+                <p class="text-[11px] text-slate-400 mt-0.5">
+                    Adjust required quantities or remove line items[cite: 9].
                 </p>
             </div>
             <div
                 id="cart-items-list"
-                class="p-5 overflow-y-auto max-h-[380px]"
+                class="p-4 overflow-y-auto max-h-[380px]"
             >
                 <div
                     id="hidden-formset-rows"
@@ -155,57 +240,99 @@
                 <!-- VISIBLE CART -->
                 <div
                     id="visible-cart-cards"
-                    class="space-y-2.5"
+                    class="space-y-2"
                 ></div>
                 <!-- EMPTY STATE -->
                 <div
                     id="cart-empty-state"
-                    class="text-center py-12 text-slate-400"
+                    class="text-center py-10 text-slate-400"
                 >
                     <p class="text-xs">
-                        Your request cart is currently empty[cite: 14].
+                        Your request cart is currently empty[cite: 9].
                     </p>
                     <p class="text-[11px] text-slate-400/80 mt-1">
-                        Click a product on the left to add it[cite: 14].
+                        Click a product on the left to add it[cite: 9].
                     </p>
                 </div>
-            </div>
-            <!-- SUBMIT -->
-            <div
-                class="p-4 bg-slate-50 border-t border-[#E4DECB] flex justify-end"
-            >
-                <button
-                    type="submit"
-                    id="submit-request-button"
-                    class="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-rust hover:bg-rust-dark text-white text-sm font-semibold shadow-sm transition"
-                >
-                    Submit Request
-                </button>
             </div>
         </section>
     </div>
 </form>
+
+<div class="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-md backdrop-blur lg:left-64">
+    <div class="mx-auto flex max-w-7xl items-center justify-end gap-3">
+        <a href="{% url 'record_sale' %}"
+           class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
+            Cancel
+        </a>
+        <button
+            type="submit"
+            id="submit-request-button"
+            form="stock-request-form"
+            class="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800"
+        >
+            Submit Request
+        </button>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    const totalFormsInput =
-        document.getElementById("id_items-TOTAL_FORMS");
-    const visibleCartContainer =
-        document.getElementById("visible-cart-cards");
-    const emptyStateElement =
-        document.getElementById("cart-empty-state");
-    const nativeContainer =
-        document.getElementById("hidden-formset-rows");
-    const productCards =
-        document.querySelectorAll(".product-card");
-    const searchInput =
-        document.getElementById("catalog-search");
-    if (!totalFormsInput) {
-        console.error(
-            "Django formset management form not found. Expected id_items-TOTAL_FORMS."
+    const bulkRows = document.getElementById("bulk-request-rows");
+    const addBulkLineButton = document.getElementById("add-bulk-line");
+    const bulkTotalForms = document.getElementById("id_bulk-TOTAL_FORMS");
+    const bulkRowTemplate = document.getElementById("bulk-request-row-template");
+
+    function updateBulkLineControls() {
+        if (!bulkRows || !bulkTotalForms || !addBulkLineButton) return;
+        const visibleRows = bulkRows.querySelectorAll(
+            '[data-bulk-row]:not([data-deleted="true"])'
         );
+        addBulkLineButton.disabled = Number(bulkTotalForms.value) >= 20;
+        addBulkLineButton.classList.toggle("opacity-50", addBulkLineButton.disabled);
+        visibleRows.forEach(function (row) {
+            const removeButton = row.querySelector("[data-remove-bulk-line]");
+            if (removeButton) removeButton.disabled = false;
+        });
+    }
+
+    if (bulkRows && bulkTotalForms && bulkRowTemplate && addBulkLineButton) {
+        addBulkLineButton.addEventListener("click", function () {
+            const index = Number(bulkTotalForms.value);
+            if (index >= 20) return;
+            const row = document.createElement("tbody");
+            row.innerHTML = bulkRowTemplate.innerHTML.replace(/__prefix__/g, index);
+            const newRow = row.firstElementChild;
+            bulkRows.appendChild(newRow);
+            bulkTotalForms.value = String(index + 1);
+            updateBulkLineControls();
+        });
+
+        bulkRows.addEventListener("click", function (event) {
+            const button = event.target.closest("[data-remove-bulk-line]");
+            if (!button) return;
+            const row = button.closest("[data-bulk-row]");
+            const deleteInput = row.querySelector('input[name$="-DELETE"]');
+            if (deleteInput) deleteInput.value = "on";
+            row.dataset.deleted = "true";
+            row.classList.add("hidden");
+            updateBulkLineControls();
+        });
+
+        updateBulkLineControls();
+    }
+
+    const totalFormsInput = document.getElementById("id_items-TOTAL_FORMS");
+    const visibleCartContainer = document.getElementById("visible-cart-cards");
+    const emptyStateElement = document.getElementById("cart-empty-state");
+    const nativeContainer = document.getElementById("hidden-formset-rows");
+    const productCards = document.querySelectorAll(".product-card");
+    const searchInput = document.getElementById("catalog-search");
+
+    if (!totalFormsInput) {
+        console.error("Django formset management form not found. Expected id_items-TOTAL_FORMS.");
         return;
     }
 
@@ -213,17 +340,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (searchInput) {
         searchInput.addEventListener("input", function () {
-            const query =
-                this.value.toLowerCase().trim();
+            const query = this.value.toLowerCase().trim();
             productCards.forEach(function (card) {
-                const productName =
-                    (
-                        card.dataset.productName || ""
-                    ).toLowerCase();
-                card.style.display =
-                    productName.includes(query)
-                        ? ""
-                        : "none";
+                const productName = (card.dataset.productName || "").toLowerCase();
+                card.style.display = productName.includes(query) ? "" : "none";
             });
         });
     }
@@ -239,159 +359,107 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         emptyStateElement.classList.add("hidden");
-        activeCart.forEach(function (item, index) {
-            const row =
-                document.createElement("div");
-            row.className =
-                "flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100";
-            const name =
-                document.createElement("span");
-            name.className =
-                "text-xs font-bold text-slate-700 truncate mr-2";
-            name.textContent =
-                item.name;
-            const controls =
-                document.createElement("div");
-            controls.className =
-                "flex items-center gap-2.5 shrink-0";
 
-            const quantityInput =
-                document.createElement("input");
+        activeCart.forEach(function (item, index) {
+            const row = document.createElement("div");
+            row.className = "flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200";
+
+            const name = document.createElement("span");
+            name.className = "text-xs font-bold text-slate-700 truncate mr-2";
+            name.textContent = item.name;
+
+            const controls = document.createElement("div");
+            controls.className = "flex items-center gap-2 shrink-0";
+
+            const quantityInput = document.createElement("input");
             quantityInput.type = "number";
             quantityInput.min = "1";
             quantityInput.step = "1";
-            quantityInput.value =
-                item.quantity;
-            quantityInput.className =
-                "cart-qty-trigger w-14 text-center rounded-md border border-[#E4DECB] py-1 text-xs font-bold";
-            quantityInput.dataset.prodId =
-                item.id;
+            quantityInput.value = item.quantity;
+            quantityInput.className = "cart-qty-trigger w-14 text-center rounded-md border border-slate-200 py-1 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-rust";
+            quantityInput.dataset.prodId = item.id;
 
-            const removeButton =
-                document.createElement("button");
+            const removeButton = document.createElement("button");
             removeButton.type = "button";
-            removeButton.className =
-                "cart-remove-trigger text-slate-400 hover:text-rust p-1";
-            removeButton.dataset.prodId =
-                item.id;
-            removeButton.setAttribute(
-                "aria-label",
-                "Remove " + item.name
-            );
+            removeButton.className = "cart-remove-trigger text-slate-400 hover:text-rose-600 p-1";
+            removeButton.dataset.prodId = item.id;
+            removeButton.setAttribute("aria-label", "Remove " + item.name);
             removeButton.innerHTML = `
-                <svg
-                    class="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    aria-hidden="true"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
             `;
+
             controls.appendChild(quantityInput);
             controls.appendChild(removeButton);
             row.appendChild(name);
             row.appendChild(controls);
             visibleCartContainer.appendChild(row);
 
-            const idInput =
-                document.createElement("input");
+            const idInput = document.createElement("input");
             idInput.type = "hidden";
-            idInput.name =
-                `items-${index}-id`;
-            idInput.id =
-                `id_items-${index}-id`;
+            idInput.name = `items-${index}-id`;
+            idInput.id = `id_items-${index}-id`;
             idInput.value = "";
-            
-            const productInput =
-                document.createElement("input");
+
+            const productInput = document.createElement("input");
             productInput.type = "hidden";
-            productInput.name =
-                `items-${index}-product`;
-            productInput.id =
-                `id_items-${index}-product`;
-            productInput.value =
-                item.id;
-                
-            const quantityFormInput =
-                document.createElement("input");
+            productInput.name = `items-${index}-product`;
+            productInput.id = `id_items-${index}-product`;
+            productInput.value = item.id;
+
+            const quantityFormInput = document.createElement("input");
             quantityFormInput.type = "hidden";
-            quantityFormInput.name =
-                `items-${index}-quantity_requested`;
-            quantityFormInput.id =
-                `id_items-${index}-quantity_requested`;
-            quantityFormInput.value =
-                item.quantity;
-                
+            quantityFormInput.name = `items-${index}-quantity_requested`;
+            quantityFormInput.id = `id_items-${index}-quantity_requested`;
+            quantityFormInput.value = item.quantity;
+
             nativeContainer.appendChild(idInput);
             nativeContainer.appendChild(productInput);
             nativeContainer.appendChild(quantityFormInput);
         });
 
-        totalFormsInput.value =
-            activeCart.length;
+        totalFormsInput.value = activeCart.length;
         attachCartListeners();
     }
 
     function attachCartListeners() {
-        document
-            .querySelectorAll(".cart-qty-trigger")
-            .forEach(function (input) {
-                input.addEventListener("change", function () {
-                    const productId =
-                        this.dataset.prodId;
-                    let quantity =
-                        parseInt(this.value, 10);
-                    if (
-                        !Number.isInteger(quantity) ||
-                        quantity < 1
-                    ) {
-                        quantity = 1;
-                        this.value = "1";
-                    }
-                    const item =
-                        activeCart.find(function (cartItem) {
-                            return cartItem.id === productId;
-                        });
-                    if (item) {
-                        item.quantity =
-                            quantity;
-                        updateFormsetValues();
-                    }
+        document.querySelectorAll(".cart-qty-trigger").forEach(function (input) {
+            input.addEventListener("change", function () {
+                const productId = this.dataset.prodId;
+                let quantity = parseInt(this.value, 10);
+                if (!Number.isInteger(quantity) || quantity < 1) {
+                    quantity = 1;
+                    this.value = "1";
+                }
+                const item = activeCart.find(function (cartItem) {
+                    return cartItem.id === productId;
                 });
-            });
-
-        document
-            .querySelectorAll(".cart-remove-trigger")
-            .forEach(function (button) {
-                button.addEventListener("click", function () {
-                    const productId =
-                        this.dataset.prodId;
-                    activeCart =
-                        activeCart.filter(function (item) {
-                            return item.id !== productId;
-                        });
+                if (item) {
+                    item.quantity = quantity;
                     updateFormsetValues();
-                });
+                }
             });
+        });
+
+        document.querySelectorAll(".cart-remove-trigger").forEach(function (button) {
+            button.addEventListener("click", function () {
+                const productId = this.dataset.prodId;
+                activeCart = activeCart.filter(function (item) {
+                    return item.id !== productId;
+                });
+                updateFormsetValues();
+            });
+        });
     }
 
     productCards.forEach(function (card) {
         card.addEventListener("click", function () {
-            const productId =
-                this.dataset.productId;
-            const productName =
-                this.dataset.productName;
-            const existingItem =
-                activeCart.find(function (item) {
-                    return item.id === productId;
-                });
+            const productId = this.dataset.productId;
+            const productName = this.dataset.productName;
+            const existingItem = activeCart.find(function (item) {
+                return item.id === productId;
+            });
             if (existingItem) {
                 existingItem.quantity += 1;
             } else {

@@ -29,12 +29,14 @@ from .sales_workflow import (
     approve_existing_pack_return,
     fulfill_request_item,
     record_installment_payment,
+    record_bulk_sale_payment,
 )
-from .models import AccountHolder, InternalAccount, InternalStockIssue, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage
+from .models import AccountHolder, InternalAccount, InternalStockIssue, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage, CoffeeBatchSale
 from decimal import Decimal, InvalidOperation
 from .services.processing import complete_roasting, complete_sorting
 from django.views.generic import TemplateView
 from .models import CoffeeStock, PackagedInventory, RoastedSackSale
+from .models import CoffeeBatchSale
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError
@@ -2037,6 +2039,32 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
                 )
             )
         )["total"] or Decimal("0.00")
+        bulk_dispatched_qs, _, _, _, _ = apply_date_filters(
+            self.request,
+            CoffeeBatchSale.objects.all(),
+            "sold_at",
+        )
+        total_value_issued += bulk_dispatched_qs.aggregate(
+            total=Sum(
+                ExpressionWrapper(
+                    F("kg_sold") * F("price_per_kg"),
+                    output_field=DecimalField(max_digits=14, decimal_places=2),
+                )
+            )
+        )["total"] or Decimal("0.00")
+        bulk_sales = list(
+            bulk_dispatched_qs.select_related(
+                "stock__variety",
+                "account_holder",
+                "company",
+                "bulk_request_item__request",
+            ).prefetch_related("payments")
+        )
+        if getattr(self, "_view_scope", "active") == "active":
+            bulk_sales = [
+                sale for sale in bulk_sales
+                if sale.outstanding_balance > Decimal("0.00")
+            ]
 
         # 2. LIQUID CASH COLLECTED IN SELECTED PERIOD
         payments_qs, _, _, _, _ = apply_date_filters(
@@ -2058,6 +2086,13 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
                 if getattr(release, "outstanding_balance", Decimal("0.00")) > Decimal("0.00")
             ),
             Decimal("0.00"),
+        ) + sum(
+            (
+                sale.outstanding_balance
+                for sale in CoffeeBatchSale.objects.prefetch_related("payments")
+                if sale.outstanding_balance > Decimal("0.00")
+            ),
+            Decimal("0.00"),
         )
 
         # CONTEXT MAPPING MATCHING TEMPLATE EXPECTATIONS
@@ -2071,6 +2106,7 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
             "total_value_issued": total_value_issued,
             "total_collected_revenue": total_collected_revenue,
             "total_outstanding_debt": total_outstanding_debt,
+            "bulk_sales": bulk_sales,
         })
         return ctx
     
@@ -2105,17 +2141,24 @@ def record_order_payment(request, order_pk):
                 raise ValidationError("Enter a payment amount greater than zero.")
             
             with transaction.atomic():
-                # Gather active releases under this order with outstanding balance, locked for update
-                order_releases = []
+                order_sales = []
                 for item in order.items.all():
                     for release in item.releases.select_for_update().all():
                         if release.outstanding_balance > Decimal("0.00"):
-                            order_releases.append((release, release.outstanding_balance))
+                            order_sales.append(
+                                (release.released_at, "release", release, release.outstanding_balance)
+                            )
+                for item in order.bulk_items.all():
+                    for sale in item.sales.select_for_update().prefetch_related("payments"):
+                        if sale.outstanding_balance > Decimal("0.00"):
+                            order_sales.append(
+                                (sale.sold_at, "bulk_sale", sale, sale.outstanding_balance)
+                            )
                 
                 # Sort oldest first to match application credit rules
-                order_releases.sort(key=lambda x: (x[0].released_at, x[0].pk))
+                order_sales.sort(key=lambda row: (row[0], row[2].pk))
                 
-                total_due = sum((bal for _, bal in order_releases), Decimal("0.00"))
+                total_due = sum((row[3] for row in order_sales), Decimal("0.00"))
                 
                 if total_due <= Decimal("0.00"):
                     raise ValidationError("This order has no outstanding balance to collect.")
@@ -2123,7 +2166,7 @@ def record_order_payment(request, order_pk):
                     raise ValidationError(f"Payment exceeds the order's outstanding balance of UGX {total_due:,.2f}.")
                 
                 remaining = amount
-                for release, balance in order_releases:
+                for _, sale_type, sale, balance in order_sales:
                     if remaining <= Decimal("0.00"):
                         break
                     allocation = min(balance, remaining)
@@ -2131,14 +2174,17 @@ def record_order_payment(request, order_pk):
                         continue
                     
                     # 🎯 EXACT SAME DATABASE FUNCTION USED BY THE REST OF THE APP
-                    record_installment_payment(
-                        release=release,
-                        amount=allocation,
-                        method=method,
-                        payment_reference=payment_reference,
-                        collected_by=request.user,
-                        notes=notes,
-                    )
+                    payment_args = {
+                        "amount": allocation,
+                        "method": method,
+                        "payment_reference": payment_reference,
+                        "collected_by": request.user,
+                        "notes": notes,
+                    }
+                    if sale_type == "release":
+                        record_installment_payment(release=sale, **payment_args)
+                    else:
+                        record_bulk_sale_payment(bulk_sale=sale, **payment_args)
                     remaining -= allocation
                     
             messages.success(request, f"Payment of UGX {amount:,.2f} recorded successfully for Order #{order.short_number}.")
@@ -3088,16 +3134,27 @@ def account_holder_detail(request, pk):
                     )
                     .order_by("released_at", "pk")
                 )
+                account_bulk_sales = list(
+                    CoffeeBatchSale.objects
+                    .select_for_update()
+                    .filter(account_holder=account)
+                    .prefetch_related("payments")
+                    .order_by("sold_at", "pk")
+                )
 
-                # Only releases with an outstanding debt receive money.
                 debts = [
-                    (release, release.outstanding_balance)
+                    (release.released_at, "release", release, release.outstanding_balance)
                     for release in account_releases
                     if release.outstanding_balance > Decimal("0.00")
+                ] + [
+                    (sale.sold_at, "bulk_sale", sale, sale.outstanding_balance)
+                    for sale in account_bulk_sales
+                    if sale.outstanding_balance > Decimal("0.00")
                 ]
+                debts.sort(key=lambda item: (item[0], item[2].pk))
 
                 total_due = sum(
-                    (balance for _, balance in debts),
+                    (balance for _, _, _, balance in debts),
                     Decimal("0.00"),
                 )
 
@@ -3115,7 +3172,7 @@ def account_holder_detail(request, pk):
                 remaining = amount
 
                 # Allocate oldest outstanding debt first.
-                for release, balance in debts:
+                for _, sale_type, sale, balance in debts:
                     if remaining <= Decimal("0.00"):
                         break
 
@@ -3124,14 +3181,17 @@ def account_holder_detail(request, pk):
                     if allocation <= Decimal("0.00"):
                         continue
 
-                    record_installment_payment(
-                        release=release,
-                        amount=allocation,
-                        method=method,
-                        payment_reference=payment_reference,
-                        collected_by=request.user,
-                        notes=notes,
-                    )
+                    payment_args = {
+                        "amount": allocation,
+                        "method": method,
+                        "payment_reference": payment_reference,
+                        "collected_by": request.user,
+                        "notes": notes,
+                    }
+                    if sale_type == "release":
+                        record_installment_payment(release=sale, **payment_args)
+                    else:
+                        record_bulk_sale_payment(bulk_sale=sale, **payment_args)
 
                     remaining -= allocation
 
@@ -3183,22 +3243,35 @@ def account_holder_detail(request, pk):
     )
 
     all_releases = list(all_releases_qs)
+    all_bulk_sales_qs = (
+        CoffeeBatchSale.objects
+        .filter(account_holder=account)
+        .select_related("stock__variety", "bulk_request_item__request", "created_by")
+        .prefetch_related("payments")
+        .order_by("-sold_at", "-pk")
+    )
+    bulk_sales, _, _, _, _ = apply_date_filters(
+        request,
+        all_bulk_sales_qs,
+        date_field="sold_at",
+    )
+    all_bulk_sales = list(all_bulk_sales_qs)
 
     # Lifetime account figures, not just the selected date range.
     total_value = sum(
         (release.gross_amount for release in all_releases),
         Decimal("0.00"),
-    )
+    ) + sum((sale.total_amount_due for sale in all_bulk_sales), Decimal("0.00"))
 
     total_paid = sum(
         (release.total_amount_paid for release in all_releases),
         Decimal("0.00"),
-    )
+    ) + sum((sale.total_amount_paid for sale in all_bulk_sales), Decimal("0.00"))
 
     total_outstanding = sum(
         (release.outstanding_balance for release in all_releases),
         Decimal("0.00"),
-    )
+    ) + sum((sale.outstanding_balance for sale in all_bulk_sales), Decimal("0.00"))
 
     labels = {
         "today": "Today",
@@ -3220,6 +3293,7 @@ def account_holder_detail(request, pk):
     context = {
         "account": account,
         "releases": releases,
+        "bulk_sales": bulk_sales,
         "total_value": total_value,
         "total_paid": total_paid,
         "total_outstanding": total_outstanding,

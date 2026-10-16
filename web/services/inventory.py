@@ -80,22 +80,16 @@ def cache_packaged_inventory_totals(inventory):
 # ============================================================
 
 def get_stage_inventory(stock, stage):
-
-    incoming = (
+    totals = (
         stock.movements
-        .filter(to_stage=stage)
-        .aggregate(total=Sum("quantity"))["total"]
-        or ZERO
+        .filter(Q(to_stage=stage) | Q(from_stage=stage))
+        .aggregate(
+            incoming=Sum("quantity", filter=Q(to_stage=stage)),
+            outgoing=Sum("quantity", filter=Q(from_stage=stage)),
+        )
     )
 
-    outgoing = (
-        stock.movements
-        .filter(from_stage=stage)
-        .aggregate(total=Sum("quantity"))["total"]
-        or ZERO
-    )
-
-    return incoming - outgoing
+    return (totals["incoming"] or ZERO) - (totals["outgoing"] or ZERO)
 
 
 def get_green_available(stock):
@@ -617,4 +611,3 @@ def sell_roasted_sack(
 )
 
     return sale
-
