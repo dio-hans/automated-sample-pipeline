@@ -472,6 +472,113 @@ class StockRequestCreateView(RoleRequiredMixin, View):
 
 from decimal import Decimal
 
+
+def get_active_issued_stock(user):
+    requests = (
+        StockRequest.objects
+        .select_related("requested_by", "account_holder", "company")
+        .prefetch_related(
+            Prefetch(
+                "items",
+                queryset=StockRequestItem.objects.prefetch_related(
+                    Prefetch(
+                        "releases",
+                        queryset=PackRelease.objects.select_related(
+                            "product__blend",
+                            "product__pack_size",
+                            "released_to",
+                        ).prefetch_related("settlements", "payments", "returns"),
+                    )
+                ),
+            ),
+            Prefetch(
+                "bulk_items",
+                queryset=BulkStockRequestItem.objects.select_related(
+                    "stock__variety"
+                ).prefetch_related("sales__payments"),
+            ),
+        )
+        .filter(
+            Q(items__releases__isnull=False)
+            | Q(bulk_items__sales__isnull=False)
+        )
+        .distinct()
+        .order_by("-requested_at")
+    )
+
+    if user.role == User.Role.SALES:
+        requests = requests.filter(
+            Q(items__releases__released_to__system_user=user)
+            | Q(bulk_items__sales__account_holder__system_user=user)
+        ).distinct()
+
+    active_orders = []
+    for order in requests:
+        active_releases = []
+        active_bulk_sales = []
+        order_value = Decimal("0.00")
+        order_outstanding = Decimal("0.00")
+
+        for item in order.items.all():
+            for release in item.releases.all():
+                if (
+                    user.role == User.Role.SALES
+                    and (
+                        not release.released_to
+                        or release.released_to.system_user_id != user.pk
+                    )
+                ):
+                    continue
+                if release.outstanding_balance > Decimal("0.00"):
+                    active_releases.append(release)
+                    order_value += release.net_amount_due
+                    order_outstanding += release.outstanding_balance
+
+        for item in order.bulk_items.all():
+            for sale in item.sales.all():
+                if (
+                    user.role == User.Role.SALES
+                    and (
+                        not sale.account_holder
+                        or sale.account_holder.system_user_id != user.pk
+                    )
+                ):
+                    continue
+                if sale.outstanding_balance > Decimal("0.00"):
+                    active_bulk_sales.append(sale)
+                    order_value += sale.total_amount_due
+                    order_outstanding += sale.outstanding_balance
+
+        if active_releases or active_bulk_sales:
+            order.queue_releases = active_releases
+            order.queue_bulk_sales = active_bulk_sales
+            order.total_value = order_value
+            order.total_outstanding = order_outstanding
+            active_orders.append(order)
+
+    standalone_releases = (
+        PackRelease.objects
+        .filter(request_item__isnull=True)
+        .select_related(
+            "product__blend",
+            "product__pack_size",
+            "released_to",
+        )
+        .prefetch_related("settlements", "payments", "returns")
+        .order_by("-released_at")
+    )
+    if user.role == User.Role.SALES:
+        standalone_releases = standalone_releases.filter(
+            released_to__system_user=user
+        )
+    standalone_releases = [
+        release
+        for release in standalone_releases
+        if release.outstanding_balance > Decimal("0.00")
+    ]
+    return active_orders, standalone_releases
+
+
 class MyStockRequestListView(RoleRequiredMixin, ListView):
     allowed_roles = (User.Role.SALES, User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER)
     model = PackRelease
@@ -479,24 +586,39 @@ class MyStockRequestListView(RoleRequiredMixin, ListView):
     context_object_name = "releases"
 
     def get_queryset(self):
-        qs = (
-            PackRelease.objects
-            .select_related("product__blend", "product__pack_size", "released_to")
-            .prefetch_related("settlements", "payments", "returns")
-            .order_by("-released_at")
+        self.active_orders, standalone_releases = get_active_issued_stock(
+            self.request.user
         )
-        
-        # Filter by the system user if they are a sales agent
+        return standalone_releases
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["orders"] = self.active_orders
+        return context
+
+class MyStockRequestsListView(RoleRequiredMixin, ListView):
+    allowed_roles = (User.Role.SALES, User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER)
+    model = StockRequest
+    template_name = "pipeline/stock_request_list.html"
+    context_object_name = "requests"
+
+
+    def get_queryset(self):
+        qs = (
+            StockRequest.objects
+            .filter(status__in=("pending", "partially_fulfilled"))
+            .select_related("requested_by", "company", "account_holder")
+            .prefetch_related(
+                "items__product__blend",
+                "items__product__pack_size",
+                "bulk_items__stock__variety",
+                "bulk_items__sales__payments",
+            )
+            .order_by("-requested_at")
+        )
         if self.request.user.role == User.Role.SALES:
-            qs = qs.filter(released_to__system_user=self.request.user)
-            
-        # Exclude fully cleared or settled releases where the outstanding balance is 0 or less
-        active_releases = [
-            release for release in qs 
-            if release.outstanding_balance > Decimal("0.00")
-        ]
-        
-        return active_releases
+            qs = qs.filter(requested_by=self.request.user)
+        return qs
 
 
 class BulkSaleListView(RoleRequiredMixin, ListView):
@@ -633,7 +755,8 @@ class StockRequestFulfillView(RoleRequiredMixin, View):
     def get(self, request, pk):
         stock_request = self.get_request(pk)
         initial = [
-            {"item_id": item.pk, "issue_quantity": item.outstanding_quantity, "selling_price": item.product.selling_price}
+            {"item_id": item.pk, "issue_quantity": item.outstanding_quantity, "selling_price": item.product.selling_price, "packaged_items": list(stock_request.items.all()),
+"bulk_items": list(stock_request.bulk_items.all()),}
             for item in stock_request.items.all()
         ]
         bulk_initial = [
@@ -731,12 +854,7 @@ class StockRequestFulfillView(RoleRequiredMixin, View):
                 else:
                     formset._non_form_errors = formset.error_class([error])
 
-        return render(request, self.template_name, {
-            "stock_request": stock_request,
-            "formset": formset,
-            "bulk_formset": bulk_formset,
-        })
-
+                return redirect('order_queue')
 
 
 
@@ -787,32 +905,15 @@ class SalesStockView(RoleRequiredMixin, ListView):
     context_object_name = "releases"
 
     def get_queryset(self):
-        qs = (
-            PackRelease.objects
-            .select_related(
-                "product__blend",
-                "product__pack_size",
-                "released_to",
-                "request_item__request",
-            )
-            .prefetch_related(
-                "returns",
-                "settlements",
-                "payments",
-            )
+        self.active_orders, standalone_releases = get_active_issued_stock(
+            self.request.user
         )
+        return standalone_releases
 
-        if self.request.user.role == User.Role.SALES:
-            qs = qs.filter(
-                released_to__system_user=self.request.user
-            )
-
-        # Show only releases that still have an unpaid balance.
-        return [
-            release
-            for release in qs
-            if release.outstanding_balance > 0
-        ]
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["orders"] = self.active_orders
+        return context
 
 
 

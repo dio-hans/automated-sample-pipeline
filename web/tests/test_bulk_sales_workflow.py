@@ -10,6 +10,7 @@ from web.models import (
     CoffeeBatchSale,
     CoffeeStock,
     CoffeeVariety,
+    PackRelease,
     PackSettlement,
     PackSize,
     PackagedProduct,
@@ -176,6 +177,53 @@ class BulkSalesWorkflowTests(TestCase):
 
         self.assertEqual(request.items.get().quantity_requested, 20)
         self.assertEqual(request.bulk_items.get().quantity_requested, Decimal("15.00"))
+
+    def test_my_issued_stock_groups_packaged_and_bulk_fulfilments(self):
+        blend = Blend.objects.create(name="Issued Stock Mixed Blend")
+        size = PackSize.objects.create(grams=1000, label="1kg")
+        product = PackagedProduct.objects.create(
+            blend=blend,
+            pack_size=size,
+            form="beans",
+        )
+        request = create_stock_request(
+            user=self.user,
+            purpose="sale",
+            destination_type="direct_restaurant",
+            items=[(product, 1)],
+            bulk_items=[
+                (
+                    self.stock,
+                    StockStage.GREEN,
+                    Decimal("5.00"),
+                    Decimal("13000.00"),
+                    "Mixed Order Cafe",
+                )
+            ],
+        )
+        PackRelease.objects.create(
+            product=product,
+            request_item=request.items.get(),
+            packs_out=1,
+            selling_price=Decimal("60000.00"),
+            purpose="sale",
+        )
+        fulfill_bulk_request_item(
+            item=request.bulk_items.get(),
+            quantity=Decimal("5.00"),
+            price_per_kg=Decimal("13000.00"),
+            user=self.user,
+        )
+        self.client.force_login(self.user)
+
+        for url_name in ("my_stock", "stock_request_list"):
+            with self.subTest(url_name=url_name):
+                response = self.client.get(reverse(url_name))
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(len(response.context["orders"]), 1)
+                self.assertContains(response, "Issued Stock Mixed Blend")
+                self.assertContains(response, "5.00 kg")
+                self.assertContains(response, "Green Coffee")
 
     def test_stock_request_form_fulfillment_order_payment_and_history(self):
         self.client.force_login(self.user)

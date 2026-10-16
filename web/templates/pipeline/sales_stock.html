@@ -50,7 +50,7 @@
                             {% if order.product %}PK-{{ order.pk }}{% else %}N-{{ order.short_number|default:order.pk }}{% endif %}
                         </span>
                         <span class="text-[9px] font-mono text-slate-400">
-                            {{ order.requested_at|default:order.created_at|date:"d M, H:i" }}
+                            {{ order.requested_at|date:"d M, H:i" }}
                         </span>
                     </div>
                     
@@ -79,7 +79,7 @@
                 <div class="mt-3 pt-2 border-t border-slate-800/80 flex items-end justify-between">
                     <span class="text-[9px] uppercase tracking-wider font-bold text-slate-400">Release Value</span>
                     <p class="text-sm font-extrabold font-mono text-orange-400 leading-none">
-                        UGX {{ order.gross_amount|default:order.stock_value|default:0|floatformat:0|intcomma }}
+                        UGX {{ order.total_value|floatformat:0|intcomma }}
                     </p>
                 </div>
             </div>
@@ -111,7 +111,7 @@
                             <div class="text-right">
                                 <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Outstanding Balance</span>
                                 <p class="text-sm font-black text-rose-600 font-mono">
-                                    UGX {{ order.outstanding_balance|default:order.net_amount_due|default:order.gross_amount|default:0|floatformat:0|intcomma }}
+                                    UGX {{ order.total_outstanding|floatformat:0|intcomma }}
                                 </p>
                             </div>
                         </div>
@@ -122,7 +122,7 @@
                                 Issued Items
                             </h4>
                             <div class="space-y-1 max-h-48 overflow-y-auto">
-                                {% for release in order.queue_releases|default:order.releases.all %}
+                                {% for release in order.queue_releases %}
                                 <div class="bg-slate-50 border border-slate-200/60 rounded-md px-2.5 py-1.5 flex justify-between items-center text-xs">
                                     <div class="truncate">
                                         <p class="font-bold text-slate-800 leading-tight truncate">{{ release.product.blend.name }}</p>
@@ -133,15 +133,20 @@
                                         <p class="text-[9px] font-mono text-slate-400">Bal: {{ release.packs_outstanding }} pk</p>
                                     </div>
                                 </div>
-                                {% empty %}
+                                {% endfor %}
+                                {% for sale in order.queue_bulk_sales %}
                                 <div class="bg-slate-50 border border-slate-200/60 rounded-md px-2.5 py-1.5 flex justify-between items-center text-xs">
-                                    <div>
-                                        <p class="font-bold text-slate-800">{{ order.product.blend.name|default:"Direct Stock Item" }}</p>
-                                        <p class="text-[9px] text-slate-500">{{ order.product.pack_size.label }}</p>
+                                    <div class="truncate">
+                                        <p class="font-bold text-slate-800 leading-tight truncate">
+                                            {{ sale.stock.variety.name|default:sale.stock.batch_number }} · {{ sale.get_stage_display }}
+                                        </p>
+                                        <p class="text-[9px] text-slate-500 leading-tight">
+                                            Batch {{ sale.stock.batch_number }} · UGX {{ sale.price_per_kg|floatformat:0|intcomma }}/kg
+                                        </p>
                                     </div>
-                                    <div class="text-right">
-                                        <p class="font-mono font-bold text-slate-700">{{ order.packs_out }} pk</p>
-                                        <p class="text-[9px] font-mono text-slate-400">Bal: {{ order.packs_outstanding }} pk</p>
+                                    <div class="text-right shrink-0 ml-2">
+                                        <p class="font-mono font-bold text-slate-700 text-xs">{{ sale.kg_sold|floatformat:2 }} kg</p>
+                                        <p class="text-[9px] font-mono text-slate-400">Bal: UGX {{ sale.outstanding_balance|floatformat:0|intcomma }}</p>
                                     </div>
                                 </div>
                                 {% endfor %}
