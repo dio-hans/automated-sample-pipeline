@@ -130,6 +130,11 @@
         animation: login-submit-spin 0.7s linear infinite;
     }
 
+    html.login-submitting,
+    html.login-submitting * {
+        cursor: wait !important;
+    }
+
     @keyframes login-submit-spin {
         to { transform: rotate(360deg); }
     }
@@ -143,6 +148,7 @@
 
         form.dataset.submitting = "true";
         form.setAttribute("aria-busy", "true");
+        document.documentElement.classList.add("login-submitting");
 
         const button = event.submitter || form.querySelector('button[type="submit"]');
         if (button) {

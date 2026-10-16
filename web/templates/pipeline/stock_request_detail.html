@@ -136,7 +136,7 @@
     {% if stock_request.status == 'pending' %}
     <div class="bg-slate-50 border border-[#E4DECB] rounded-xl p-4 flex items-center justify-between">
         <div class="text-xs text-slate-500">
-            <strong>Ready to dispatch stock?</strong> Proceed to batch allocation & receipt issuance.
+            <strong>Ready to dispatch stock?</strong> 
         </div>
         <a href="{% url 'stock_request_fulfill' stock_request.pk %}" 
            class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold transition-all">
