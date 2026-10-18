@@ -1,0 +1,53 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}Bulk Coffee Sales | Nonda{% endblock %}
+{% block breadcrumb %}Sales / Bulk Coffee{% endblock %}
+{% block page_title %}Bulk Coffee Sales{% endblock %}
+
+{% block content %}
+<div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-x-auto">
+    <table class="w-full min-w-[900px] text-left text-xs">
+        <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider">
+            <tr>
+                <th class="px-4 py-3">Date</th>
+                <th class="px-4 py-3">Batch / Stage</th>
+                <th class="px-4 py-3">Customer</th>
+                <th class="px-4 py-3">Quantity</th>
+                <th class="px-4 py-3">Price / kg</th>
+                <th class="px-4 py-3">Sale Total</th>
+                <th class="px-4 py-3">Paid / Due</th>
+                <th class="px-4 py-3">Issued By</th>
+                <th class="px-4 py-3"></th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for sale in bulk_sales %}
+                <tr>
+                    <td class="px-4 py-3 whitespace-nowrap">{{ sale.sold_at|date:"d M Y, H:i" }}</td>
+                    <td class="px-4 py-3 font-semibold">{{ sale.stock.batch_number }} · {{ sale.get_stage_display }}</td>
+                    <td class="px-4 py-3">
+                        {% if sale.account_holder %}{{ sale.account_holder.name }}
+                        {% elif sale.company %}{{ sale.company.name }}
+                        {% else %}{{ sale.buyer_name|default:"Walk-in" }}{% endif %}
+                    </td>
+                    <td class="px-4 py-3 font-mono">{{ sale.kg_sold }} kg</td>
+                    <td class="px-4 py-3 font-mono">UGX {{ sale.price_per_kg|floatformat:2 }}</td>
+                    <td class="px-4 py-3 font-mono">UGX {{ sale.total_amount_due|floatformat:2|intcomma }}</td>
+                    <td class="px-4 py-3 font-mono">
+                        UGX {{ sale.total_amount_paid|floatformat:2|intcomma }} / {{ sale.outstanding_balance|floatformat:2|intcomma }}
+                    </td>
+                    <td class="px-4 py-3">{{ sale.created_by|default:"—" }}</td>
+                    <td class="px-4 py-3 text-right">
+                        {% if sale.outstanding_balance > 0 and request.user.role != "SALES" %}
+                            <a class="text-rust font-bold hover:underline" href="{% url 'bulk_sale_payment' sale.pk %}">Collect</a>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="9" class="px-4 py-12 text-center text-slate-400">No bulk coffee sales have been recorded.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

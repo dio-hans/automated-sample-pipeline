@@ -40,7 +40,7 @@
     
     <!-- GLOBAL STYLES -->
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
-    <script src="{% static 'js/base.js' %}"></script>
+    <script src="{% static 'js/base.js' %}" defer></script>
     
     {% block extra_head %}{% endblock %}
     {% block extra_css %}{% endblock %}
@@ -126,6 +126,16 @@
                     </div>
                 </div>
                 <div>
+           
+
+                        <a href="{% url 'packaging_run_list' %}" class="nav-link">
+    <i class="fa-solid fa-boxes-stacked nav-icon"></i>
+    <span>Packaging Runs List</span>
+</a>
+                    </div>
+            {% endif %}
+
+             {% if request.user.role == "MANAGER" or request.user.role == "ADMIN" %}
                     <p class="nav-section-title">Processing</p>
                     <div class="space-y-0.5">
                         <a href="{% url 'processing_workspace' %}" class="nav-link">
@@ -133,8 +143,7 @@
                             <span>Processing</span>
                         </a>
                     </div>
-                </div>
-            {% endif %}
+                    {% endif %}
 
             {% if request.user.role == "ADMIN" or request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" %}
                 <div>
@@ -153,14 +162,15 @@
                 <div>
                     <p class="nav-section-title">Sales</p>
                     <div class="space-y-0.5">
-                         <a href="{% url 'my_stock' %}" class="nav-link">
+                         <!-- <a href="{% url 'my_stock' %}" class="nav-link"> 
                             <i class="fa-solid fa-cubes nav-icon"></i>
                             <span>My Stock</span>
                         </a>
+                        -->
 
                         <a href="{% url 'stock_request_list' %}" class="nav-link">
                             <i class="fa-solid fa-paper-plane nav-icon"></i>
-                            <span>My Stock Requests</span>
+                            <span>My StockRequests</span>
                         </a>
                        
                     </div>
@@ -180,10 +190,14 @@
                             <span>Account Holders</span>
                         </a>
 
-                        <a href="{% url 'expense_tracker' %}" class="nav-link">
+                        {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
+
+                        <a href="{% url 'expense_list' %}" class="nav-link">
                            <i class="fa-solid fa-receipt nav-icon"></i>
                             <span>Expenses</span>
                         </a>
+                        
+                        {% endif %}
                     </div>
                 </div>
             {% endif %}
@@ -252,7 +266,7 @@
                             <i class="fa-solid fa-arrows-rotate nav-icon"></i>
                             <span>Follow-ups</span>
                         </a>
-                        <a href="{% url 'contract_list' %}" class="nav-link">
+            ]            <a href="{% url 'contract_list' %}" class="nav-link">
                             <i class="fa-solid fa-file-contract nav-icon"></i>
                             <span>Contracts</span>
                         </a>
@@ -273,7 +287,7 @@
 
             <!-- Internal Stock Navigation Block -->
 
-            {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" or request.user.role == "CASHIER" %}
+            {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" or request.user.role == "CASHIER" or request.user.role == "MANAGER" %}
                 <div>
                <div class="sidebar-section">
 

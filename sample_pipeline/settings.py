@@ -142,4 +142,13 @@ AUTH_USER_MODEL = 'web.User'
 CONSIGNMENT_AUDIT_INTERVAL_DAYS = 14
 # settings.py
 LOGIN_URL = 'login'
-CSRF_TRUSTED_ORIGINS = ['[https://automated-sample-pipeline-2.onrender.com](https://automated-sample-pipeline-2.onrender.com)']
+CSRF_TRUSTED_ORIGINS = ['https://automated-sample-pipeline-2.onrender.com']
+SECURE_PROXY_SSL_HEADER = (
+    "HTTP_X_FORWARDED_PROTO",
+    "https",
+)
+
+# Your production site uses HTTPS.
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+

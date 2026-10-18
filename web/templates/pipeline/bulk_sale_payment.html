@@ -1,0 +1,35 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}Collect Bulk Sale Payment | Nonda{% endblock %}
+{% block breadcrumb %}Cash Control / Bulk Sales / Payment{% endblock %}
+{% block page_title %}Collect Bulk Sale Payment{% endblock %}
+
+{% block content %}
+<div class="max-w-xl bg-white border border-[#E4DECB] rounded-xl shadow-sm p-6 space-y-5">
+    <div class="grid grid-cols-2 gap-3 text-sm">
+        <div><span class="block text-xs text-slate-500">Batch / Stage</span><strong>{{ sale.stock.batch_number }} · {{ sale.get_stage_display }}</strong></div>
+        <div>
+            <span class="block text-xs text-slate-500">Customer</span>
+            <strong>{% if sale.account_holder %}{{ sale.account_holder.name }}{% elif sale.company %}{{ sale.company.name }}{% else %}{{ sale.buyer_name|default:"Walk-in" }}{% endif %}</strong>
+        </div>
+        <div><span class="block text-xs text-slate-500">Quantity × Price</span><strong>{{ sale.kg_sold }} kg × UGX {{ sale.price_per_kg|floatformat:2 }}</strong></div>
+        <div><span class="block text-xs text-slate-500">Outstanding</span><strong>UGX {{ sale.outstanding_balance|floatformat:2|intcomma }}</strong></div>
+    </div>
+    <form method="post" class="space-y-4">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="rounded bg-rose-50 p-3 text-sm text-rose-700">{{ form.non_field_errors }}</div>{% endif %}
+        {% for field in form %}
+            <div>
+                <label for="{{ field.id_for_label }}" class="block text-xs font-bold text-slate-600 mb-1">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}<div class="text-xs text-rose-600">{{ field.errors }}</div>{% endif %}
+            </div>
+        {% endfor %}
+        <div class="flex justify-between">
+            <a href="{% url 'bulk_sales' %}" class="px-4 py-2 rounded border text-sm">Back</a>
+            <button type="submit" class="px-4 py-2 rounded bg-rust text-white text-sm font-bold">Record Payment</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

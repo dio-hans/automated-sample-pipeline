@@ -59,11 +59,41 @@
         {% endif %}
     </div>
 
-    <!-- Items Table -->
+    <!-- Packaged Items Table -->
     <div class="bg-white border border-[#E4DECB] rounded-xl shadow-xs overflow-hidden">
         <div class="px-4 py-3 bg-slate-50 border-b border-[#E4DECB] flex justify-between items-center">
             <h2 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Requested Line Items</h2>
             <span class="text-xs font-mono font-bold text-slate-500">{{ stock_request.items.all|length }} Items</span>
+        </div>
+
+        <div class="bg-white border border-[#E4DECB] rounded-xl shadow-xs overflow-hidden">
+            <div class="px-4 py-3 bg-slate-50 border-b border-[#E4DECB]">
+                <h2 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Bulk Coffee Lines</h2>
+            </div>
+            <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                    <tr class="border-b border-[#E4DECB] text-slate-400 uppercase tracking-wider text-[10px] bg-slate-50/50">
+                        <th class="px-4 py-2.5">Batch / Stage</th>
+                        <th class="px-4 py-2.5 text-right">Requested</th>
+                        <th class="px-4 py-2.5 text-right">Issued</th>
+                        <th class="px-4 py-2.5 text-right">Remaining</th>
+                        <th class="px-4 py-2.5 text-right">Agreed Price / kg</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#E4DECB] text-slate-700">
+                    {% for item in stock_request.bulk_items.all %}
+                        <tr>
+                            <td class="px-4 py-2.5 font-bold">{{ item.stock.batch_number }} · {{ item.stock.variety.name }} · {{ item.get_stage_display }}</td>
+                            <td class="px-4 py-2.5 text-right font-mono">{{ item.quantity_requested }} kg</td>
+                            <td class="px-4 py-2.5 text-right font-mono">{{ item.quantity_issued }} kg</td>
+                            <td class="px-4 py-2.5 text-right font-mono">{{ item.outstanding_quantity }} kg</td>
+                            <td class="px-4 py-2.5 text-right font-mono">UGX {{ item.price_per_kg|floatformat:2 }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="5" class="px-4 py-6 text-center text-slate-400 italic">No bulk coffee requested.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
 
         <table class="w-full text-left border-collapse text-xs">
@@ -106,7 +136,7 @@
     {% if stock_request.status == 'pending' %}
     <div class="bg-slate-50 border border-[#E4DECB] rounded-xl p-4 flex items-center justify-between">
         <div class="text-xs text-slate-500">
-            <strong>Ready to dispatch stock?</strong> Proceed to batch allocation & receipt issuance.
+            <strong>Ready to dispatch stock?</strong> 
         </div>
         <a href="{% url 'stock_request_fulfill' stock_request.pk %}" 
            class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold transition-all">

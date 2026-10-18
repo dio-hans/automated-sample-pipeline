@@ -20,7 +20,15 @@ FIELD_CLASS = (
 # sales_forms.py
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import AccountHolder, PackRelease, StockRequest, PackagedProduct
+from .models import (
+    AccountHolder,
+    CoffeeStock,
+    PAYMENT_METHOD_CHOICES,
+    PackRelease,
+    StockRequest,
+    PackagedProduct,
+    BulkStockRequestItem,
+)
 
 class AccountHolderForm(forms.ModelForm):
     class Meta:
@@ -72,8 +80,9 @@ class StockRequestForm(forms.ModelForm):
             "account_holder": forms.Select(attrs={"class": FIELD_CLASS}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.requesting_user = user
         self.fields["account_holder"].queryset = (
             AccountHolder.objects.filter(is_active=True).order_by("name")
         )
@@ -85,13 +94,63 @@ class StockRequestForm(forms.ModelForm):
         self.fields["account_holder"].empty_label = "— No dedicated account —"
         self.fields["company"].empty_label = "— No company —"
 
+        self.sales_account_holder = None
+        is_sales_requester = (
+            getattr(user, "role", None) == "SALES"
+            and not getattr(user, "is_superuser", False)
+        )
+        if is_sales_requester:
+            self.sales_account_holder = (
+                AccountHolder.objects
+                .filter(system_user=user)
+                .order_by("pk")
+                .first()
+            )
+            for field_name, value in (
+                ("purpose", "sale"),
+                ("destination_type", "agent_float"),
+            ):
+                field = self.fields[field_name]
+                field.initial = value
+                field.disabled = True
+                field.widget = forms.HiddenInput()
+                self.initial[field_name] = value
+
+            account_field = self.fields["account_holder"]
+            account_field.queryset = (
+                AccountHolder.objects.filter(pk=self.sales_account_holder.pk)
+                if self.sales_account_holder
+                else AccountHolder.objects.none()
+            )
+            account_field.initial = self.sales_account_holder
+            account_field.disabled = True
+            account_field.widget = forms.HiddenInput()
+            self.initial["account_holder"] = self.sales_account_holder
+
     def clean(self):
         cleaned = super().clean()
+        if (
+            getattr(self.requesting_user, "role", None) == "SALES"
+            and not getattr(self.requesting_user, "is_superuser", False)
+        ):
+            if not self.sales_account_holder:
+                self.add_error(
+                    None,
+                    "Your user account is not linked to a salesperson account. "
+                    "Ask an administrator to link it before requesting stock.",
+                )
+                return cleaned
+
+            cleaned["purpose"] = "sale"
+            cleaned["destination_type"] = "agent_float"
+            cleaned["account_holder"] = self.sales_account_holder
+            return cleaned
+
         destination = cleaned.get("destination_type")
         company = cleaned.get("company")
         account = cleaned.get("account_holder")
 
-        if destination in {"company", "direct_restaurant"} and not company:
+        if destination == "company" and not company:
             self.add_error(
                 "company",
                 "Select the company / restaurant receiving this stock.",
@@ -161,7 +220,6 @@ class BaseStockRequestItemFormSet(BaseFormSet):
     def clean(self):
         super().clean()
         products = set()
-        valid_rows = 0
         for form in self.forms:
             if not hasattr(form, "cleaned_data") or not form.cleaned_data:
                 continue
@@ -170,12 +228,9 @@ class BaseStockRequestItemFormSet(BaseFormSet):
             product = form.cleaned_data.get("product")
             if product is None:
                 continue
-            valid_rows += 1
             if product.pk in products:
                 raise forms.ValidationError("Each product may appear only once in a request.")
             products.add(product.pk)
-        if valid_rows == 0:
-            raise forms.ValidationError("Add at least one packaged product.")
 
 
 StockRequestItemFormSet = formset_factory(
@@ -186,6 +241,156 @@ StockRequestItemFormSet = formset_factory(
     validate_max=True,
     can_delete=True,
 )
+
+
+class BulkStockRequestItemForm(forms.Form):
+    bulk_field_class = (
+        "w-full rounded-md border border-slate-200 px-2.5 py-1.5 bg-white "
+        "text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-rust "
+        "focus:border-rust"
+    )
+
+    stock = forms.ModelChoiceField(
+        queryset=CoffeeStock.objects.none(),
+        required=False,
+        widget=forms.Select(attrs={"class": bulk_field_class}),
+    )
+    stage = forms.ChoiceField(
+        choices=(("", "Select coffee stage"), *BulkStockRequestItem.STAGE_CHOICES),
+        required=False,
+        widget=forms.Select(attrs={"class": bulk_field_class}),
+    )
+    quantity_requested = forms.DecimalField(
+        min_value=Decimal("0.01"),
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        widget=forms.NumberInput(
+            attrs={"class": bulk_field_class, "min": "0.01", "step": "0.01"}
+        ),
+    )
+    price_per_kg = forms.DecimalField(
+        min_value=Decimal("0.01"),
+        max_digits=12,
+        decimal_places=2,
+        required=False,
+        widget=forms.NumberInput(
+            attrs={"class": bulk_field_class, "min": "0.01", "step": "0.01"}
+        ),
+    )
+    buyer_name = forms.CharField(
+        max_length=200,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": bulk_field_class,
+                "placeholder": "Walk-in / buyer name (optional)",
+            }
+        ),
+    )
+
+    def __init__(self, *args, stock_queryset=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["stock"].queryset = (
+            stock_queryset
+            if stock_queryset is not None
+            else CoffeeStock.objects.select_related("variety").order_by("batch_number")
+        )
+
+    def clean(self):
+        cleaned = super().clean()
+        values = (
+            cleaned.get("stock"),
+            cleaned.get("stage"),
+            cleaned.get("quantity_requested"),
+            cleaned.get("price_per_kg"),
+        )
+        if any(value not in (None, "") for value in values) and not all(
+            value not in (None, "") for value in values
+        ):
+            raise forms.ValidationError(
+                "Complete the batch, stage, kilograms, and price for every bulk line."
+            )
+        return cleaned
+
+
+class BaseBulkStockRequestItemFormSet(BaseFormSet):
+    def __init__(self, *args, stock_queryset=None, **kwargs):
+        self.stock_queryset = stock_queryset
+        super().__init__(*args, **kwargs)
+
+    def get_form_kwargs(self, index):
+        kwargs = super().get_form_kwargs(index)
+        kwargs["stock_queryset"] = self.stock_queryset
+        return kwargs
+
+    def clean(self):
+        super().clean()
+        seen = set()
+        for form in self.forms:
+            if not hasattr(form, "cleaned_data") or not form.cleaned_data:
+                continue
+            row = form.cleaned_data
+            if row.get("DELETE") or not row.get("stock") or not row.get("stage"):
+                continue
+            key = (row["stock"].pk, row["stage"])
+            if key in seen:
+                raise forms.ValidationError(
+                    "Each batch and coffee stage may appear only once in a request."
+                )
+            seen.add(key)
+
+
+BulkStockRequestItemFormSet = formset_factory(
+    BulkStockRequestItemForm,
+    formset=BaseBulkStockRequestItemFormSet,
+    extra=1,
+    max_num=20,
+    validate_max=True,
+    can_delete=True,
+)
+
+
+class BulkFulfillItemForm(forms.Form):
+    item_id = forms.IntegerField(widget=forms.HiddenInput())
+    issue_quantity = forms.DecimalField(
+        min_value=Decimal("0.00"),
+        max_digits=10,
+        decimal_places=2,
+        widget=forms.NumberInput(
+            attrs={"class": FIELD_CLASS, "min": "0", "step": "0.01"}
+        ),
+    )
+    price_per_kg = forms.DecimalField(
+        min_value=Decimal("0.00"),
+        max_digits=12,
+        decimal_places=2,
+        widget=forms.NumberInput(
+            attrs={"class": FIELD_CLASS, "min": "0", "step": "0.01"}
+        ),
+    )
+
+
+BulkFulfillFormSet = formset_factory(
+    BulkFulfillItemForm,
+    extra=0,
+    max_num=100,
+    validate_max=True,
+)
+
+
+class BulkSalePaymentForm(forms.Form):
+    amount = forms.DecimalField(
+        min_value=Decimal("0.01"),
+        max_digits=12,
+        decimal_places=2,
+        widget=forms.NumberInput(
+            attrs={"class": FIELD_CLASS, "min": "0.01", "step": "0.01"}
+        ),
+    )
+    payment_method = forms.ChoiceField(choices=PAYMENT_METHOD_CHOICES)
+    payment_reference = forms.CharField(max_length=100, required=False)
+    notes = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
 
 
 class FulfillItemForm(forms.Form):

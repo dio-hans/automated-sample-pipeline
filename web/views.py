@@ -29,12 +29,14 @@ from .sales_workflow import (
     approve_existing_pack_return,
     fulfill_request_item,
     record_installment_payment,
+    record_bulk_sale_payment,
 )
-from .models import AccountHolder, InternalAccount, InternalStockIssue, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage
+from .models import AccountHolder, InternalAccount, InternalStockIssue, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage, CoffeeBatchSale
 from decimal import Decimal, InvalidOperation
 from .services.processing import complete_roasting, complete_sorting
 from django.views.generic import TemplateView
 from .models import CoffeeStock, PackagedInventory, RoastedSackSale
+from .models import CoffeeBatchSale
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError
@@ -91,7 +93,11 @@ from .services.followup import (
     mark_guide_sent,
 )
 from .services.intake import record_intake
-from .services.inventory import get_stage_inventory
+from .services.inventory import (
+    cache_packaged_inventory_totals,
+    get_stage_inventory,
+    get_stock_rows_with_cached_inventory,
+)
 from .services.packaging import (
     execute_pack_release,
     execute_pack_return,
@@ -112,8 +118,10 @@ def redirect_user_by_role(user):
         return redirect("inventory_dashboard")
     if user.role == User.Role.SALES:
         return redirect("record_sale")
-    if user.role in {User.Role.CASHIER, User.Role.ACCOUNTS}:
+    if user.role == User.Role.CASHIER:
         return redirect("order_queue")
+    if user.role == User.Role.ACCOUNTS:
+        return redirect("admin_dashboard")
     return redirect("login")
 
 def user_login(request):
@@ -127,19 +135,8 @@ def user_login(request):
             login(request, user)
             messages.success(request, f"Welcome back, {user.username}!")
             return redirect_user_by_role(user)
-        else:
-            username = request.POST.get('username')
-            if username:
-                try:
-                    existing_user = User.objects.get(username=username)
-                    if not existing_user.is_active or getattr(existing_user, 'is_suspended', False):
-                        messages.error(request, "Access Denied: Your account has been suspended.")
-                        return redirect('login')
-                except User.DoesNotExist:
-                    pass
-
-            form.errors.clear()
-            form.add_error(None, "Invalid login credentials.")
+        form.errors.clear()
+        form.add_error(None, "Invalid login credentials.")
     else:
         form = UserLoginForm()
     return render(request, 'pipeline/login.html', {'form': form})
@@ -206,26 +203,47 @@ class InventoryRoleRequiredMixin:
         messages.error(request, "You do not have permission to access inventory operations.")
         return redirect("record_sale")  
           
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+from django.views.generic import ListView
+from .models import PackagingRun, User
+from .utils.util import apply_date_filters  # Ensure this utility is imported
+
 @method_decorator(login_required, name="dispatch")
 class PackagingRunListView(InventoryRoleRequiredMixin, ListView):
     allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS)
     model = PackagingRun
     template_name = "pipeline/packaging_run_list.html"
     context_object_name = "packaging_runs"
-
+ 
     def get_queryset(self):
-        return (
+        qs = (
             PackagingRun.objects
             .select_related("product__blend", "product__pack_size", "stock", "issued_by", "completed_by")
             .prefetch_related("inputs__stock", "outputs__product__blend", "outputs__product__pack_size")
             .order_by("-issued_at")
         )
-
+        
+        # 🎯 Apply timeline filters based on the run's timestamp field
+        qs, preset, today, start, end = apply_date_filters(
+            self.request,
+            qs,
+            "issued_at",
+        )
+        self._preset = preset
+        return qs
+ 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["open_packaging_runs_count"] = PackagingRun.objects.filter(status="open").count()
+        context.update({
+            "preset": getattr(
+                self,
+                "_preset",
+                self.request.GET.get("preset", "this_month"),
+            ),
+            "open_packaging_runs_count": PackagingRun.objects.filter(status="open").count(),
+        })
         return context
-
 
 @method_decorator(login_required, name="dispatch")
 class PackagingRunDetailView(InventoryRoleRequiredMixin, DetailView):
@@ -616,7 +634,7 @@ class CoffeeStockListViews(RoleRequiredMixin, ListView):
 
         # 🎯 DRILL-DOWN TOGGLE LOOKUP
         # We cache the full filtered timeline list in memory first to calculate stable counters
-        self._all_records = list(qs)
+        self._all_records = get_stock_rows_with_cached_inventory(qs)
         
         self._current_status_filter = self.request.GET.get("status", "all")
         if self._current_status_filter == "exhausted":
@@ -670,8 +688,12 @@ class VarietyDatalistMixin:
         return context
 
 @method_decorator(login_required, name='dispatch')
-class CoffeeStockCreateView(VarietyDatalistMixin, CreateView):
-    allowed_roles =(User.Role.MANAGER)
+class CoffeeStockCreateView(
+    RoleRequiredMixin,
+    VarietyDatalistMixin,
+    CreateView,
+):
+    allowed_roles = (User.Role.MANAGER,)
     model = CoffeeStock
     form_class = CoffeeStockIntakeForm
     template_name = "pipeline/stock_form.html"
@@ -689,8 +711,12 @@ class CoffeeStockCreateView(VarietyDatalistMixin, CreateView):
         return redirect(self.get_success_url())
 
 @method_decorator(login_required, name='dispatch')
-class CoffeeStockUpdateView(VarietyDatalistMixin, UpdateView):
-    allowed_roles =(User.Role.MANAGER)
+class CoffeeStockUpdateView(
+    RoleRequiredMixin,
+    VarietyDatalistMixin,
+    UpdateView,
+):
+    allowed_roles = (User.Role.MANAGER,)
     model = CoffeeStock
     form_class = CoffeeStockForm
     template_name = "pipeline/stock_form.html"
@@ -1019,10 +1045,8 @@ class DashboardView(TemplateView):
 
 
 def low_stock_list(request):
-    stocks = (
-        CoffeeStock.objects
-        .select_related("variety")
-        .prefetch_related("movements")
+    stocks = get_stock_rows_with_cached_inventory(
+        CoffeeStock.objects.select_related("variety")
     )
     low_stocks = [s for s in stocks if s.quantity_available <= s.reorder_level]
     # Out-of-stock first, then by lowest available
@@ -1044,7 +1068,7 @@ class ProcessingWorkspaceView(RoleRequiredMixin, View):
 
     template_name = "pipeline/processing_workspace.html"
     def get(self, request):
-        stocks = (
+        stocks = get_stock_rows_with_cached_inventory(
             CoffeeStock.objects
             .select_related("variety")
             .order_by("variety__name", "batch_number")
@@ -1287,7 +1311,7 @@ class PackagedInventoryListView(InventoryRoleRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         
         # 1. Turn the inventory queryset into a list
-        inv = list(ctx["inventory"])
+        inv = cache_packaged_inventory_totals(ctx["inventory"])
         
         # 2. 📊 Sort the list in memory using your 'available' property (lowest stock first)
         inv_sorted = sorted(inv, key=lambda i: i.available)
@@ -1345,23 +1369,27 @@ class PackagedProductDetailView(InventoryRoleRequiredMixin, DetailView):
 
 @method_decorator(login_required, name='dispatch')
 class PackagedProductCreateView(InventoryRoleRequiredMixin, FormView):
-    # 1. Cleanly assign the class type here
     form_class = PackagedProductBulkForm
     template_name = "pipeline/packaged_product_form.html"  
     success_url = reverse_lazy("packaged_inventory_list")
-    allowed_roles =(User.Role.MANAGER, User.Role.ADMIN)  
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)  
 
-    # 2. Modify the form instance dynamically before it goes to the template
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         
-        #  FIXED: Loop dynamically through every actual field name in the form
+        # Loop dynamically through every actual field name in the form
         for name, field in form.fields.items():
             field.widget.attrs.update({
                 'class': 'w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-rust'
             })
-                    
+                
         return form
+
+    def form_valid(self, form):
+        with transaction.atomic():
+            form.save()
+        messages.success(self.request, "Packaged products saved successfully.")
+        return super().form_valid(form)
   
 
 
@@ -1540,12 +1568,12 @@ def redirect_after_return_submission(user):
     elif role == User.Role.ADMIN:
         return redirect("admin_dashboard")
     elif role == User.Role.ACCOUNTS:
-        return redirect("inventory_dashboard")  # or "credit_control_ledger"
+        return redirect("admin_dashboard")  # or "credit_control_ledger"
     elif role == User.Role.MANAGER:
         return redirect("inventory_dashboard")
     
     # Fallback default route
-    return redirect("dashboard")
+    return redirect("order_queue")
 
 @method_decorator(login_required, name='dispatch')
 class PackReturnConfirmationView(InventoryRoleRequiredMixin, TemplateView):
@@ -2011,6 +2039,32 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
                 )
             )
         )["total"] or Decimal("0.00")
+        bulk_dispatched_qs, _, _, _, _ = apply_date_filters(
+            self.request,
+            CoffeeBatchSale.objects.all(),
+            "sold_at",
+        )
+        total_value_issued += bulk_dispatched_qs.aggregate(
+            total=Sum(
+                ExpressionWrapper(
+                    F("kg_sold") * F("price_per_kg"),
+                    output_field=DecimalField(max_digits=14, decimal_places=2),
+                )
+            )
+        )["total"] or Decimal("0.00")
+        bulk_sales = list(
+            bulk_dispatched_qs.select_related(
+                "stock__variety",
+                "account_holder",
+                "company",
+                "bulk_request_item__request",
+            ).prefetch_related("payments")
+        )
+        if getattr(self, "_view_scope", "active") == "active":
+            bulk_sales = [
+                sale for sale in bulk_sales
+                if sale.outstanding_balance > Decimal("0.00")
+            ]
 
         # 2. LIQUID CASH COLLECTED IN SELECTED PERIOD
         payments_qs, _, _, _, _ = apply_date_filters(
@@ -2032,6 +2086,13 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
                 if getattr(release, "outstanding_balance", Decimal("0.00")) > Decimal("0.00")
             ),
             Decimal("0.00"),
+        ) + sum(
+            (
+                sale.outstanding_balance
+                for sale in CoffeeBatchSale.objects.prefetch_related("payments")
+                if sale.outstanding_balance > Decimal("0.00")
+            ),
+            Decimal("0.00"),
         )
 
         # CONTEXT MAPPING MATCHING TEMPLATE EXPECTATIONS
@@ -2045,8 +2106,97 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
             "total_value_issued": total_value_issued,
             "total_collected_revenue": total_collected_revenue,
             "total_outstanding_debt": total_outstanding_debt,
+            "bulk_sales": bulk_sales,
         })
         return ctx
+    
+from decimal import Decimal, InvalidOperation
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.db import transaction
+from django.core.exceptions import ValidationError
+from .models import StockRequest, User
+# Ensure record_installment_payment is imported from your services/utils module where defined
+
+@login_required
+def record_order_payment(request, order_pk):
+    order = get_object_or_404(StockRequest, pk=order_pk)
+    
+    payment_roles = (User.Role.CASHIER, User.Role.ACCOUNTS, User.Role.MANAGER, User.Role.ADMIN)
+    if not (request.user.is_superuser or getattr(request.user, "role", None) in payment_roles):
+        messages.error(request, "You do not have permission to record payments.")
+        return redirect('order_queue')
+        
+    if request.method == "POST":
+        try:
+            amount_str = request.POST.get("amount", "").strip()
+            # Support both modal 'method' and standard form 'payment_method' naming
+            method = request.POST.get("method", "").strip() or request.POST.get("payment_method", "").strip()
+            payment_reference = request.POST.get("payment_reference", "").strip()
+            notes = request.POST.get("notes", "").strip()
+            
+            amount = Decimal(amount_str)
+            if not amount.is_finite() or amount <= Decimal("0.00"):
+                raise ValidationError("Enter a payment amount greater than zero.")
+            
+            with transaction.atomic():
+                order_sales = []
+                for item in order.items.all():
+                    for release in item.releases.select_for_update().all():
+                        if release.outstanding_balance > Decimal("0.00"):
+                            order_sales.append(
+                                (release.released_at, "release", release, release.outstanding_balance)
+                            )
+                for item in order.bulk_items.all():
+                    for sale in item.sales.select_for_update().prefetch_related("payments"):
+                        if sale.outstanding_balance > Decimal("0.00"):
+                            order_sales.append(
+                                (sale.sold_at, "bulk_sale", sale, sale.outstanding_balance)
+                            )
+                
+                # Sort oldest first to match application credit rules
+                order_sales.sort(key=lambda row: (row[0], row[2].pk))
+                
+                total_due = sum((row[3] for row in order_sales), Decimal("0.00"))
+                
+                if total_due <= Decimal("0.00"):
+                    raise ValidationError("This order has no outstanding balance to collect.")
+                if amount > total_due:
+                    raise ValidationError(f"Payment exceeds the order's outstanding balance of UGX {total_due:,.2f}.")
+                
+                remaining = amount
+                for _, sale_type, sale, balance in order_sales:
+                    if remaining <= Decimal("0.00"):
+                        break
+                    allocation = min(balance, remaining)
+                    if allocation <= Decimal("0.00"):
+                        continue
+                    
+                    # 🎯 EXACT SAME DATABASE FUNCTION USED BY THE REST OF THE APP
+                    payment_args = {
+                        "amount": allocation,
+                        "method": method,
+                        "payment_reference": payment_reference,
+                        "collected_by": request.user,
+                        "notes": notes,
+                    }
+                    if sale_type == "release":
+                        record_installment_payment(release=sale, **payment_args)
+                    else:
+                        record_bulk_sale_payment(bulk_sale=sale, **payment_args)
+                    remaining -= allocation
+                    
+            messages.success(request, f"Payment of UGX {amount:,.2f} recorded successfully for Order #{order.short_number}.")
+        except (ValueError, InvalidOperation):
+            messages.error(request, "Enter a valid payment amount.")
+        except ValidationError as exc:
+            error_msg = "; ".join(exc.messages) if hasattr(exc, "messages") else str(exc)
+            messages.error(request, error_msg)
+        except Exception as e:
+            messages.error(request, f"Error recording payment: {e}")
+            
+    return redirect('order_queue')
 
 
 @method_decorator(login_required, name='dispatch')
@@ -2063,7 +2213,9 @@ class LowStockListView(RoleRequiredMixin, TemplateView):
 
         # 🟤 1. RAW BULK COFFEE BATCHES (Kilograms)
         # Filters batches that have dropped to or below their safety levels
-        bulk_stocks = CoffeeStock.objects.select_related("variety").all()
+        bulk_stocks = get_stock_rows_with_cached_inventory(
+            CoffeeStock.objects.select_related("variety")
+        )
         low_bulk_batches = [
             stock for stock in bulk_stocks 
             if stock.quantity_available <= getattr(stock, "reorder_level", 10.0)
@@ -2982,16 +3134,27 @@ def account_holder_detail(request, pk):
                     )
                     .order_by("released_at", "pk")
                 )
+                account_bulk_sales = list(
+                    CoffeeBatchSale.objects
+                    .select_for_update()
+                    .filter(account_holder=account)
+                    .prefetch_related("payments")
+                    .order_by("sold_at", "pk")
+                )
 
-                # Only releases with an outstanding debt receive money.
                 debts = [
-                    (release, release.outstanding_balance)
+                    (release.released_at, "release", release, release.outstanding_balance)
                     for release in account_releases
                     if release.outstanding_balance > Decimal("0.00")
+                ] + [
+                    (sale.sold_at, "bulk_sale", sale, sale.outstanding_balance)
+                    for sale in account_bulk_sales
+                    if sale.outstanding_balance > Decimal("0.00")
                 ]
+                debts.sort(key=lambda item: (item[0], item[2].pk))
 
                 total_due = sum(
-                    (balance for _, balance in debts),
+                    (balance for _, _, _, balance in debts),
                     Decimal("0.00"),
                 )
 
@@ -3009,7 +3172,7 @@ def account_holder_detail(request, pk):
                 remaining = amount
 
                 # Allocate oldest outstanding debt first.
-                for release, balance in debts:
+                for _, sale_type, sale, balance in debts:
                     if remaining <= Decimal("0.00"):
                         break
 
@@ -3018,14 +3181,17 @@ def account_holder_detail(request, pk):
                     if allocation <= Decimal("0.00"):
                         continue
 
-                    record_installment_payment(
-                        release=release,
-                        amount=allocation,
-                        method=method,
-                        payment_reference=payment_reference,
-                        collected_by=request.user,
-                        notes=notes,
-                    )
+                    payment_args = {
+                        "amount": allocation,
+                        "method": method,
+                        "payment_reference": payment_reference,
+                        "collected_by": request.user,
+                        "notes": notes,
+                    }
+                    if sale_type == "release":
+                        record_installment_payment(release=sale, **payment_args)
+                    else:
+                        record_bulk_sale_payment(bulk_sale=sale, **payment_args)
 
                     remaining -= allocation
 
@@ -3077,22 +3243,35 @@ def account_holder_detail(request, pk):
     )
 
     all_releases = list(all_releases_qs)
+    all_bulk_sales_qs = (
+        CoffeeBatchSale.objects
+        .filter(account_holder=account)
+        .select_related("stock__variety", "bulk_request_item__request", "created_by")
+        .prefetch_related("payments")
+        .order_by("-sold_at", "-pk")
+    )
+    bulk_sales, _, _, _, _ = apply_date_filters(
+        request,
+        all_bulk_sales_qs,
+        date_field="sold_at",
+    )
+    all_bulk_sales = list(all_bulk_sales_qs)
 
     # Lifetime account figures, not just the selected date range.
     total_value = sum(
         (release.gross_amount for release in all_releases),
         Decimal("0.00"),
-    )
+    ) + sum((sale.total_amount_due for sale in all_bulk_sales), Decimal("0.00"))
 
     total_paid = sum(
         (release.total_amount_paid for release in all_releases),
         Decimal("0.00"),
-    )
+    ) + sum((sale.total_amount_paid for sale in all_bulk_sales), Decimal("0.00"))
 
     total_outstanding = sum(
         (release.outstanding_balance for release in all_releases),
         Decimal("0.00"),
-    )
+    ) + sum((sale.outstanding_balance for sale in all_bulk_sales), Decimal("0.00"))
 
     labels = {
         "today": "Today",
@@ -3114,6 +3293,7 @@ def account_holder_detail(request, pk):
     context = {
         "account": account,
         "releases": releases,
+        "bulk_sales": bulk_sales,
         "total_value": total_value,
         "total_paid": total_paid,
         "total_outstanding": total_outstanding,
@@ -3326,6 +3506,7 @@ class InternalAccountListView(
         User.Role.ADMIN,
         User.Role.MANAGER,
         User.Role.ACCOUNTS,
+        User.Role.CASHIER,
     )
 
     def get_queryset(self):
@@ -3356,6 +3537,7 @@ class InternalAccountCreateView(
         User.Role.ADMIN,
         User.Role.MANAGER,
         User.Role.ACCOUNTS,
+        User.Role.CASHIER,
     )
 
     def form_valid(self, form):
@@ -3384,6 +3566,7 @@ class InternalStockIssueListView(
         User.Role.ADMIN,
         User.Role.MANAGER,
         User.Role.ACCOUNTS,
+        User.Role.CASHIER,
     )
 
     def get_queryset(self):
@@ -3458,6 +3641,7 @@ class InternalStockIssueCreateView(
         User.Role.ADMIN,
         User.Role.MANAGER,
         User.Role.ACCOUNTS,
+        User.Role.CASHIER,
     )
 
     def get(self, request):
@@ -3892,6 +4076,7 @@ class InternalStockIssueDetailView(
         User.Role.ADMIN,
         User.Role.MANAGER,
         User.Role.ACCOUNTS,
+        User.Role.CASHIER,
     )
 
     def get_queryset(self):

@@ -14,7 +14,7 @@
 
 {% block header_action %}
 
-{% if request.user.role == "SALES" or request.user.role == "MANAGER" or request.user.role == "ADMIN" %}
+{% if request.user.role == "ACCOUNTS" or request.user.role == "CASHIER" or request.user.role == "ADMIN" %}
 
 <a
     href="{% url 'consignee_create' %}"

@@ -23,6 +23,11 @@ Order Queue
          DATE FILTER PRESET HEADER CONTROLS
          ========================================================= -->
     {% include "reports/components/report_filters.html" %}
+    <div class="flex justify-end">
+        <a href="{% url 'bulk_sales' %}" class="inline-flex items-center rounded-lg border border-[#E4DECB] bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
+            Bulk Coffee Sales History
+        </a>
+    </div>
 
     <!-- =========================================================
          ORDER QUEUE CARDS GRID
@@ -48,10 +53,10 @@ Order Queue
                     <!-- Order Owner Name -->
                     <!-- Find this block in your template card body and update it: -->
                     <h3 class="text-sm font-semibold tracking-tight text-slate-100 truncate">
-                        {% if order.requested_by %}
-                            {{ order.requested_by.get_full_name|default:order.requested_by.username }}
-                        {% elif order.account_holder %}
+                        {% if order.account_holder %}
                             {{ order.account_holder.name }}
+                        {% elif order.requested_by %}
+                            {{ order.requested_by.get_full_name|default:order.requested_by.username }}
                         {% else %}
                             Unassigned Account
                         {% endif %}
@@ -93,10 +98,14 @@ Order Queue
                         <!-- Customer & Financial Summary -->
                         <div class="bg-slate-50 border border-slate-200/80 rounded-lg p-2.5 grid grid-cols-2 gap-2 text-xs">
                             <div>
-                                <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Customer</span>
-                                <p class="text-xs font-bold text-slate-800 truncate">
-                                    {% if order.account_holder %}{{ order.account_holder.name }}{% else %}Unassigned Account{% endif %}
-                                </p>
+                                <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Opened by</span>
+                                                    <p class="text-xs font-bold text-slate-800 truncate">
+                                {% if order.requested_by %}
+                                    {{ order.requested_by.get_full_name|default:order.requested_by.username }}
+                                {% else %}
+                                    Unassigned
+                                {% endif %}
+                            </p>
                             </div>
                             <div class="text-right">
                                 <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Outstanding Balance</span>
@@ -132,11 +141,27 @@ Order Queue
                                 {% empty %}
                                 <p class="text-xs text-slate-400 text-center italic py-1">No active batch assignments.</p>
                                 {% endfor %}
+                                {% for sale in order.queue_bulk_sales %}
+                                    <div class="bg-amber-50 border border-amber-200/70 rounded-md px-2.5 py-1.5 flex justify-between items-center text-xs">
+                                        <div class="truncate">
+                                            <p class="font-bold text-slate-800 leading-tight truncate">{{ sale.stock.batch_number }} · {{ sale.get_stage_display }}</p>
+                                            <p class="text-[9px] text-slate-500 leading-tight">
+                                                {% if sale.account_holder %}{{ sale.account_holder.name }}
+                                                {% elif sale.company %}{{ sale.company.name }}
+                                                {% else %}{{ sale.buyer_name|default:"Walk-in" }}{% endif %}
+                                            </p>
+                                        </div>
+                                        <div class="text-right shrink-0">
+                                            <p class="font-mono font-bold text-slate-700">{{ sale.kg_sold }} kg</p>
+                                            <p class="text-[9px] font-mono text-slate-500">Bal: {{ sale.outstanding_balance|floatformat:0|intcomma }}</p>
+                                        </div>
+                                    </div>
+                                {% endfor %}
                             </div>
                         </div>
 
                         <!-- Compact Payment Form -->
-                        <form id="form_settlement_{{ order.pk }}" method="post" action="{% url 'record_installment' order.queue_releases.0.pk %}" class="space-y-2 border-t border-slate-100 pt-2.5">
+                        <form id="form_settlement_{{ order.pk }}" method="post" action="{% url 'record_order_payment' order.pk %}" class="space-y-2 border-t border-slate-100 pt-2.5">
     {% csrf_token %}
     
     <div class="grid grid-cols-2 gap-2">

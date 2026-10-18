@@ -62,7 +62,6 @@ path('packaged-product/<int:pk>/', views.PackagedProductDetailView.as_view(), na
 
 # --- Packaging Runs ---
 path('packaging-runs/', views.PackagingRunListView.as_view(), name='packaging_run_list'),
-path("packaging-runs/", views.PackagingRunListView.as_view(), name="packaging_run_list"),
 path("packaging-runs/add/", views.PackagingRunCreateView.as_view(), name="packaging_run_create"),
 path("packaging-runs/<int:pk>/complete/", views.CompletePackagingRunView.as_view(), name="packaging_run_complete"),
 path("packaging-runs/<int:pk>/", views.PackagingRunDetailView.as_view(), name="packaging_run_detail"),
@@ -85,7 +84,11 @@ path("returns/list/", views.PackReturnListView.as_view(), name="pack_return_list
 # --- Sales / store stock workflow ---
 path("sales/", sales_views.SalesWorkspaceView.as_view(), name="record_sale"),
 path("stock-requests/", sales_views.MyStockRequestListView.as_view(), name="stock_request_list"),
+path("stock-requests/pending/", sales_views.MyStockRequestsListView.as_view(), name="pending_stock_requests"),
+
 path("stock-requests/create/", sales_views.StockRequestCreateView.as_view(), name="stock_request_create"),
+path("bulk-sales/", sales_views.BulkSaleListView.as_view(), name="bulk_sales"),
+path("bulk-sales/<int:pk>/payment/", sales_views.BulkSalePaymentView.as_view(), name="bulk_sale_payment"),
 path("stock-requests/<int:pk>/", sales_views.StockRequestDetailView.as_view(), name="stock_request_detail"),
 path("stock-requests/<int:pk>/fulfil/", sales_views.StockRequestFulfillView.as_view(), name="stock_request_fulfill"),
 path("sales/stock/", sales_views.SalesStockView.as_view(), name="my_stock"),
@@ -94,6 +97,7 @@ path("stock-requests/<int:pk>/cancel/",views.CancelStockRequestView.as_view(),na
 
 # --- Cashier ---
 path("cashier/queue/", sales_views.CashierQueueView.as_view(), name="order_queue"),
+path("cashier/orders/<int:order_pk>/pay/", views.record_order_payment, name="record_order_payment"),
 
 path("cashier/releases/<int:pk>/clear/", sales_views.CashierClearanceView.as_view(), name="cashier_clearance"),
 
@@ -133,10 +137,6 @@ path("expenses/history/",views.ExpenseListView.as_view(),name="expense_list",),
 
 ### INTERNAL ACCOUNTS
 path("internal/accounts/", views.InternalAccountListView.as_view(), name="internal_account_list"),
-
-
-# Issues
-path("internal-accounts/",views.InternalAccountListView.as_view(),name="internal_account_list",),
 
 path("internal-accounts/create/",views.InternalAccountCreateView.as_view(),name="internal_account_create",),
 

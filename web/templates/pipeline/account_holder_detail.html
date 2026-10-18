@@ -2,6 +2,7 @@
 {% load humanize %}
 
 {% block title %}{{ account.name }} | Portfolio{% endblock %}
+
 {% block breadcrumb %}Account Holders / {{ account.name }}{% endblock %}
 
 {% block page_subtitle %}
@@ -13,189 +14,39 @@
 
 {% block header_action %}
     {% if can_collect_payment %}
-    {% if total_outstanding > 0 %}
-
-        <!-- Payment action: visible before the form -->
-        <div class="flex justify-end">
+        {% if total_outstanding > 0 %}
             <button
                 type="button"
-                id="toggleAccountPaymentForm"
-                aria-expanded="false"
-                aria-controls="accountPaymentForm"
-                class="inline-flex items-center gap-2 rounded-lg bg-olive px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-olive focus:ring-offset-2"
+                onclick="openPaymentModal()"
+                class="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-md text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
             >
-            
-                <span>Record Payment</span>
+                Record Payment
             </button>
-        </div>
-
-      
-    {% else %}
-        <p class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            This account has no outstanding debt.
-        </p>
+        {% else %}
+            <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Fully Cleared
+            </span>
+        {% endif %}
     {% endif %}
-{% endif %}
-
 {% endblock %}
 
 {% block content %}
-  <!-- Payment form: hidden until requested -->
-        <div
-            id="accountPaymentForm"
-            class="hidden rounded-xl border border-[#E4DECB] bg-white p-5 shadow-sm"
-        >
-            <div class="mb-5 flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
-                <div>
-                    <h3 class="text-sm font-bold text-slate-800">
-                        Record Account Payment
-                    </h3>
-                    <p class="mt-1 text-xs text-slate-500">
-                        Record a full or partial payment for {{ account.name }}.
-                    </p>
-                </div>
-
-                <div class="text-right">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                        Outstanding Balance
-                    </p>
-                    <p class="mt-1 text-sm font-bold text-rose-600">
-                        {{ total_outstanding|floatformat:0|intcomma }} UGX
-                    </p>
-                </div>
-            </div>
-
-            <form method="post" class="space-y-4">
-                {% csrf_token %}
-                <input
-                    type="hidden"
-                    name="action"
-                    value="record_account_payment"
-                >
-
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                        <label
-                            for="accountPaymentAmount"
-                            class="mb-1.5 block text-xs font-semibold text-slate-700"
-                        >
-                            Amount Received (UGX)
-                        </label>
-                        <input
-                            type="number"
-                            id="accountPaymentAmount"
-                            name="amount"
-                            min="0.01"
-                            max="{{ total_outstanding }}"
-                            step="0.01"
-                            required
-                            class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-olive focus:outline-none focus:ring-1 focus:ring-olive"
-                            placeholder="Enter amount received"
-                        >
-                        <button
-                            type="button"
-                            id="fillFullPaymentAmount"
-                            class="mt-1.5 text-xs font-medium text-olive hover:underline"
-                        >
-                            Pay full outstanding balance
-                        </button>
-                    </div>
-
-                    <div>
-                        <label
-                            for="accountPaymentMethod"
-                            class="mb-1.5 block text-xs font-semibold text-slate-700"
-                        >
-                            Payment Method
-                        </label>
-                        <select
-                            id="accountPaymentMethod"
-                            name="method"
-                            required
-                            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-olive focus:outline-none focus:ring-1 focus:ring-olive"
-                        >
-                            {% for value, label in payment_methods %}
-                                <option value="{{ value }}">
-                                    {{ label }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label
-                            for="accountPaymentReference"
-                            class="mb-1.5 block text-xs font-semibold text-slate-700"
-                        >
-                            Payment Reference
-                            <span class="font-normal text-slate-400">(Optional)</span>
-                        </label>
-                        <input
-                            type="text"
-                            id="accountPaymentReference"
-                            name="payment_reference"
-                            maxlength="100"
-                            class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-olive focus:outline-none focus:ring-1 focus:ring-olive"
-                            placeholder="Transaction or receipt number"
-                        >
-                    </div>
-
-                    <div>
-                        <label
-                            for="accountPaymentNotes"
-                            class="mb-1.5 block text-xs font-semibold text-slate-700"
-                        >
-                            Notes
-                            <span class="font-normal text-slate-400">(Optional)</span>
-                        </label>
-                        <input
-                            type="text"
-                            id="accountPaymentNotes"
-                            name="notes"
-                            class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-olive focus:outline-none focus:ring-1 focus:ring-olive"
-                            placeholder="Additional payment details"
-                        >
-                    </div>
-                </div>
-
-                <div class="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
-                    <button
-                        type="button"
-                        id="cancelAccountPaymentForm"
-                        class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                    >
-                        Cancel
-                    </button>
-
-                    <button
-                        type="submit"
-                        class="rounded-lg bg-olive px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-                    >
-                        Save Payment
-                    </button>
-                </div>
-            </form>
-        </div>
-
 <div class="space-y-4">
-
-    <!-- 1. SUMMARY CARDS -->
+    
+    <!-- =========================================================
+         1. SUMMARY CARDS
+         ========================================================= -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <!-- Card 1: Total Stock Value Released -->
         <div class="bg-white border border-[#E4DECB] rounded-xl p-3.5 shadow-sm">
             <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Total Value Released</p>
             <p class="font-bold text-xl mt-1 text-slate-800">{{ total_value|floatformat:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">UGX</span></p>
             <p class="text-[11px] text-slate-400 mt-0.5">Lifetime inventory assigned to account</p>
         </div>
-
-        <!-- Card 2: Total Amount Paid -->
         <div class="bg-white border border-[#E4DECB] rounded-xl p-3.5 shadow-sm">
             <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Amount Paid So Far</p>
             <p class="font-bold text-xl mt-1 text-emerald-600">{{ total_paid|floatformat:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">UGX</span></p>
             <p class="text-[11px] text-slate-400 mt-0.5">Total cleared collections logged</p>
         </div>
-
-        <!-- Card 3: Total Outstanding Debt -->
         <div class="bg-white border border-[#E4DECB] rounded-xl p-3.5 shadow-sm">
             <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Current Outstanding Balance</p>
             <p class="font-bold text-xl mt-1 text-rose-600">{{ total_outstanding|floatformat:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">UGX</span></p>
@@ -203,17 +54,15 @@
         </div>
     </div>
 
-    <!-- 2. RELEASES LEDGER TABLE -->
-     {% include "reports/components/report_filters.html" %}
+    <!-- =========================================================
+         2. RELEASES LEDGER TABLE
+         ========================================================= -->
+    {% include "reports/components/report_filters.html" %}
     <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
         <div class="px-4 py-3 border-b border-[#E4DECB] bg-slate-50/50">
             <h3 class="text-xs font-bold text-slate-600 uppercase tracking-wider">Assigned Pack Releases</h3>
         </div>
-
         
-
-
-
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse bg-white">
                 <thead>
@@ -264,51 +113,165 @@
         </div>
     </div>
 
+    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b border-[#E4DECB] bg-slate-50/50">
+            <h3 class="text-xs font-bold text-slate-600 uppercase tracking-wider">Bulk Coffee Sales</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-[#E4DECB] text-slate-600 font-semibold text-[11px] uppercase tracking-wider">
+                        <th class="px-4 py-3">Date</th>
+                        <th class="px-4 py-3">Batch / Stage</th>
+                        <th class="px-4 py-3 text-right">Kilograms</th>
+                        <th class="px-4 py-3 text-right">Value (UGX)</th>
+                        <th class="px-4 py-3 text-right">Paid (UGX)</th>
+                        <th class="px-4 py-3 text-right">Balance Owed</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#E4DECB] text-slate-700 text-xs">
+                    {% for sale in bulk_sales %}
+                        <tr>
+                            <td class="px-4 py-3 whitespace-nowrap">{{ sale.sold_at|date:"d M Y, H:i" }}</td>
+                            <td class="px-4 py-3 font-bold">{{ sale.stock.batch_number }} · {{ sale.get_stage_display }}</td>
+                            <td class="px-4 py-3 text-right font-mono">{{ sale.kg_sold }} kg × {{ sale.price_per_kg|floatformat:2 }}</td>
+                            <td class="px-4 py-3 text-right font-mono">{{ sale.total_amount_due|floatformat:0|intcomma }}</td>
+                            <td class="px-4 py-3 text-right font-mono text-emerald-700">{{ sale.total_amount_paid|floatformat:0|intcomma }}</td>
+                            <td class="px-4 py-3 text-right font-mono font-bold text-rose-700">{{ sale.outstanding_balance|floatformat:0|intcomma }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="6" class="px-4 py-10 text-center text-slate-400 italic">No bulk coffee sales recorded for this account holder.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- =========================================================
+         3. ORDER-QUEUE STYLE PAYMENT MODAL OVERLAY
+         ========================================================= -->
+    <div id="paymentModal" class="fixed inset-0 bg-slate-950/80 z-[9999] hidden items-center justify-center p-3 overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 text-left flex flex-col animate-in fade-in zoom-in-95 duration-150">
+            
+            <!-- Dark Modal Top Bar -->
+            <div class="bg-slate-950 text-white px-4 py-2.5 flex items-center justify-between border-b border-slate-800 shrink-0">
+                <div>
+                    <span class="text-[9px] font-mono tracking-wider text-emerald-400 font-bold uppercase block">
+                        Account Settlement
+                    </span>
+                    <h3 class="text-xs font-bold text-white">Record Account Payment</h3>
+                </div>
+                <button type="button" onclick="closePaymentModal()" class="text-slate-400 hover:text-white text-base font-bold p-1 cursor-pointer">
+                    &times;
+                </button>
+            </div>
+
+            <!-- Modal Body Container -->
+            <div class="p-4 space-y-3">
+                <!-- Customer & Financial Summary -->
+                <div class="bg-slate-50 border border-slate-200/80 rounded-lg p-2.5 grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Account Holder</span>
+                        <p class="text-xs font-bold text-slate-800 truncate">{{ account.name }}</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Outstanding Balance</span>
+                        <p class="text-sm font-black text-rose-600 font-mono">UGX {{ total_outstanding|floatformat:0|intcomma }}</p>
+                    </div>
+                </div>
+
+                <!-- Compact Payment Form -->
+                <form id="accountPaymentFormElement" method="post" class="space-y-2 border-t border-slate-100 pt-2.5">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="record_account_payment">
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
+                                Amount Received (UGX)
+                            </label>
+                            <input type="number" 
+                                   name="amount" 
+                                   step="1" 
+                                   max="{{ total_outstanding }}"
+                                   value="{{ total_outstanding }}" 
+                                   required
+                                   class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1.5 text-xs font-mono font-bold text-slate-900">
+                        </div>
+                        <div>
+                            <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
+                                Payment Method
+                            </label>
+                            <select name="method" required class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1.5 text-xs font-semibold text-slate-800">
+                                {% for value, label in payment_methods %}
+                                    <option value="{{ value }}" {% if forloop.first %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
+                                Reference Hash / ID
+                            </label>
+                            <input type="text" 
+                                   name="payment_reference" 
+                                   placeholder="e.g. MM Txn ID"
+                                   class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1 text-xs text-slate-800">
+                        </div>
+                        <div>
+                            <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
+                                Audit Comments
+                            </label>
+                            <input type="text"
+                                   name="notes" 
+                                   placeholder="Optional comments..."
+                                   class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1 text-xs text-slate-800">
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Modal Footer Actions -->
+            <div class="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+                <button type="button" onclick="closePaymentModal()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md text-[11px] font-bold transition-all cursor-pointer">
+                    Cancel
+                </button>
+                <button type="submit" form="accountPaymentFormElement" class="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-md text-[11px] font-bold transition-all shadow-xs cursor-pointer">
+                    Post & Clear Payment
+                </button>
+            </div>
+
+        </div>
+    </div>
+
 </div>
 {% endblock %}
+
 {% block extra_scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const toggleBtn = document.getElementById('toggleAccountPaymentForm');
-        const cancelBtn = document.getElementById('cancelAccountPaymentForm');
-        const paymentFormContainer = document.getElementById('accountPaymentForm');
-        const paymentAmountInput = document.getElementById('accountPaymentAmount');
-        const fillFullAmountBtn = document.getElementById('fillFullPaymentAmount');
+function openPaymentModal() {
+    const modal = document.getElementById('paymentModal');
+    if (!modal) return;
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+}
 
-        // Toggle form open/close
-        if (toggleBtn && paymentFormContainer) {
-            toggleBtn.addEventListener('click', function() {
-                const isHidden = paymentFormContainer.classList.contains('hidden');
-                if (isHidden) {
-                    paymentFormContainer.classList.remove('hidden');
-                    toggleBtn.setAttribute('aria-expanded', 'true');
-                } else {
-                    paymentFormContainer.classList.add('hidden');
-                    toggleBtn.setAttribute('aria-expanded', 'false');
-                }
-            });
-        }
+function closePaymentModal() {
+    const modal = document.getElementById('paymentModal');
+    if (!modal) return;
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+}
 
-        // Hide form on Cancel click
-        if (cancelBtn && paymentFormContainer) {
-            cancelBtn.addEventListener('click', function() {
-                paymentFormContainer.classList.add('hidden');
-                if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
-            });
-        }
-
-        // Automatically fill full outstanding balance when helper link is clicked
-        if (fillFullAmountBtn && paymentAmountInput) {
-            fillFullAmountBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                // Safely grab max value set by Django context dynamically
-                const maxAmount = paymentAmountInput.getAttribute('max');
-                if (maxAmount) {
-                    paymentAmountInput.value = maxAmount;
-                }
-            });
-        }
-    });
+document.addEventListener('DOMContentLoaded', function() {
+    const modalBox = document.querySelector('#paymentModal > div');
+    if (modalBox) {
+        modalBox.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+    }
+});
 </script>
-
 {% endblock %}

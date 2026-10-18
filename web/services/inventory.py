@@ -2,7 +2,7 @@
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 from ..models import (
@@ -11,6 +11,7 @@ from ..models import (
     PackagedProduct,
     PackagedInventory,
     PackagingRun,
+    PackagingRunOutput,
     PackRelease,
     PackReturn,
     RoastedSackSale,
@@ -19,6 +20,54 @@ from ..models import (
 
 
 ZERO = Decimal("0.00")
+
+
+def cache_packaged_inventory_totals(inventory):
+    inventory = list(inventory)
+    product_ids = [item.product_id for item in inventory]
+    if not product_ids:
+        return inventory
+
+    produced_by_product = dict(
+        PackagingRunOutput.objects
+        .filter(
+            run__status="completed",
+            product_id__in=product_ids,
+        )
+        .values("product_id")
+        .annotate(total=Sum("packs_produced"))
+        .values_list("product_id", "total")
+    )
+    released_by_product = dict(
+        PackRelease.objects
+        .filter(product_id__in=product_ids)
+        .values("product_id")
+        .annotate(total=Sum("packs_out"))
+        .values_list("product_id", "total")
+    )
+    returned_by_product = dict(
+        PackReturn.objects
+        .filter(
+            release__product_id__in=product_ids,
+            status="approved",
+            condition="good",
+        )
+        .values("release__product_id")
+        .annotate(total=Sum("packs_returned"))
+        .values_list("release__product_id", "total")
+    )
+
+    for item in inventory:
+        item._packs_produced_cache = produced_by_product.get(item.product_id, 0)
+        item._packs_released_cache = released_by_product.get(item.product_id, 0)
+        item._packs_returned_cache = returned_by_product.get(item.product_id, 0)
+        item._available_cache = (
+            item._packs_produced_cache
+            - item._packs_released_cache
+            + item._packs_returned_cache
+        )
+
+    return inventory
 
 
 # ============================================================
@@ -31,22 +80,16 @@ ZERO = Decimal("0.00")
 # ============================================================
 
 def get_stage_inventory(stock, stage):
-
-    incoming = (
+    totals = (
         stock.movements
-        .filter(to_stage=stage)
-        .aggregate(total=Sum("quantity"))["total"]
-        or ZERO
+        .filter(Q(to_stage=stage) | Q(from_stage=stage))
+        .aggregate(
+            incoming=Sum("quantity", filter=Q(to_stage=stage)),
+            outgoing=Sum("quantity", filter=Q(from_stage=stage)),
+        )
     )
 
-    outgoing = (
-        stock.movements
-        .filter(from_stage=stage)
-        .aggregate(total=Sum("quantity"))["total"]
-        or ZERO
-    )
-
-    return incoming - outgoing
+    return (totals["incoming"] or ZERO) - (totals["outgoing"] or ZERO)
 
 
 def get_green_available(stock):
@@ -85,6 +128,56 @@ def get_stock_available(stock):
         + get_ground_available(stock)
         + get_quaker_available(stock)
     )
+
+
+def get_stock_rows_with_cached_inventory(queryset):
+    zero = Decimal("0.00")
+    stages = (
+        ("green", StockStage.GREEN),
+        ("roasted", StockStage.ROASTED),
+        ("ground", StockStage.GROUND),
+        ("quakers", StockStage.QUAKERS),
+    )
+
+    annotations = {
+        "inventory_in_calc": Sum(
+            "movements__quantity",
+            filter=Q(movements__to_stage__isnull=False),
+        ),
+        "inventory_out_calc": Sum(
+            "movements__quantity",
+            filter=Q(movements__from_stage__isnull=False),
+        ),
+    }
+
+    for name, stage in stages:
+        annotations[f"{name}_in_calc"] = Sum(
+            "movements__quantity",
+            filter=Q(movements__to_stage=stage),
+        )
+        annotations[f"{name}_out_calc"] = Sum(
+            "movements__quantity",
+            filter=Q(movements__from_stage=stage),
+        )
+
+    stocks = list(queryset.annotate(**annotations))
+
+    for stock in stocks:
+        stock._quantity_available_cache = (
+            stock.inventory_in_calc or zero
+        ) - (
+            stock.inventory_out_calc or zero
+        )
+        stock._stage_quantity_cache = {
+            stage: (
+                getattr(stock, f"{name}_in_calc") or zero
+            ) - (
+                getattr(stock, f"{name}_out_calc") or zero
+            )
+            for name, stage in stages
+        }
+
+    return stocks
 
 
 # NOTE:
@@ -518,6 +611,3 @@ def sell_roasted_sack(
 )
 
     return sale
-
-
-

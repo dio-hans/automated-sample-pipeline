@@ -5,6 +5,7 @@ from django.db.models import Sum
 from django.utils import timezone
 from ...models import (
     Expense,
+    CoffeeBatchSale,
     PackRelease,
     PaymentReceipt,
 )
@@ -83,6 +84,23 @@ def get_finance_report(period):
         debtor_map[debtor]['invoices'] += 1
         days = max((as_of - timezone.localtime(release.released_at).date()).days, 0)
         age_map[ageing_bucket(days)] += balance
+    bulk_sales = CoffeeBatchSale.objects.select_related(
+        'account_holder',
+        'company',
+    ).prefetch_related('payments')
+    for sale in bulk_sales.iterator(chunk_size=300):
+        sold_value = money(sale.total_amount_due)
+        paid = sum((money(payment.amount) for payment in sale.payments.all()), ZERO)
+        balance = max(sold_value - paid, ZERO)
+        if paid > sold_value:
+            unallocated_credit += paid - sold_value
+        if balance <= 0:
+            continue
+        debtor = str(sale.account_holder or sale.company or sale.buyer_name or 'Walk-in')
+        debtor_map[debtor]['balance'] += balance
+        debtor_map[debtor]['invoices'] += 1
+        days = max((as_of - timezone.localtime(sale.sold_at).date()).days, 0)
+        age_map[ageing_bucket(days)] += balance
     debtors = sorted(({'name': n, **v} for n,v in debtor_map.items()), key=lambda r:r['balance'], reverse=True)
     return {
         'collections_total':total_collections, 'payment_count':payment_count,
@@ -92,7 +110,7 @@ def get_finance_report(period):
         'cash_less_expenses':total_collections-total_expenses,
         'outstanding_receivables':sum((r['balance'] for r in debtors),ZERO),
         'debtors':debtors,'ageing':[{'label':k,'amount':v} for k,v in age_map.items()],
-        'unallocated_credit':unallocated_credit,'bulk_receivables_pending':True,
+        'unallocated_credit':unallocated_credit,'bulk_receivables_pending':False,
         'ageing_basis':'Days since stock release; not contractual overdue days',
         'timestamp_warning':'Collections are dated by PaymentReceipt.collected_at.',
     }

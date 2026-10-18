@@ -1,3 +1,10 @@
+body {
+    background-color: #F5F3EC;
+    color: #211815;
+    margin: 0;
+    min-height: 100vh;
+}
+
    /* ---------------------------------------------------------
    GLOBAL BRIGHT ORANGE SUBMIT BUTTONS
    --------------------------------------------------------- */
@@ -6,6 +13,20 @@ input[type="submit"] {
     background-color: #f97316 !important; /* Bright Orange (Tailwind Orange-500) */
     color: #ffffff !important;
     transition: background-color 150ms ease, transform 100ms ease;
+}
+
+button[data-submitting="true"],
+input[data-submitting="true"] {
+    cursor: wait;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.submit-progress {
+    display: inline-block;
+    margin-inline-start: 0.5rem;
+    font-size: 0.85em;
+    font-weight: 600;
 }
 
 .deny-button{

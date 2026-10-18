@@ -26,69 +26,56 @@
                 </tr>
             </thead>
             <tbody class="divide-y divide-[#E4DECB] text-slate-700">
-                {% for request in requests %}
-                <tr class="hover:bg-slate-50/50 transition duration-150">
-                    <!-- Ticket ID -->
-                     {% if request.user.role == "MANAGER" %}
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <a class="font-bold text-rust hover:text-rust-dark hover:underline text-xs tracking-wider" href="{% url 'stock_request_detail' request.pk %}">
-                            {{ request.short_number }}
-                        </a>
-                    </td>
-                    {% endif %}
-                    
-                    <!-- Applicant -->
-                    <td class="px-6 py-4 whitespace-nowrap font-medium text-slate-800">
-                        {{ request.requested_by.get_full_name|default:request.requested_by.username }}
-                    </td>
-                    
-                    <!-- Purpose -->
-                    <td class="px-6 py-4 whitespace-nowrap text-xs text-slate-500 font-medium capitalize">
-                        {{ request.get_purpose_display }}
-                    </td>
-                    
-                    <!-- Datetime -->
-                    <td class="px-6 py-4 whitespace-nowrap text-xs text-slate-400 font-medium">
-                        {{ request.requested_at|date:"d M Y, H:i" }}
-                    </td>
-                    
-                    <!-- Status Badges -->
-                    <td class="px-6 py-4 text-center whitespace-nowrap">
-                        {% if request.status == "partially_fulfilled" %}
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-100 text-xs font-semibold">
-                                Partial Dispatch
-                            </span>
-                        {% else %}
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-100 text-xs font-semibold">
-                                Pending Store
-                            </span>
-                        {% endif %}
-                    </td>
+    {% for req in requests %}
+    <tr class="hover:bg-slate-50/50 transition duration-150">
+        {% if request.user.role == "MANAGER" %}
+        <td class="px-6 py-4 whitespace-nowrap">
+            <a class="font-bold text-rust hover:text-rust-dark hover:underline text-xs tracking-wider" href="{% url 'stock_request_detail' req.pk %}">
+                {{ req.short_number }}
+            </a>
+        </td>
+        {% endif %}
+        
+        <td class="px-6 py-4 whitespace-nowrap font-medium text-slate-800">
+            {{ req.requested_by.get_full_name|default:req.requested_by.username }}
+        </td>
+        
+        <td class="px-6 py-4 whitespace-nowrap text-xs text-slate-500 font-medium capitalize">
+            {{ req.get_purpose_display }}
+        </td>
+        
+        <td class="px-6 py-4 whitespace-nowrap text-xs text-slate-400 font-medium">
+            {{ req.requested_at|date:"d M Y, H:i" }}
+        </td>
+        
+        <td class="px-6 py-4 text-center whitespace-nowrap">
+            {% if req.status == "partially_fulfilled" %}
+                <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-100 text-xs font-semibold">
+                    Partial Dispatch
+                </span>
+            {% else %}
+                <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-100 text-xs font-semibold">
+                    Pending Store
+                </span>
+            {% endif %}
+        </td>
 
-                    <!-- Direct Navigation Action Link -->
-                     {% if request.user.role == "MANAGER" %}
-                    <td class="px-6 py-4 text-right whitespace-nowrap">
-                        <a href="{% url 'stock_request_detail' request.pk %}" class="text-xs font-bold text-rust hover:text-rust-dark hover:underline">
-                            Process Order 
-                        </a>
-                    </td>
-                    {% endif %}
-                </tr>
-                {% empty %}
-                <!-- Empty Queue Exception State Layout -->
-                <tr>
-                    <td colspan="6" class="px-6 py-16 text-center text-slate-400">
-                        <div class="flex flex-col items-center justify-center space-y-2 max-w-xs mx-auto">
-                            <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                            </svg>
-                            <p class="text-xs font-bold text-slate-800">Clear Action Queue</p>
-                            <p class="text-[11px] text-slate-400 leading-normal">Excellent! All logged agent requests have been completely fulfilled or signed off.</p>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
+        {% if request.user.role == "MANAGER" %}
+        <td class="px-6 py-4 text-right whitespace-nowrap">
+            <a href="{% url 'stock_request_detail' req.pk %}" class="text-xs font-bold text-rust hover:text-rust-dark hover:underline">
+                Process Order 
+            </a>
+        </td>
+        {% endif %}
+    </tr>
+    {% empty %}
+    <tr>
+        <td colspan="6" class="px-6 py-16 text-center text-slate-400">
+            <p class="text-xs font-bold text-slate-800">Clear Action Queue</p>
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>    
         </table>
     </div>
 </div>

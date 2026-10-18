@@ -119,7 +119,55 @@
         font-size: 0.875rem;
         pointer-events: none;
     }
+
+    .login-submit-spinner {
+        display: inline-block;
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid #2563EB;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: login-submit-spin 0.7s linear infinite;
+    }
+
+    html.login-submitting,
+    html.login-submitting * {
+        cursor: wait !important;
+    }
+
+    @keyframes login-submit-spin {
+        to { transform: rotate(360deg); }
+    }
 </style>
+<script>
+    function lockLoginSubmit(event, form) {
+        if (form.dataset.submitting === "true") {
+            event.preventDefault();
+            return false;
+        }
+
+        form.dataset.submitting = "true";
+        form.setAttribute("aria-busy", "true");
+        document.documentElement.classList.add("login-submitting");
+
+        const button = event.submitter || form.querySelector('button[type="submit"]');
+        if (button) {
+            button.disabled = true;
+            button.setAttribute("aria-busy", "true");
+            button.setAttribute("aria-label", "Signing in");
+
+            const spinner = document.createElement("span");
+            spinner.className = "login-submit-spinner";
+            spinner.setAttribute("aria-hidden", "true");
+            button.prepend(spinner);
+
+            const label = button.querySelector("[data-login-label]");
+            if (label) label.textContent = "Signing in...";
+        }
+
+        return true;
+    }
+</script>
 {% endblock %}
 
 {% block title %}Sign In · Nonda Commodities{% endblock %}
@@ -190,6 +238,8 @@
                       action=""
                       autocomplete="off"
                       novalidate
+                      data-submit-guard="inline"
+                      onsubmit="return lockLoginSubmit(event, this)"
                       class="space-y-4">
 
                     {% csrf_token %}
@@ -212,7 +262,7 @@
                                        transition-all shadow-sm flex items-center justify-center gap-2
                                        cursor-pointer active:scale-[0.99]">
                             <i class="fa-solid fa-right-to-bracket text-sm"></i>
-                            <span>Sign In</span>
+                            <span data-login-label>Sign In</span>
                         </button>
                     </div>
 

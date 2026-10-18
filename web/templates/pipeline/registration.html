@@ -55,6 +55,9 @@
             <!-- Multi-column grid layout for form fields -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
                 {% for field in form %}
+                {% if field.name == "email" or field.name == "contact" %}
+                    {% comment %}Keep these optional registration fields available in the form definition, but hidden from this template for now.{% endcomment %}
+                {% else %}
                 <div>
                     <label for="{{ field.id_for_label }}" class="block text-[10px] font-bold uppercase tracking-wider text-stone-500 mb-0.5">
                         {{ field.label }}
@@ -66,6 +69,7 @@
                         <p class="text-[10px] text-red-600 mt-0.5">{{ error }}</p>
                     {% endfor %}
                 </div>
+                {% endif %}
                 {% endfor %}
             </div>
 
