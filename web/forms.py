@@ -857,12 +857,27 @@ from django import forms
 from .models import InternalAccount, InternalStockIssue, CoffeeStock, PackagedProduct, StockStage
 
 
+from django import forms
+from .models import InternalAccount
+
 class InternalAccountForm(forms.ModelForm):
     class Meta:
         model = InternalAccount
         fields = ["name", "account_type", "description", "is_active"]
         widgets = {
-            "description": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
+            "name": forms.TextInput(attrs={
+                "class": "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-rust"
+            }),
+            "account_type": forms.Select(attrs={
+                "class": "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-rust"
+            }),
+            "description": forms.Textarea(attrs={
+                "rows": 3, 
+                "class": "w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-rust resize-none"
+            }),
+            "is_active": forms.CheckboxInput(attrs={
+                "class": "w-4 h-4 rounded text-rust focus:ring-rust border-gray-300"
+            }),
         }
 
 

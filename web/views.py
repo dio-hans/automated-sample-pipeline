@@ -3,7 +3,7 @@ from platform import release
 from django.utils.decorators import method_decorator
 from datetime import datetime, time, timezone
 from django import forms
-from django.db.models import F, Q, DecimalField, ExpressionWrapper
+from django.db.models import F, Prefetch, Q, DecimalField, ExpressionWrapper
 from django.db.models.aggregates import Sum
 from django.forms.formsets import formset_factory
 from django.utils import timezone
@@ -23,7 +23,7 @@ from django.views.decorators.http import require_POST
 from .services.reporting.consumption import _decimal, get_stock_consumption_report
 from .services.reporting.periods import resolve_report_period
 
-from .services.internal_stock import ZERO, create_internal_stock_issue, get_packaged_internal_available
+from .services.internal_stock import ZERO, create_internal_stock_issue
 
 from .sales_workflow import (
     approve_existing_pack_return,
@@ -31,7 +31,7 @@ from .sales_workflow import (
     record_installment_payment,
     record_bulk_sale_payment,
 )
-from .models import AccountHolder, InternalAccount, InternalStockIssue, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage, CoffeeBatchSale
+from .models import AccountHolder, InternalAccount, InternalStockIssue, InternalStockIssueItem, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage, CoffeeBatchSale
 from decimal import Decimal, InvalidOperation
 from .services.processing import complete_roasting, complete_sorting
 from django.views.generic import TemplateView
@@ -3574,9 +3574,14 @@ class InternalStockIssueListView(
             InternalStockIssue.objects
             .select_related("account", "issued_by")
             .prefetch_related(
-                "items__coffee_stock__variety",
-                "items__packaged_product__blend",
-                "items__packaged_product__pack_size",
+                Prefetch(
+                    "items",
+                    queryset=InternalStockIssueItem.objects.select_related(
+                        "coffee_stock__variety",
+                        "packaged_product__blend",
+                        "packaged_product__pack_size",
+                    ),
+                ),
             )
             .order_by("-issue_date", "-created_at")
         )
@@ -3825,7 +3830,7 @@ class InternalStockIssueCreateView(
 
     def get_context_data(self):
 
-        stocks = list(
+        stocks = get_stock_rows_with_cached_inventory(
             CoffeeStock.objects
             .select_related("variety")
             .order_by(
@@ -3852,12 +3857,7 @@ class InternalStockIssueCreateView(
                 ),
             ):
 
-                available = (
-                    get_stage_inventory(
-                        stock,
-                        stage_value,
-                    )
-                )
+                available = stock._stage_quantity_cache[stage_value]
 
                 if available <= 0:
                     continue
@@ -3881,28 +3881,41 @@ class InternalStockIssueCreateView(
 
         packaged_products = []
 
-        products = (
-            PackagedProduct.objects
-            .filter(is_active=True)
+        inventory_rows = cache_packaged_inventory_totals(
+            PackagedInventory.objects
+            .filter(product__is_active=True)
             .select_related(
-                "blend",
-                "pack_size",
+                "product__blend",
+                "product__pack_size",
             )
             .order_by(
-                "blend__name",
-                "pack_size__grams",
-                "form",
+                "product__blend__name",
+                "product__pack_size__grams",
+                "product__form",
             )
         )
 
-        for product in products:
-
-            available = (
-                get_packaged_internal_available(
-                    product
-                )
+        internal_issues_by_product = dict(
+            InternalStockIssueItem.objects
+            .filter(
+                packaged_product_id__in=[
+                    inventory.product_id
+                    for inventory in inventory_rows
+                ],
+                packs__isnull=False,
             )
+            .values("packaged_product_id")
+            .annotate(total=Sum("packs"))
+            .values_list("packaged_product_id", "total")
+        )
 
+        for inventory in inventory_rows:
+            product = inventory.product
+            available = max(
+                inventory.available
+                - internal_issues_by_product.get(product.pk, 0),
+                0,
+            )
             if available <= 0:
                 continue
 
