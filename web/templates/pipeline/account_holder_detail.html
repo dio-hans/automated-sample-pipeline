@@ -134,7 +134,7 @@
                         <tr>
                             <td class="px-4 py-3 whitespace-nowrap">{{ sale.sold_at|date:"d M Y, H:i" }}</td>
                             <td class="px-4 py-3 font-bold">{{ sale.stock.batch_number }} · {{ sale.get_stage_display }}</td>
-                            <td class="px-4 py-3 text-right font-mono">{{ sale.kg_sold }} kg × {{ sale.price_per_kg|floatformat:2 }}</td>
+                            <td class="px-4 py-3 text-right font-mono">{{ sale.kg_sold }} kg × UGX {{ sale.price_per_kg|floatformat:0|intcomma }}</td>
                             <td class="px-4 py-3 text-right font-mono">{{ sale.total_amount_due|floatformat:0|intcomma }}</td>
                             <td class="px-4 py-3 text-right font-mono text-emerald-700">{{ sale.total_amount_paid|floatformat:0|intcomma }}</td>
                             <td class="px-4 py-3 text-right font-mono font-bold text-rose-700">{{ sale.outstanding_balance|floatformat:0|intcomma }}</td>

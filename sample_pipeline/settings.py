@@ -25,8 +25,10 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 # Fetches ALLOWED_HOSTS from .env as a comma-separated string, or falls back to defaults
 # Read from .env, or default to localhost and local loopbacks
-allowed_hosts_env = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,.onrender.com,.railway.app')
+# Change this section in settings.py:
+allowed_hosts_env = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,162.0.224.104')
 ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.strip()]
+
 
 
 # Application definition
@@ -82,15 +84,18 @@ WSGI_APPLICATION = 'sample_pipeline.wsgi.application'
 # Database configuration
 # Uses DATABASE_URL from environment when hosted on Render (PostgreSQL),
 # and falls back to local SQLite for local development on Windows.
+
 import dj_database_url
 import os
+
 DATABASES = {
-    'default': dj_database_url.config(
+    "default": dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
         conn_max_age=600,
         conn_health_checks=True,
     )
 }
+
 
 
 # Password validation
@@ -142,12 +147,14 @@ AUTH_USER_MODEL = 'web.User'
 CONSIGNMENT_AUDIT_INTERVAL_DAYS = 14
 # settings.py
 LOGIN_URL = 'login'
-CSRF_TRUSTED_ORIGINS = ['https://automated-sample-pipeline-2.onrender.com']
+# Change this section near the bottom of settings.py:
+CSRF_TRUSTED_ORIGINS = ['http://162.0.224.104', 'http://162.0.224.104:8000']
+
 SECURE_PROXY_SSL_HEADER = (
     "HTTP_X_FORWARDED_PROTO",
     "https",
 )
 
 # Your production site uses HTTPS.
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False

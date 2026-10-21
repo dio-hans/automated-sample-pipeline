@@ -17,6 +17,20 @@ FIELD_CLASS = (
     "text-sm text-ink focus:outline-none focus:ring-2 focus:ring-rust/20 focus:border-rust"
 )
 
+
+class UGXField(forms.DecimalField):
+    default_error_messages = {
+        **forms.DecimalField.default_error_messages,
+        "max_decimal_places": "Enter an amount in whole UGX shillings.",
+    }
+
+    def clean(self, value):
+        amount = super().clean(value)
+        if amount is not None and amount != amount.to_integral_value():
+            raise ValidationError("Enter an amount in whole UGX shillings.")
+        return amount
+
+
 # sales_forms.py
 from django import forms
 from django.core.exceptions import ValidationError
@@ -59,9 +73,10 @@ class DirectPackReleaseForm(forms.Form):
         min_value=1,
         widget=forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none'})
     )
-    selling_price = forms.DecimalField(
+    selling_price = UGXField(
+        min_value=Decimal("1"),
         max_digits=12, decimal_places=2,
-        widget=forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none'})
+        widget=forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none', 'min': '1', 'step': '1'})
     )
     notes = forms.CharField(
         required=False,
@@ -269,13 +284,13 @@ class BulkStockRequestItemForm(forms.Form):
             attrs={"class": bulk_field_class, "min": "0.01", "step": "0.01"}
         ),
     )
-    price_per_kg = forms.DecimalField(
-        min_value=Decimal("0.01"),
+    price_per_kg = UGXField(
+        min_value=Decimal("1"),
         max_digits=12,
         decimal_places=2,
         required=False,
         widget=forms.NumberInput(
-            attrs={"class": bulk_field_class, "min": "0.01", "step": "0.01"}
+            attrs={"class": bulk_field_class, "min": "1", "step": "1"}
         ),
     )
     buyer_name = forms.CharField(
@@ -361,12 +376,12 @@ class BulkFulfillItemForm(forms.Form):
             attrs={"class": FIELD_CLASS, "min": "0", "step": "0.01"}
         ),
     )
-    price_per_kg = forms.DecimalField(
+    price_per_kg = UGXField(
         min_value=Decimal("0.00"),
         max_digits=12,
         decimal_places=2,
         widget=forms.NumberInput(
-            attrs={"class": FIELD_CLASS, "min": "0", "step": "0.01"}
+            attrs={"class": FIELD_CLASS, "min": "0", "step": "1"}
         ),
     )
 
@@ -380,12 +395,12 @@ BulkFulfillFormSet = formset_factory(
 
 
 class BulkSalePaymentForm(forms.Form):
-    amount = forms.DecimalField(
-        min_value=Decimal("0.01"),
+    amount = UGXField(
+        min_value=Decimal("1"),
         max_digits=12,
         decimal_places=2,
         widget=forms.NumberInput(
-            attrs={"class": FIELD_CLASS, "min": "0.01", "step": "0.01"}
+            attrs={"class": FIELD_CLASS, "min": "1", "step": "1"}
         ),
     )
     payment_method = forms.ChoiceField(choices=PAYMENT_METHOD_CHOICES)
@@ -399,11 +414,11 @@ class FulfillItemForm(forms.Form):
         min_value=0,
         widget=forms.NumberInput(attrs={"class": FIELD_CLASS, "min": "0"}),
     )
-    selling_price = forms.DecimalField(
+    selling_price = UGXField(
         min_value=0,
         max_digits=12,
         decimal_places=2,
-        widget=forms.NumberInput(attrs={"class": FIELD_CLASS, "min": "0", "step": "0.01"}),
+        widget=forms.NumberInput(attrs={"class": FIELD_CLASS, "min": "0", "step": "1"}),
     )
     notes = forms.CharField(
         required=False,
@@ -447,11 +462,11 @@ class SettlementForm(forms.Form):
         min_value=0,
         widget=forms.NumberInput(attrs={"class": FIELD_CLASS, "min": "0"}),
     )
-    amount_paid = forms.DecimalField(
+    amount_paid = UGXField(
         min_value=0,
         max_digits=12,
         decimal_places=2,
-        widget=forms.NumberInput(attrs={"class": FIELD_CLASS, "min": "0", "step": "0.01"}),
+        widget=forms.NumberInput(attrs={"class": FIELD_CLASS, "min": "0", "step": "1"}),
     )
     payment_method = forms.ChoiceField(
         choices=(
@@ -500,6 +515,15 @@ class SingleItemReturnForm(forms.Form):
     )
 
 class PaymentReceiptForm(forms.ModelForm):
+    amount = UGXField(
+        min_value=Decimal("1"),
+        max_digits=12,
+        decimal_places=2,
+        widget=forms.NumberInput(
+            attrs={"class": "form-input", "min": "1", "step": "1"}
+        ),
+    )
+
     class Meta:
         model = PaymentReceipt
 
@@ -511,13 +535,6 @@ class PaymentReceiptForm(forms.ModelForm):
         ]
 
         widgets = {
-            "amount": forms.NumberInput(
-                attrs={
-                    "class": "form-input",
-                    "min": "0.01",
-                    "step": "0.01",
-                }
-            ),
             "payment_method": forms.Select(
                 attrs={
                     "class": "form-select",

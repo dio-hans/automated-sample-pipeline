@@ -1,5 +1,6 @@
 {% extends "pipeline/base.html" %}
 {% load static %}
+{% load humanize %}
 
 {% block title %}Fulfil Request {{ stock_request.short_number }} | Nonda{% endblock %}
 {% block breadcrumb %}Stock Control / Requests / Fulfil{% endblock %}
@@ -135,7 +136,7 @@
                                             <div class="lg:col-span-5">
                                                 <p class="text-sm font-bold text-slate-800">{{ item.stock.batch_number }} · {{ item.stock.variety.name }}</p>
                                                 <p class="text-xs text-slate-500">{{ item.get_stage_display }} · {{ item.outstanding_quantity }} kg remaining</p>
-                                                <p class="text-[11px] text-slate-400">Requested deal price: UGX {{ item.price_per_kg|floatformat:2 }} / kg</p>
+                                                <p class="text-[11px] text-slate-400">Requested deal price: UGX {{ item.price_per_kg|floatformat:0|intcomma }} / kg</p>
                                             </div>
                                             <div class="lg:col-span-3">
                                                 <label for="{{ bulk_form.issue_quantity.id_for_label }}" class="block text-xs font-semibold text-slate-600 mb-1.5">Issue Quantity (kg)</label>

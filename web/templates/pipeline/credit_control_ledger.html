@@ -1,13 +1,12 @@
 {% extends "pipeline/base.html" %}
 {% load static %}
 {% load humanize %}
-{% block title %}Credit Control Ledger | Nonda{% endblock %}
-{% block breadcrumb %}Financials / Credit Control Ledger{% endblock %}
-{% block page_title %}Receivables & Credit Control Ledger{% endblock %}
+{% block title %}Unified Credit Ledger | Nonda{% endblock %}
+{% block breadcrumb %}Financials / Unified Credit Ledger{% endblock %}
+{% block page_title %}Unified Credit Ledger{% endblock %}
 {% block page_subtitle %}
 <p class="mt-1 text-sm text-slate-500">
-    Dedicated accounting control deck. Audit active salesperson debts,
-    monitor running cash collections, and log incoming installments.
+    Packaged and bulk coffee receivables in one ledger.
 </p>
 {% endblock %}
 {% block content %}
@@ -77,196 +76,135 @@
     <!-- =========================================================
          3. RECEIVABLES TABLE
          ========================================================= -->
-         <!-- Search Input -->
-<!-- Search Input -->
 <div class="mb-3 max-w-sm">
     <div class="relative">
         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
             <i class="fa-solid fa-magnifying-glass text-xs"></i>
         </div>
-        <input 
-            type="text" 
-            id="tableSearchInput" 
-            onkeyup="filterTableByName()" 
-            placeholder="Search by account holder or agent..." 
+        <input
+            type="text"
+            id="tableSearchInput"
+            onkeyup="filterTableByName()"
+            placeholder="Search account or item..."
             class="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 placeholder-slate-400"
         >
     </div>
 </div>
 {% include "reports/components/report_filters.html" %}
     <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-200">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-700">Unified Credit Ledger</h2>
+        </div>
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-xs">
+            <table class="w-full min-w-[900px] text-left border-collapse text-xs">
                 <thead>
                     <tr class="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold uppercase text-[11px] tracking-wider">
-                        <th class="py-2.5 px-3">Date Issued</th>
-                        <th class="py-2.5 px-3">Product</th>
-                        <th class="py-2.5 px-3">Account Holder / Agent</th>
-                        <th class="py-2.5 px-3 text-center">Out</th>
-                        <th class="py-2.5 px-3 text-center">Outstanding</th>
+                        <th class="py-2.5 px-3">Date</th>
+                        <th class="py-2.5 px-3">Type</th>
+                        <th class="py-2.5 px-3">Inventory Details</th>
+                        <th class="py-2.5 px-3">Customer / Agent</th>
+                        <th class="py-2.5 px-3 text-right">Quantity</th>
                         <th class="py-2.5 px-3 text-right">Total Value</th>
-                        <th class="py-2.5 px-3 text-right">Total Paid</th>
-                        <th class="py-2.5 px-3 text-right">Balance Owed</th>
-                        {% if request.user.role == "cashier" or request.user.role == "CASHIER" or request.user.is_superuser %}
-                        <th class="py-2.5 px-3 text-center">Actions</th>
+                        <th class="py-2.5 px-3 text-right">Balances</th>
+                        {% if request.user.role == "cashier" or request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" or request.user.is_superuser %}
+                        <th class="py-2.5 px-3 text-center">Action</th>
                         {% endif %}
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100 text-slate-700" id="releasesTableBody">
-    {% for release in releases %}
-    <!-- MAIN RELEASE ROW -->
-    <tr class="release-row odd:bg-white even:bg-slate-50/70 hover:bg-slate-100/60 transition-colors"
-        data-name="{{ release.released_to.name|default:'UNASSIGNED'|lower }}"
-        data-drawer="drawer_{{ release.pk }}">
-        
-        <!-- Date -->
-        <td class="py-2 px-3 whitespace-nowrap text-slate-500 font-medium">
-            {{ release.released_at|date:"d M Y, H:i" }}
-        </td>
-
-        <!-- Product -->
-        <td class="py-2 px-3 whitespace-nowrap font-semibold text-slate-900">
-            {% if release.product.blend %}
-                {{ release.product.blend.name }}
-            {% else %}
-                {{ release.product }}
-            {% endif %}
-            {% if release.product.pack_size %}
-                <span class="text-slate-400 font-normal">
-                    · {{ release.product.pack_size.label }}
-                </span>
-            {% endif %}
-        </td>
-
-        <!-- Account Holder / Recipient -->
-        <td class="py-2 px-3 whitespace-nowrap font-medium text-slate-800 account-holder-cell">
-            {% if release.released_to %}
-                <a href="{% url 'account_holder_detail' release.released_to.pk %}"
-                   class="text-emerald-600 hover:text-emerald-800 hover:underline font-bold">
-                    {{ release.released_to.name }}
-                </a>
-                <span class="text-[10px] text-slate-400 font-normal block">
-                    {% if release.released_to.get_account_type_display %}
-                        {{ release.released_to.get_account_type_display }}
-                    {% elif release.released_to.account_type %}
-                        {{ release.released_to.account_type|title }}
-                    {% endif %}
-                </span>
-            {% else %}
-                <span class="text-rose-500 font-semibold">
-                    UNASSIGNED
-                </span>
-            {% endif %}
-        </td>
-
-        <!-- Packs issued -->
-        <td class="py-2 px-3 text-center font-medium text-slate-600">
-            {{ release.packs_out }}
-        </td>
-
-        <!-- Packs outstanding -->
-        <td class="py-2 px-3 text-center font-bold text-slate-800">
-            {{ release.packs_outstanding }}
-        </td>
-
-        <!-- Gross value -->
-        <td class="py-2 px-3 text-right font-medium text-slate-600">
-            {{ release.gross_amount|floatformat:0|intcomma }}
-        </td>
-
-        <!-- Paid -->
-        <td class="py-2 px-3 text-right font-semibold text-emerald-600">
-            {{ release.total_amount_paid|floatformat:0|intcomma }}
-        </td>
-
-        <!-- Balance -->
-        <td class="py-2 px-3 text-right font-bold text-rose-600">
-            {{ release.outstanding_balance|floatformat:0|intcomma }}
-        </td>
-
-        <!-- Actions -->
-        {% if request.user.role == "cashier" or request.user.role == "CASHIER" or request.user.is_superuser %}
-        <td class="py-2 px-3 text-center whitespace-nowrap space-x-1">
-            <button type="button" onclick="toggleReceipts('drawer_{{ release.pk }}')"
-                    class="px-2 py-0.5 text-[11px] font-medium text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 rounded transition">
-                Receipts ({{ release.payments.count|default:"0" }})
-            </button>
-            
-            {% if release.packs_outstanding > 0 %}
-                <a href="{% url 'pack_return_form' release.pk %}" 
-                   class="inline-flex px-2 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded text-[11px] font-semibold transition">
-                    Log Return
-                </a>
-            {% endif %}
-
-            {% if not release.is_fully_cleared %}
-                <a href="{% url 'record_installment' release.pk %}" class="inline-flex px-2 py-0.5 bg-rust hover:opacity-90 text-white rounded text-[11px] font-semibold transition">
-                    Collect UGX
-                </a>
-            {% endif %}
-        </td>
-        {% endif %}
-    </tr>
-
-    <!-- RECEIPT DRAWER -->
-    <tr id="drawer_{{ release.pk }}" class="drawer-row hidden bg-slate-50/80 border-b border-slate-200">
-        <td colspan="9" class="px-6 py-3">
-            <div class="space-y-3">
-                <div class="flex items-center justify-between">
-                    <p class="font-bold text-slate-500 uppercase tracking-wider text-[10px]">
-                        Collection History
-                    </p>
-                    <p class="text-xs text-slate-500">
-                        Balance:
-                        <span class="font-bold text-rose-600">
-                            {{ release.outstanding_balance|floatformat:0|intcomma }} UGX
-                        </span>
-                    </p>
-                </div>
-            </div>
-        </td>
-    </tr>
-    {% endfor %}
-</tbody>
-            </table>
-        </div>
-    </div>
-    <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-        <div class="px-4 py-3 border-b border-slate-200 bg-slate-50">
-            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-700">Bulk Coffee Receivables</h2>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
-                <thead class="bg-slate-100 text-slate-600 uppercase">
-                    <tr>
-                        <th class="px-3 py-2.5">Date</th>
-                        <th class="px-3 py-2.5">Batch / Stage</th>
-                        <th class="px-3 py-2.5">Account</th>
-                        <th class="px-3 py-2.5 text-right">Quantity</th>
-                        <th class="px-3 py-2.5 text-right">Value</th>
-                        <th class="px-3 py-2.5 text-right">Paid</th>
-                        <th class="px-3 py-2.5 text-right">Balance</th>
-                        <th class="px-3 py-2.5 text-center">Action</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                    {% for sale in bulk_sales %}
-                        <tr>
-                            <td class="px-3 py-2.5 whitespace-nowrap">{{ sale.sold_at|date:"d M Y, H:i" }}</td>
-                            <td class="px-3 py-2.5">{{ sale.stock.batch_number }} · {{ sale.get_stage_display }}</td>
-                            <td class="px-3 py-2.5">{% if sale.account_holder %}{{ sale.account_holder.name }}{% elif sale.company %}{{ sale.company.name }}{% else %}{{ sale.buyer_name|default:"Walk-in" }}{% endif %}</td>
-                            <td class="px-3 py-2.5 text-right">{{ sale.kg_sold }} kg</td>
-                            <td class="px-3 py-2.5 text-right">{{ sale.total_amount_due|floatformat:0|intcomma }}</td>
-                            <td class="px-3 py-2.5 text-right text-emerald-700">{{ sale.total_amount_paid|floatformat:0|intcomma }}</td>
-                            <td class="px-3 py-2.5 text-right font-bold text-rose-700">{{ sale.outstanding_balance|floatformat:0|intcomma }}</td>
-                            <td class="px-3 py-2.5 text-center">
-                                {% if sale.outstanding_balance > 0 %}
-                                    <a href="{% url 'bulk_sale_payment' sale.pk %}" class="inline-flex px-2 py-1 rounded bg-rust text-white font-semibold">Collect</a>
+                <tbody class="divide-y divide-slate-100 text-slate-700" id="ledgerTableBody">
+                    {% for row in ledger_rows %}
+                        {% if row.kind == "packaged" %}
+                            {% with release=row.record %}
+                            <tr class="ledger-row odd:bg-white even:bg-slate-50/70 hover:bg-slate-100/60 transition-colors"
+                                data-drawer="drawer_{{ release.pk }}"
+                                data-name="{% if release.released_to %}{{ release.released_to.name|lower }}{% elif release.company %}{{ release.company.name|lower }}{% else %}unassigned{% endif %}">
+                                <td class="py-2 px-3 whitespace-nowrap text-slate-500 font-medium">{{ row.date|date:"d M Y, H:i" }}</td>
+                                <td class="py-2 px-3"><span class="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase text-emerald-800">Packaged</span></td>
+                                <td class="py-2 px-3 font-semibold text-slate-900">
+                                    {% if release.product.blend %}{{ release.product.blend.name }}{% else %}{{ release.product }}{% endif %}
+                                    {% if release.product.pack_size %}<span class="block text-[10px] font-normal text-slate-400">Packaged Coffee - {{ release.product.pack_size.label }}</span>{% endif %}
+                                </td>
+                                <td class="account-holder-cell py-2 px-3 font-medium text-slate-800">
+                                    {% if release.released_to %}
+                                        <a href="{% url 'account_holder_detail' release.released_to.pk %}" class="text-emerald-700 hover:underline">{{ release.released_to.name }}</a>
+                                        <span class="block text-[10px] font-normal text-slate-400">{{ release.released_to.get_account_type_display|default:release.released_to.account_type|default:"Customer"|title }}</span>
+                                    {% elif release.company %}
+                                        {{ release.company.name }}
+                                    {% else %}
+                                        <span class="text-rose-500">UNASSIGNED</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-2 px-3 text-right whitespace-nowrap">{{ release.packs_out }} Unit<span class="block text-[10px] text-slate-400">({{ release.packs_out }} Pack)</span></td>
+                                <td class="py-2 px-3 text-right whitespace-nowrap">{{ release.net_amount_due|floatformat:0|intcomma }} UGX</td>
+                                <td class="py-2 px-3 text-right whitespace-nowrap">
+                                    <span class="block text-emerald-700">Paid: {{ release.total_amount_paid|floatformat:0|intcomma }}</span>
+                                    <span class="block font-semibold text-rose-700">Due: {{ release.outstanding_balance|floatformat:0|intcomma }}</span>
+                                </td>
+                                {% if request.user.role == "cashier" or request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" or request.user.is_superuser %}
+                                <td class="py-2 px-3 text-center whitespace-nowrap">
+                                    <button type="button" onclick="toggleReceipts('drawer_{{ release.pk }}')"
+                                            class="px-2 py-1 text-[11px] font-medium text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 rounded">
+                                        Receipts ({{ release.payments.count|default:"0" }})
+                                    </button>
+                                    {% if release.outstanding_balance > 0 %}
+                                        <a href="{% url 'record_installment' release.pk %}" class="inline-flex px-2 py-1 rounded bg-rust text-white font-semibold">Collect</a>
+                                    {% endif %}
+                                    {% if release.packs_outstanding > 0 %}
+                                        <a href="{% url 'pack_return_form' release.pk %}" class="inline-flex px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-700 font-semibold">Log Return</a>
+                                    {% endif %}
+                                </td>
                                 {% endif %}
-                            </td>
-                        </tr>
+                            </tr>
+                            <tr id="drawer_{{ release.pk }}" class="hidden bg-slate-50/80 border-b border-slate-200">
+                                <td colspan="8" class="px-6 py-3">
+                                    <div class="flex items-center justify-between">
+                                        <p class="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Collection History</p>
+                                        <p class="text-xs text-slate-500">
+                                            Balance:
+                                            <span class="font-bold text-rose-600">{{ release.outstanding_balance|floatformat:0|intcomma }} UGX</span>
+                                        </p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endwith %}
+                        {% else %}
+                            {% with sale=row.record %}
+                            <tr class="ledger-row odd:bg-white even:bg-slate-50/70 hover:bg-slate-100/60 transition-colors"
+                                data-name="{% if sale.account_holder %}{{ sale.account_holder.name|lower }}{% elif sale.company %}{{ sale.company.name|lower }}{% else %}{{ sale.buyer_name|default:'Walk-in'|lower }}{% endif %}">
+                                <td class="py-2 px-3 whitespace-nowrap text-slate-500 font-medium">{{ row.date|date:"d M Y, H:i" }}</td>
+                                <td class="py-2 px-3"><span class="inline-flex rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold uppercase text-amber-800">Bulk</span></td>
+                                <td class="py-2 px-3 font-semibold text-slate-900">
+                                    {{ sale.stock.batch_number }}
+                                    <span class="block text-[10px] font-normal text-slate-400">{{ sale.get_stage_display }}</span>
+                                </td>
+                                <td class="account-holder-cell py-2 px-3 font-medium text-slate-800">
+                                    {% if sale.account_holder %}
+                                        <a href="{% url 'account_holder_detail' sale.account_holder.pk %}" class="text-emerald-700 hover:underline">{{ sale.account_holder.name }}</a>
+                                    {% elif sale.company %}
+                                        {{ sale.company.name }}
+                                    {% else %}
+                                        {{ sale.buyer_name|default:"Walk-in" }}
+                                    {% endif %}
+                                    <span class="block text-[10px] font-normal text-slate-400">{% if sale.account_holder %}{{ sale.account_holder.get_account_type_display|default:"Customer" }}{% else %}Customer{% endif %}</span>
+                                </td>
+                                <td class="py-2 px-3 text-right whitespace-nowrap">{{ sale.kg_sold|floatformat:2 }} kg</td>
+                                <td class="py-2 px-3 text-right whitespace-nowrap">{{ sale.total_amount_due|floatformat:0|intcomma }} UGX</td>
+                                <td class="py-2 px-3 text-right whitespace-nowrap">
+                                    <span class="block text-emerald-700">Paid: {{ sale.total_amount_paid|floatformat:0|intcomma }}</span>
+                                    <span class="block font-semibold text-rose-700">Due: {{ sale.outstanding_balance|floatformat:0|intcomma }}</span>
+                                </td>
+                                {% if request.user.role == "cashier" or request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" or request.user.is_superuser %}
+                                <td class="py-2 px-3 text-center whitespace-nowrap">
+                                    {% if sale.outstanding_balance > 0 %}
+                                        <a href="{% url 'bulk_sale_payment' sale.pk %}" class="inline-flex px-2 py-1 rounded bg-rust text-white font-semibold">Collect</a>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endwith %}
+                        {% endif %}
                     {% empty %}
-                        <tr><td colspan="8" class="px-3 py-8 text-center text-slate-400">No bulk coffee receivables in this period.</td></tr>
+                        <tr><td colspan="{% if request.user.role == 'cashier' or request.user.role == 'CASHIER' or request.user.role == 'ACCOUNTS' or request.user.role == 'ADMIN' or request.user.is_superuser %}8{% else %}7{% endif %}" class="px-3 py-8 text-center text-slate-400">No receivables in this period.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -286,20 +224,19 @@ function toggleReceipts(drawerId) {
 function filterTableByName() {
     const input = document.getElementById('tableSearchInput');
     const filter = input.value.toLowerCase().trim();
-    const rows = document.querySelectorAll('.release-row');
+    const rows = document.querySelectorAll('.ledger-row');
 
     rows.forEach(row => {
-        const nameAttr = row.getAttribute('data-name') || '';
-        const cellText = row.querySelector('.account-holder-cell')?.textContent.toLowerCase() || '';
+        const rowText = row.textContent.toLowerCase();
         const drawerId = row.getAttribute('data-drawer');
         const drawerRow = drawerId ? document.getElementById(drawerId) : null;
 
-        if (nameAttr.includes(filter) || cellText.includes(filter)) {
+        if (rowText.includes(filter)) {
             row.style.display = ''; // Show row
         } else {
             row.style.display = 'none'; // Hide row
             if (drawerRow) {
-                drawerRow.classList.add('hidden'); // Close receipt drawer if parent is hidden
+                drawerRow.classList.add('hidden');
             }
         }
     });

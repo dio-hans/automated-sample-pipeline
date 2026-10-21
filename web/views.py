@@ -277,7 +277,7 @@ class PackagingRunDetailView(InventoryRoleRequiredMixin, DetailView):
 
 @method_decorator(login_required, name="dispatch")
 class PackagingRunCreateView(InventoryRoleRequiredMixin, FormView):
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     form_class = PackagingRunStartForm
     template_name = "pipeline/packaging_run_form.html"
 
@@ -1997,7 +1997,12 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
     def get_queryset(self):
         qs = (
             PackRelease.objects
-            .select_related("product__blend", "product__pack_size", "released_to")
+            .select_related(
+                "product__blend",
+                "product__pack_size",
+                "released_to",
+                "company",
+            )
             .prefetch_related("returns", "payments")
             .order_by("-released_at")
         )
@@ -2066,6 +2071,16 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
                 if sale.outstanding_balance > Decimal("0.00")
             ]
 
+        ledger_rows = [
+            {"kind": "packaged", "date": release.released_at, "record": release}
+            for release in ctx["object_list"]
+        ]
+        ledger_rows.extend(
+            {"kind": "bulk", "date": sale.sold_at, "record": sale}
+            for sale in bulk_sales
+        )
+        ledger_rows.sort(key=lambda row: row["date"], reverse=True)
+
         # 2. LIQUID CASH COLLECTED IN SELECTED PERIOD
         payments_qs, _, _, _, _ = apply_date_filters(
             self.request,
@@ -2107,6 +2122,7 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
             "total_collected_revenue": total_collected_revenue,
             "total_outstanding_debt": total_outstanding_debt,
             "bulk_sales": bulk_sales,
+            "ledger_rows": ledger_rows,
         })
         return ctx
     
@@ -2163,7 +2179,7 @@ def record_order_payment(request, order_pk):
                 if total_due <= Decimal("0.00"):
                     raise ValidationError("This order has no outstanding balance to collect.")
                 if amount > total_due:
-                    raise ValidationError(f"Payment exceeds the order's outstanding balance of UGX {total_due:,.2f}.")
+                    raise ValidationError(f"Payment exceeds the order's outstanding balance of UGX {total_due:,.0f}.")
                 
                 remaining = amount
                 for _, sale_type, sale, balance in order_sales:
@@ -2187,7 +2203,7 @@ def record_order_payment(request, order_pk):
                         record_bulk_sale_payment(bulk_sale=sale, **payment_args)
                     remaining -= allocation
                     
-            messages.success(request, f"Payment of UGX {amount:,.2f} recorded successfully for Order #{order.short_number}.")
+            messages.success(request, f"Payment of UGX {amount:,.0f} recorded successfully for Order #{order.short_number}.")
         except (ValueError, InvalidOperation):
             messages.error(request, "Enter a valid payment amount.")
         except ValidationError as exc:
@@ -2315,7 +2331,7 @@ def record_card_payment(
 
     if amount > total_outstanding:
         raise ValidationError(
-            f"Payment exceeds the outstanding balance of UGX {total_outstanding:,.2f} for this order."
+            f"Payment exceeds the outstanding balance of UGX {total_outstanding:,.0f} for this order."
         )
 
     if collected_by is None:
@@ -3166,7 +3182,7 @@ def account_holder_detail(request, pk):
                 if amount > total_due:
                     raise ValidationError(
                         f"Payment exceeds the account's outstanding "
-                        f"balance of UGX {total_due:,.2f}."
+                        f"balance of UGX {total_due:,.0f}."
                     )
 
                 remaining = amount
@@ -3197,7 +3213,7 @@ def account_holder_detail(request, pk):
 
             messages.success(
                 request,
-                f"Payment of UGX {amount:,.2f} recorded successfully "
+                f"Payment of UGX {amount:,.0f} recorded successfully "
                 f"for {account.name}.",
             )
 

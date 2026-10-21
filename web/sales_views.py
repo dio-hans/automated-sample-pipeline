@@ -99,7 +99,7 @@ from decimal import Decimal, InvalidOperation
 from django.views.generic import TemplateView
 
 class InventoryDashboardView(RoleRequiredMixin, TemplateView):
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS)
     template_name = "pipeline/inventory_dashboard.html"
 
     def get_context_data(self, **kwargs):
@@ -714,7 +714,7 @@ class BulkSalePaymentView(RoleRequiredMixin, View):
                 )
                 messages.success(
                     request,
-                    f"UGX {payment.amount:,.2f} recorded against bulk sale #{sale.pk}.",
+                    f"UGX {payment.amount:,.0f} recorded against bulk sale #{sale.pk}.",
                 )
                 return redirect("bulk_sales")
             except ValidationError as exc:
@@ -1096,7 +1096,7 @@ class CashierClearanceView(RoleRequiredMixin, View):
                     messages.warning(
                         request,
                         f"Sale recorded. Balance remaining: "
-                        f"UGX {settlement.release.outstanding_balance:,.2f}.",
+                        f"UGX {settlement.release.outstanding_balance:,.0f}.",
                     )
                 return redirect("order_queue")
             except ValidationError as exc:

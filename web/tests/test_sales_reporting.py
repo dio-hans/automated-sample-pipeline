@@ -10,6 +10,8 @@ from web.models import (
     Blend,
     Company,
     CompanyBranch,
+    CoffeeStock,
+    CoffeeVariety,
     ConsignmentAuditAllocation,
     PackRelease,
     PackSettlement,
@@ -17,10 +19,13 @@ from web.models import (
     PackagedProduct,
     StockAudit,
     StockAuditItem,
+    StockMovement,
+    StockStage,
 )
 from web.services.reporting.periods import ReportPeriod
 from web.services.reporting.finance import get_finance_report
 from web.services.reporting.sales import get_sales_report
+from web.sales_workflow import create_stock_request, fulfill_bulk_request_item
 
 
 class SalesReportingTests(TestCase):
@@ -138,3 +143,54 @@ class SalesReportingTests(TestCase):
 
         self.assertEqual(report["packaged_packs_sold"], 1)
         self.assertEqual(report["packaged_sales_value"], Decimal("10000.00"))
+
+    def test_bulk_fulfillment_settlement_does_not_crash_packaged_sales_report(self):
+        variety = CoffeeVariety.objects.create(
+            name="Bulk Sales Report Arabica",
+            default_coffee_type="arabica",
+        )
+        stock = CoffeeStock.objects.create(
+            batch_number="SALES-REPORT-BULK-001",
+            variety=variety,
+            coffee_type="arabica",
+        )
+        StockMovement.objects.create(
+            stock=stock,
+            movement_type="receipt",
+            to_stage=StockStage.GREEN,
+            quantity=Decimal("10.00"),
+            reference="sales report test opening stock",
+        )
+        request = create_stock_request(
+            user=self.user,
+            purpose="sale",
+            destination_type="direct_restaurant",
+            bulk_items=[
+                (
+                    stock,
+                    StockStage.GREEN,
+                    Decimal("5.00"),
+                    Decimal("12000.00"),
+                    "Report Test Buyer",
+                )
+            ],
+        )
+        sale = fulfill_bulk_request_item(
+            item=request.bulk_items.get(),
+            quantity=Decimal("5.00"),
+            price_per_kg=Decimal("12000.00"),
+            user=self.user,
+        )
+
+        report = get_sales_report(self.period)
+
+        self.assertTrue(
+            PackSettlement.objects.filter(
+                bulk_sale=sale,
+                release__isnull=True,
+            ).exists()
+        )
+        self.assertEqual(report["packaged_packs_sold"], 0)
+        self.assertEqual(report["bulk_sale_count"], 1)
+        self.assertEqual(report["bulk_kg_sold"], Decimal("5.00"))
+        self.assertEqual(report["bulk_sales_value"], Decimal("60000.00"))

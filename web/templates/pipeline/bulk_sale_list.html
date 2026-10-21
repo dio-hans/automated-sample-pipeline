@@ -32,10 +32,10 @@
                         {% else %}{{ sale.buyer_name|default:"Walk-in" }}{% endif %}
                     </td>
                     <td class="px-4 py-3 font-mono">{{ sale.kg_sold }} kg</td>
-                    <td class="px-4 py-3 font-mono">UGX {{ sale.price_per_kg|floatformat:2 }}</td>
-                    <td class="px-4 py-3 font-mono">UGX {{ sale.total_amount_due|floatformat:2|intcomma }}</td>
+                    <td class="px-4 py-3 font-mono">UGX {{ sale.price_per_kg|floatformat:0|intcomma }}</td>
+                    <td class="px-4 py-3 font-mono">UGX {{ sale.total_amount_due|floatformat:0|intcomma }}</td>
                     <td class="px-4 py-3 font-mono">
-                        UGX {{ sale.total_amount_paid|floatformat:2|intcomma }} / {{ sale.outstanding_balance|floatformat:2|intcomma }}
+                        UGX {{ sale.total_amount_paid|floatformat:0|intcomma }} / {{ sale.outstanding_balance|floatformat:0|intcomma }}
                     </td>
                     <td class="px-4 py-3">{{ sale.created_by|default:"—" }}</td>
                     <td class="px-4 py-3 text-right">

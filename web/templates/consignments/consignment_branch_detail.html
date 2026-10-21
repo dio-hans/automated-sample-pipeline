@@ -133,46 +133,34 @@ Sales / Consignments / {{ company.name }} / {{ branch.branch_name }}
 
                 </thead>
 
-                <tbody class="divide-y divide-slate-100">
-
+               <tbody class="divide-y divide-slate-100">
                     {% for inv in inventories %}
-
                     <tr>
-
                         <td class="px-3 py-2.5 font-medium text-slate-800">
                             {{ inv.product }}
                         </td>
-
                         <td class="px-3 py-2.5 text-right tabular-nums">
                             {{ inv.current_shelf_quantity|intcomma }}
                         </td>
-
                         <td class="px-3 py-2.5 text-right tabular-nums">
                             {{ inv.current_backroom_quantity|intcomma }}
                         </td>
-
                         <td class="px-3 py-2.5 text-right font-semibold tabular-nums">
                             {{ inv.total_consignment_stock|intcomma }}
                         </td>
-
                         <td class="px-3 py-2 text-right">
-
                             {% if can_edit and inv.current_backroom_quantity and not pending_audit %}
-
                             <form
                                 method="post"
                                 action="{% url 'consignment_shelf_transfer' company.pk branch.pk %}"
                                 class="inline-flex items-center gap-1"
                             >
-
                                 {% csrf_token %}
-
                                 <input
                                     type="hidden"
                                     name="product_id"
                                     value="{{ inv.product_id }}"
                                 >
-
                                 <input
                                     type="number"
                                     name="quantity"
@@ -183,7 +171,6 @@ Sales / Consignments / {{ company.name }} / {{ branch.branch_name }}
                                            px-2 text-[11px] outline-none
                                            focus:border-olive"
                                 >
-
                                 <button
                                     class="h-7 rounded-md border border-line
                                            bg-slate-50 px-2 text-[10px]
@@ -192,26 +179,20 @@ Sales / Consignments / {{ company.name }} / {{ branch.branch_name }}
                                 >
                                     Transfer
                                 </button>
-
                             </form>
-
-                           
-
+                            {% else %}
+                            <span class="text-slate-300">—</span>
+                            {% endif %}
                         </td>
-
                     </tr>
-
                     {% empty %}
-
                     <tr>
                         <td colspan="5"
                             class="px-3 py-7 text-center text-xs text-slate-400">
                             No branch inventory. Record a delivery first.
                         </td>
                     </tr>
-
                     {% endfor %}
-
                 </tbody>
 
             </table>
@@ -286,6 +267,7 @@ Sales / Consignments / {{ company.name }} / {{ branch.branch_name }}
                         </tr>
 
                         {% endfor %}
+
 
                     </tbody>
 
@@ -427,6 +409,7 @@ Sales / Consignments / {{ company.name }} / {{ branch.branch_name }}
                     </tr>
 
                     {% endfor %}
+                    </div>
 
                 </tbody>
 
