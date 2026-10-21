@@ -192,24 +192,21 @@
                             <span>Account Holders</span>
                         </a>
 
-                        {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
+                    
 
-                        <a href="{% url 'expense_list' %}" class="nav-link">
-                           <i class="fa-solid fa-receipt nav-icon"></i>
-                            <span>Expenses</span>
-                        </a>
+                        <!-- {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %} -->
+
+                   <!-- <a href="{% url 'expense_list' %}" class="nav-link"> -->
+                           <!-- <i class="fa-solid fa-receipt nav-icon"></i> -->
+                            <!-- <span>Expenses</span> -->
+                        <!-- </a> -->
                         
-                        {% endif %}
+                        <!-- {% endif %} -->
                     </div>
                 </div>
             {% endif %}
 
-           {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
-                  <a href="{% url 'reports_overview' %}" class="nav-link">
-                           <i class="fa-solid fa-chart-line nav-icon"></i>
-                            <span>Reports</span>
-                        </a>
-            {% endif %}
+           
  
                     
 
@@ -289,7 +286,7 @@
 
             <!-- Internal Stock Navigation Block -->
 
-            {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" or request.user.role == "CASHIER" or request.user.role == "MANAGER" %}
+            {% if request.user.role == "ADMIN" or request.user.role == "CASHIER" or request.user.role == "MANAGER" %}
                 <div>
                <div class="sidebar-section">
 
@@ -328,6 +325,20 @@
                 </div>
 
                 {% endif %}
+
+                    {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
+                    <div>
+
+                    <p class="nav-section-title">
+                        Reports
+                    </p>
+                    
+                  <a href="{% url 'reports_overview' %}" class="nav-link">
+                           <i class="fa-solid fa-chart-line nav-icon"></i>
+                            <span>Reports</span>
+                        </a>
+                    </div>
+            {% endif %}
 
         </nav>                            
         <!-- SIDEBAR FOOTER -->
