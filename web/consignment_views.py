@@ -37,10 +37,10 @@ from .services.consignments import (
     transfer_to_shelf,
 )
 
-READ_ROLES = (User.Role.SALES, User.Role.MANAGER, User.Role.CASHIER,
+READ_ROLES = (User.Role.SALES, User.Role.CASHIER,
               User.Role.ACCOUNTS, User.Role.ADMIN)
-FIELD_ROLES = (User.Role.SALES, User.Role.MANAGER, User.Role.ADMIN)
-MANAGER_ROLES = (User.Role.MANAGER, User.Role.ADMIN)
+FIELD_ROLES = (User.Role.CASHIER, User.Role.MANAGER, User.Role.ADMIN)
+MANAGER_ROLES = (User.Role.ADMIN, User.Role.CASHIER, User.Role.CASHIER)
 
 
 def _has_role(user, roles):
