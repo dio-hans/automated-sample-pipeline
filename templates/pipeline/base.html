@@ -249,7 +249,7 @@
 
 {% endif %}
 
-            <!-- {% if request.user.role == "ADMIN" %}
+           {% if request.user.role == "ADMIN" or request.user.role == 'CASHIER' or request.user.role == 'ACCOUNTS' %}
                 <div>
                     <p class="nav-section-title">Commercial</p>
                     <div class="space-y-0.5">
@@ -257,23 +257,21 @@
                             <i class="fa-solid fa-building nav-icon"></i>
                             <span>Companies</span>      
                         </a>
-                        <a href="{% url 'sample_list' %}" class="nav-link">
-                            <i class="fa-solid fa-flask nav-icon"></i>
-                            <span>Samples</span>
-                        </a>
-                        <a href="{% url 'followup_list' %}" class="nav-link">
-                            <i class="fa-solid fa-arrows-rotate nav-icon"></i>
-                            <span>Follow-ups</span>
-                        </a>
-            ]            <a href="{% url 'contract_list' %}" class="nav-link">
-                            <i class="fa-solid fa-file-contract nav-icon"></i>
-                            <span>Contracts</span>
-                        </a>
+                        <!-- <a href="{% url 'sample_list' %}" class="nav-link"> -->
+                            <!-- <i class="fa-solid fa-flask nav-icon"></i> -->
+                            <!-- <span>Samples</span> -->
+                        <!-- </a> -->
+                        <!-- <a href="{% url 'followup_list' %}" class="nav-link"> -->
+                            <!-- <i class="fa-solid fa-arrows-rotate nav-icon"></i> -->
+                            <!-- <span>Follow-ups</span> -->
+                        <!-- </a> -->
+                      <!-- <a href="{% url 'contract_list' %}" class="nav-link"> -->
+                            <!-- <i class="fa-solid fa-file-contract nav-icon"></i> -->
+                            <!-- <span>Contracts</span> -->
+                        <!-- </a> -->
                     </div>
                 </div>
-                 -->
-
-                <div>
+                          <div>
                     <p class="nav-section-title">Administration</p>
                     <div class="space-y-0.5">
                         <a href="{% url 'register' %}" class="nav-link">
@@ -332,7 +330,7 @@
                     <p class="nav-section-title">
                         Reports
                     </p>
-                    
+
                   <a href="{% url 'reports_overview' %}" class="nav-link">
                            <i class="fa-solid fa-chart-line nav-icon"></i>
                             <span>Reports</span>
