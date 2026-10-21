@@ -111,7 +111,12 @@ class CompanyForm(forms.ModelForm):
                          "focus:ring-rust focus:border-rust",
             }),
         }
-
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Explicitly force these fields to be optional on the form
+        self.fields['phone_number'].required = False
+        self.fields['email'].required = False
+        self.fields['contact_person'].required = False
 FIELD_CLASS = (
     "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white "
     "text-sm focus:outline-none focus:ring-2 focus:ring-rust focus:border-rust"
