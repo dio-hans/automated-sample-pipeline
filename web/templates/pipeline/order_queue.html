@@ -17,6 +17,14 @@ Order Queue
 </p>
 {% endblock %}
 
+{% block header_action %}
+    <!-- Replaced with clean outline variant to match 'New Product SKU' block style -->
+    <a href="{% url 'stock_request_create' %}" class="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold tracking-wide text-white bg-[#FF6B00] hover:bg-[#E05E00] rounded-lg shadow-sm transition">
+        
+        Request stock
+    </a>
+{% endblock %}
+
 {% block content %}
 <div class="space-y-4">
     <!-- =========================================================
