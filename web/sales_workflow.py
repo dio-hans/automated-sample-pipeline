@@ -21,6 +21,7 @@ from .models import (
     CompanyBranch,
     CoffeeBatchSale,
     CoffeeStock,
+    ConsignmentInventory,
     PackagedInventory,
     PackagedProduct,
     PackRelease,
