@@ -313,7 +313,7 @@ def fulfill_request_item(
 
     item = (
         StockRequestItem.objects
-        .select_for_update()
+        .select_for_update(of=("self", "request"))
         .select_related(
             "request",
             "request__company",
