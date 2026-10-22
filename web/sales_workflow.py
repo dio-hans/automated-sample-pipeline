@@ -196,7 +196,7 @@ def fulfill_bulk_request_item(*, item, quantity, price_per_kg, user):
     """Fulfil a bulk kilogram line and record its ledger movement atomically."""
     item = (
         BulkStockRequestItem.objects
-        .select_for_update()
+        .select_for_update(of=("self",))
         .select_related("request", "stock", "request__account_holder", "request__company")
         .get(pk=item.pk)
     )
