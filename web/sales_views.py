@@ -860,7 +860,7 @@ class StockRequestFulfillView(RoleRequiredMixin, View):
                     )
                 else:
                     messages.info(request, "No stock was dispatched. The request remains open.")
-                return redirect("stock_request_list")
+                return redirect("inventory_dashboard")
             except ValidationError as exc:
                 error = "; ".join(exc.messages) if hasattr(exc, "messages") else str(exc)
                 if formset.forms:
@@ -870,8 +870,15 @@ class StockRequestFulfillView(RoleRequiredMixin, View):
                 else:
                     formset._non_form_errors = formset.error_class([error])
 
-                return redirect('order_queue')
-
+                return render(
+                    request,
+                    self.template_name,
+                    {
+                        "stock_request": stock_request,
+                        "formset": formset,
+                        "bulk_formset": bulk_formset,
+                    },
+                )
 
 
 class PackReleaseListView(RoleRequiredMixin, ListView):
