@@ -17,308 +17,346 @@ Request Branch Delivery
 </p>
 {% endblock %}
 
-
 {% block content %}
-
 <form
     method="post"
     id="deliveryRequestForm"
-    class="max-w-5xl space-y-3"
+    autocomplete="off"
+    class="space-y-3 pb-24"
 >
-
     {% csrf_token %}
     {{ item_formset.management_form }}
 
+    <!-- GLOBAL FORMSET ERRORS -->
+    {% if item_formset.non_form_errors %}
+        <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+            {{ item_formset.non_form_errors }}
+        </div>
+    {% endif %}
 
-    <!-- DESTINATION -->
-    <section class="rounded-lg border border-line bg-white">
-
-        <div class="grid grid-cols-1 gap-3 px-3 py-2.5 sm:grid-cols-2">
-
+    <!-- DESTINATION INFORMATION -->
+    <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-700 border-b border-slate-100 pb-1.5 mb-2.5">
+            1. Consignment Destination
+        </h2>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-                <p class="text-[10px] uppercase tracking-wide text-slate-400">
+                <p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">
                     Consignee
                 </p>
-
                 <p class="mt-0.5 text-xs font-semibold text-slate-800">
                     {{ company.name }}
                 </p>
             </div>
-
             <div>
-                <p class="text-[10px] uppercase tracking-wide text-slate-400">
+                <p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">
                     Destination branch
                 </p>
-
                 <p class="mt-0.5 text-xs font-semibold text-slate-800">
                     {{ branch.branch_name }}
                 </p>
             </div>
-
         </div>
-
     </section>
 
+    <!-- ERP WORKSPACE: PRODUCT CATALOG & CART -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        
+        <!-- PRODUCT CATALOG -->
+        <section class="lg:col-span-7 bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+                <div>
+                    <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                        2. Select Store Products
+                    </h2>
+                    <p class="text-[11px] text-slate-400 mt-0.5">
+                        Click a product card to add it to your request cart.
+                    </p>
+                </div>
+                <!-- SEARCH -->
+                <div class="relative w-full sm:w-64">
+                    <input
+                        type="text"
+                        id="catalog-search"
+                        class="w-full rounded-md border border-slate-200 px-2.5 py-1.5 bg-slate-50 text-xs focus:outline-none focus:ring-2 focus:ring-rust focus:bg-white"
+                        placeholder="Search product name or size..."
+                        aria-label="Search products"
+                    >
+                </div>
+            </div>
 
-    <!-- PRODUCTS -->
-    <section class="rounded-lg border border-line bg-white overflow-hidden">
+            <!-- PRODUCT GRID -->
+            <div
+                id="catalog-grid"
+                class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[450px] overflow-y-auto pr-1"
+            >
+                {% for catalog_item in catalog_products %}
+                    {% with product=catalog_item.product available=catalog_item.available %}
+                        <button
+                            type="button"
+                            class="product-card text-left p-3 border border-slate-200 bg-white rounded-lg hover:border-rust hover:bg-rust/5 transition flex flex-col justify-between group active:scale-95"
+                            data-product-id="{{ product.pk }}"
+                            data-product-name="{{ product }}"
+                        >
+                            <span class="block text-xs font-bold text-slate-700 group-hover:text-rust truncate-2-lines leading-relaxed">
+                                {{ product }}
+                            </span>
+                            <div class="mt-2.5 flex items-center justify-between text-[11px] font-medium text-slate-500">
+                                <div class="flex items-center gap-2">
+                                    <span class="uppercase tracking-wider px-1.5 py-0.5 bg-slate-100 rounded text-slate-400 font-bold text-[9px]">
+                                        In Store
+                                    </span>
+                                    <span class="font-bold text-slate-700 tabular-nums">
+                                        {{ available|default:"0" }} packs
+                                    </span>
+                                </div>
+                                {% if available > 0 %}
+                                    <span class="font-bold text-emerald-600">
+                                        Available
+                                    </span>
+                                {% else %}
+                                    <span class="font-bold text-amber-600">
+                                        Awaiting Stock
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </button>
+                    {% endwith %}
+                {% empty %}
+                    <div class="col-span-2 py-8 text-center text-xs text-slate-400">
+                        No packaged products found.
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
 
-        <div class="flex items-center justify-between border-b border-line
-                    px-3 py-2">
-
-            <div>
-                <h2 class="text-xs font-semibold text-slate-800">
-                    Requested products
+        <!-- ACTIVE CART -->
+        <section class="lg:col-span-5 bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-slate-100 bg-slate-50/50">
+                <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                    3. Active Request Cart
                 </h2>
-
-                <p class="text-[10px] text-slate-400">
-                    Unavailable products remain pending until stock is ready.
+                <p class="text-[11px] text-slate-400 mt-0.5">
+                    Adjust required quantities or remove line items.
                 </p>
             </div>
-
-            <button
-                type="button"
-                id="addProductRow"
-                class="h-7 rounded-md border border-line bg-white
-                       px-2.5 text-[10px] font-semibold text-slate-700
-                       hover:bg-slate-50"
+            <div
+                id="cart-items-list"
+                class="p-4 overflow-y-auto max-h-[380px]"
             >
-                + Add product
-            </button>
-
-        </div>
-
-
-        {% if item_formset.non_form_errors %}
-        <div class="border-b border-rose-200 bg-rose-50
-                    px-3 py-2 text-xs text-rose-700">
-            {{ item_formset.non_form_errors }}
-        </div>
-        {% endif %}
-
-
-        <div id="productRows"
-             class="divide-y divide-slate-100">
-
-            {% for form in item_formset %}
-
-            <div class="product-row grid grid-cols-1 gap-2
-                        px-3 py-2.5 md:grid-cols-[1fr_130px_70px]">
-
-                <div>
-                    <label class="mb-1 block text-[10px]
-                                  font-semibold text-slate-500">
-                        Product
-                    </label>
-
-                    {{ form.product }}
-
-                    {% for error in form.product.errors %}
-                    <p class="mt-1 text-[10px] text-rose-600">
-                        {{ error }}
+                <!-- DYNAMIC HIDDEN FORMSET INPUTS -->
+                <div id="hidden-formset-rows" class="hidden"></div>
+                
+                <!-- VISIBLE CART ITEMS -->
+                <div id="visible-cart-cards" class="space-y-2"></div>
+                
+                <!-- EMPTY STATE -->
+                <div id="cart-empty-state" class="text-center py-10 text-slate-400">
+                    <p class="text-xs">
+                        Your request cart is currently empty.
                     </p>
-                    {% endfor %}
-                </div>
-
-
-                <div>
-                    <label class="mb-1 block text-[10px]
-                                  font-semibold text-slate-500">
-                        Quantity
-                    </label>
-
-                    {{ form.quantity_requested }}
-
-                    {% for error in form.quantity_requested.errors %}
-                    <p class="mt-1 text-[10px] text-rose-600">
-                        {{ error }}
+                    <p class="text-[11px] text-slate-400/80 mt-1">
+                        Click a product on the left to add it.
                     </p>
-                    {% endfor %}
                 </div>
-
-
-                <div class="flex items-end">
-
-                    {% if form.DELETE %}
-                        <div class="hidden">
-                            {{ form.DELETE }}
-                        </div>
-                    {% endif %}
-
-                    <button
-                        type="button"
-                        class="remove-row h-8 w-full rounded-md
-                               border border-rose-200 bg-white
-                               text-[10px] font-semibold text-rose-600
-                               hover:bg-rose-50"
-                    >
-                        Remove
-                    </button>
-
-                </div>
-
             </div>
+        </section>
+    </div>
 
-            {% endfor %}
-
-        </div>
-
-
-        <template id="emptyProductRow">
-
-            <div class="product-row grid grid-cols-1 gap-2
-                        px-3 py-2.5 md:grid-cols-[1fr_130px_70px]">
-
-                <div>
-                    <label class="mb-1 block text-[10px]
-                                  font-semibold text-slate-500">
-                        Product
-                    </label>
-
-                    {{ item_formset.empty_form.product }}
-                </div>
-
-                <div>
-                    <label class="mb-1 block text-[10px]
-                                  font-semibold text-slate-500">
-                        Quantity
-                    </label>
-
-                    {{ item_formset.empty_form.quantity_requested }}
-                </div>
-
-                <div class="flex items-end">
-
-                    {% if item_formset.empty_form.DELETE %}
-                    <div class="hidden">
-                        {{ item_formset.empty_form.DELETE }}
-                    </div>
-                    {% endif %}
-
-                    <button
-                        type="button"
-                        class="remove-row h-8 w-full rounded-md
-                               border border-rose-200 bg-white
-                               text-[10px] font-semibold text-rose-600"
-                    >
-                        Remove
-                    </button>
-
-                </div>
-
-            </div>
-
-        </template>
-
-    </section>
-
-
-    <!-- NOTES -->
-    <section class="rounded-lg border border-line bg-white p-3">
-
-        <label class="mb-1 block text-[10px]
-                      font-semibold text-slate-500">
-            Request notes
+    <!-- NOTES SECTION -->
+    <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <label class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">
+            Request Notes
         </label>
-
         <textarea
             name="notes"
             rows="2"
             placeholder="Optional delivery / restocking note..."
-            class="w-full rounded-md border border-line bg-white
-                   px-2.5 py-2 text-xs outline-none
-                   focus:border-olive"
+            class="w-full rounded-md border border-slate-200 bg-white px-2.5 py-2 text-xs outline-none focus:border-rust focus:ring-2 focus:ring-rust"
         ></textarea>
-
     </section>
 
-
-    <div class="flex justify-end gap-2">
-
-        <a
-            href="{% url 'consignment_branch_detail' company.pk branch.pk %}"
-            class="inline-flex h-8 items-center rounded-md
-                   border border-line bg-white px-3
-                   text-xs font-medium text-slate-600"
-        >
-            Cancel
-        </a>
-
-        <button
-            type="submit"
-            class="inline-flex h-8 items-center rounded-md
-                   bg-olive px-3 text-xs font-semibold
-                   text-white hover:bg-olive/90"
-        >
-            Submit to Store
-        </button>
-
+    <!-- FLOATING BOTTOM ACTION BAR -->
+    <div class="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-md backdrop-blur lg:left-64">
+        <div class="mx-auto flex max-w-7xl items-center justify-end gap-3">
+            <a
+                href="{% url 'consignment_branch_detail' company.pk branch.pk %}"
+                class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+            >
+                Cancel
+            </a>
+            <button
+                type="submit"
+                id="submit-request-button"
+                form="deliveryRequestForm"
+                class="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800"
+            >
+                Submit Delivery Request
+            </button>
+        </div>
     </div>
-
 </form>
-
 {% endblock %}
 
-
 {% block extra_scripts %}
-{{ block.super }}
-
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+    const totalFormsInput = document.getElementById("id_items-TOTAL_FORMS");
+    const visibleCartContainer = document.getElementById("visible-cart-cards");
+    const emptyStateElement = document.getElementById("cart-empty-state");
+    const nativeContainer = document.getElementById("hidden-formset-rows");
+    const productCards = document.querySelectorAll(".product-card");
+    const searchInput = document.getElementById("catalog-search");
 
-    const rows = document.getElementById("productRows");
-    const totalForms = document.getElementById("id_items-TOTAL_FORMS");
-    const template = document.getElementById("emptyProductRow");
-    const addButton = document.getElementById("addProductRow");
-
-    function bindRemove(button) {
-
-        button.addEventListener("click", function () {
-
-            const row = button.closest(".product-row");
-            const deleteInput = row.querySelector(
-                'input[name$="-DELETE"]'
-            );
-
-            if (deleteInput) {
-                deleteInput.checked = true;
-                row.classList.add("hidden");
-            } else {
-                row.remove();
-            }
-
-        });
-
+    if (!totalFormsInput) {
+        console.error("Django formset management form not found. Expected id_items-TOTAL_FORMS.");
+        return;
     }
 
-    document.querySelectorAll(".remove-row").forEach(bindRemove);
+    let activeCart = [];
 
+    // Catalog search filtering
+    if (searchInput) {
+        searchInput.addEventListener("input", function () {
+            const query = this.value.toLowerCase().trim();
+            productCards.forEach(function (card) {
+                const productName = (card.dataset.productName || "").toLowerCase();
+                card.style.display = productName.includes(query) ? "" : "none";
+            });
+        });
+    }
 
-    addButton.addEventListener("click", function () {
+    // Sync active Cart JS state with Django hidden formset inputs
+    function updateFormsetValues() {
+        nativeContainer.innerHTML = "";
+        visibleCartContainer.innerHTML = "";
 
-        const index = parseInt(totalForms.value, 10);
+        if (activeCart.length === 0) {
+            emptyStateElement.classList.remove("hidden");
+            totalFormsInput.value = "0";
+            return;
+        }
 
-        const html = template.innerHTML.replaceAll(
-            "__prefix__",
-            index
-        );
+        emptyStateElement.classList.add("hidden");
 
-        const holder = document.createElement("div");
-        holder.innerHTML = html.trim();
+        activeCart.forEach(function (item, index) {
+            // Render Visible Cart Row
+            const row = document.createElement("div");
+            row.className = "flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200";
 
-        const newRow = holder.firstElementChild;
+            const name = document.createElement("span");
+            name.className = "text-xs font-bold text-slate-700 truncate mr-2";
+            name.textContent = item.name;
 
-        rows.appendChild(newRow);
+            const controls = document.createElement("div");
+            controls.className = "flex items-center gap-2 shrink-0";
 
-        totalForms.value = index + 1;
+            const quantityInput = document.createElement("input");
+            quantityInput.type = "number";
+            quantityInput.min = "1";
+            quantityInput.step = "1";
+            quantityInput.value = item.quantity;
+            quantityInput.className = "cart-qty-trigger w-14 text-center rounded-md border border-slate-200 py-1 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-rust";
+            quantityInput.dataset.prodId = item.id;
 
-        bindRemove(
-            newRow.querySelector(".remove-row")
-        );
+            const removeButton = document.createElement("button");
+            removeButton.type = "button";
+            removeButton.className = "cart-remove-trigger text-slate-400 hover:text-rose-600 p-1";
+            removeButton.dataset.prodId = item.id;
+            removeButton.setAttribute("aria-label", "Remove " + item.name);
+            removeButton.innerHTML = `
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            `;
 
+            controls.appendChild(quantityInput);
+            controls.appendChild(removeButton);
+            row.appendChild(name);
+            row.appendChild(controls);
+            visibleCartContainer.appendChild(row);
+
+            // Generate Django Formset Hidden Inputs
+            const idInput = document.createElement("input");
+            idInput.type = "hidden";
+            idInput.name = `items-${index}-id`;
+            idInput.id = `id_items-${index}-id`;
+            idInput.value = "";
+
+            const productInput = document.createElement("input");
+            productInput.type = "hidden";
+            productInput.name = `items-${index}-product`;
+            productInput.id = `id_items-${index}-product`;
+            productInput.value = item.id;
+
+            const quantityFormInput = document.createElement("input");
+            quantityFormInput.type = "hidden";
+            quantityFormInput.name = `items-${index}-quantity_requested`;
+            quantityFormInput.id = `id_items-${index}-quantity_requested`;
+            quantityFormInput.value = item.quantity;
+
+            nativeContainer.appendChild(idInput);
+            nativeContainer.appendChild(productInput);
+            nativeContainer.appendChild(quantityFormInput);
+        });
+
+        totalFormsInput.value = activeCart.length;
+        attachCartListeners();
+    }
+
+    function attachCartListeners() {
+        document.querySelectorAll(".cart-qty-trigger").forEach(function (input) {
+            input.addEventListener("change", function () {
+                const productId = this.dataset.prodId;
+                let quantity = parseInt(this.value, 10);
+                if (!Number.isInteger(quantity) || quantity < 1) {
+                    quantity = 1;
+                    this.value = "1";
+                }
+                const item = activeCart.find(function (cartItem) {
+                    return cartItem.id === productId;
+                });
+                if (item) {
+                    item.quantity = quantity;
+                    updateFormsetValues();
+                }
+            });
+        });
+
+        document.querySelectorAll(".cart-remove-trigger").forEach(function (button) {
+            button.addEventListener("click", function () {
+                const productId = this.dataset.prodId;
+                activeCart = activeCart.filter(function (item) {
+                    return item.id !== productId;
+                });
+                updateFormsetValues();
+            });
+        });
+    }
+
+    // Handle clicking on product cards
+    productCards.forEach(function (card) {
+        card.addEventListener("click", function () {
+            const productId = this.dataset.productId;
+            const productName = this.dataset.productName;
+            const existingItem = activeCart.find(function (item) {
+                return item.id === productId;
+            });
+
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                activeCart.push({
+                    id: productId,
+                    name: productName,
+                    quantity: 1
+                });
+            }
+            updateFormsetValues();
+        });
     });
 
+    updateFormsetValues();
 });
 </script>
-
 {% endblock %}
