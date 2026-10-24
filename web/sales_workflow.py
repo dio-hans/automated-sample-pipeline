@@ -21,6 +21,7 @@ from .models import (
     CompanyBranch,
     CoffeeBatchSale,
     CoffeeStock,
+    ConsignmentInventory,
     PackagedInventory,
     PackagedProduct,
     PackRelease,
@@ -43,8 +44,10 @@ def _money(value, label="Amount"):
         result = Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError):
         raise ValidationError(f"{label} must be a valid number.")
-    if not result.is_finite() or result.as_tuple().exponent < -2:
-        raise ValidationError(f"{label} must be a finite amount with at most two decimal places.")
+    if not result.is_finite():
+        raise ValidationError(f"{label} must be a finite amount.")
+    if result != result.to_integral_value():
+        raise ValidationError(f"{label} must be a whole amount in UGX.")
     return result
 
 
@@ -194,7 +197,7 @@ def fulfill_bulk_request_item(*, item, quantity, price_per_kg, user):
     """Fulfil a bulk kilogram line and record its ledger movement atomically."""
     item = (
         BulkStockRequestItem.objects
-        .select_for_update()
+        .select_for_update(of=("self",))
         .select_related("request", "stock", "request__account_holder", "request__company")
         .get(pk=item.pk)
     )
@@ -311,7 +314,7 @@ def fulfill_request_item(
 
     item = (
         StockRequestItem.objects
-        .select_for_update()
+        .select_for_update(of=("self", "request"))
         .select_related(
             "request",
             "request__company",
@@ -603,7 +606,7 @@ def settle_release(
     payment_method = _valid_method(payment_method, PAYMENT_METHOD_CHOICES)
 
     packs_sold = int(packs_sold)
-    amount_paid = Decimal(str(amount_paid))
+    amount_paid = _money(amount_paid, "Amount paid")
 
     if packs_sold <= 0:
         raise ValidationError(
@@ -666,7 +669,7 @@ def settle_release(
 
     if amount_paid > amount_due:
         raise ValidationError(
-            f"Amount paid cannot exceed UGX {amount_due:,.2f} "
+            f"Amount paid cannot exceed UGX {amount_due:,.0f} "
             "for this sale."
         )
 
@@ -680,7 +683,7 @@ def settle_release(
     if amount_paid > balance_before_payment:
         raise ValidationError(
             f"Payment exceeds the release's outstanding balance "
-            f"of UGX {balance_before_payment:,.2f}."
+            f"of UGX {balance_before_payment:,.0f}."
         )
     settlement = PackSettlement.objects.create(
         release=release,
@@ -726,7 +729,7 @@ def record_installment_payment(*, amount, method, release=None, bulk_sale=None,
     if owed <= ZERO:
         raise ValidationError("This sale is fully cleared or not yet billable.")
     if amount > owed:
-        raise ValidationError(f"Payment exceeds the outstanding balance of UGX {owed:,.2f}.")
+        raise ValidationError(f"Payment exceeds the outstanding balance of UGX {owed:,.0f}.")
     return PaymentReceipt.objects.create(
         **{target_field: target},
         amount=amount,

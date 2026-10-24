@@ -1,11 +1,7 @@
 {% extends "pipeline/base.html" %}
 
 {% block title %}
-    {% if object %}
-        Edit Company
-    {% else %}
-        Add Company
-    {% endif %}
+    {% if object %}Edit Company{% else %}Add Company{% endif %}
 {% endblock %}
 
 {% block breadcrumb %}
@@ -13,316 +9,147 @@
 {% endblock %}
 
 {% block page_title %}
-    {% if object %}
-        Edit Company
-    {% else %}
-        Add Company
-    {% endif %}
+    {% if object %}Edit Company{% else %}Add Company{% endif %}
 {% endblock %}
 
 {% block header_action %}
-    <a href="{% url 'company_list' %}"
-       class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium
-              border border-[#E4DECB] rounded-md
-              text-ink hover:bg-white transition">
-        ← Back to Companies
-    </a>
 {% endblock %}
 
 {% block content %}
+<!-- Full height containment block preventing layout overflow -->
+<div class="h-[calc(100vh-120px)] w-full flex items-center justify-center overflow-hidden p-1">
+    
+    <!-- Ultra-compact card container scaled to eliminate vertical space bloat -->
+    <div class="bg-white rounded-2xl shadow-sm border border-[#EBE6DA] p-4 md:p-5 w-full max-w-3xl mx-auto flex flex-col justify-between max-h-full overflow-hidden">
+        
+        <!-- Header Info -->
+        <div class="mb-3 flex-shrink-0">
+            <h1 class="text-base font-bold text-[#111827]">
+                {% if object %}Edit Company Details{% else %}New Company Account{% endif %}
+            </h1>
+            <p class="text-[11px] text-gray-400 mt-0.5">
+                Examples: International Buyers, Cafes, Hotels, Restaurants, Distributors, and Wholesalers.
+            </p>
+            <div class="w-full border-b border-gray-100 mt-2"></div>
+        </div>
 
-<div class="max-w-3xl">
-
-    <!-- Introduction -->
-    <div class="mb-8">
-        <p class="text-sm text-clay">
-            {% if object %}
-                Update the information for {{ object.name }}.
-            {% else %}
-                Add a company to begin tracking its relationship with Nonda.
-            {% endif %}
-        </p>
-    </div>
-
-
-    <!-- Form Card -->
-    <div class="card p-6 md:p-8">
-
-        <form method="post" novalidate>
-
+        <form method="post" novalidate class="flex flex-col flex-grow overflow-hidden justify-between">
             {% csrf_token %}
 
-            <!-- Non-field errors -->
+            <!-- Non-field errors block -->
             {% if form.non_field_errors %}
-                <div class="mb-6 rounded-md border border-rust-light
-                            bg-rust-50 px-4 py-3">
+                <div class="mb-2 rounded-md border border-rust-light bg-rust-50 px-3 py-1 flex-shrink-0">
                     {% for error in form.non_field_errors %}
-                        <p class="text-sm text-rust-dark">
-                            {{ error }}
-                        </p>
+                        <p class="text-[11px] text-rust-dark">{{ error }}</p>
                     {% endfor %}
                 </div>
             {% endif %}
 
-
-            <!-- Company Information -->
-            <div class="mb-8">
-
-                <div class="mb-5">
-                    <p class="eyebrow text-clay">
-                        Company Information
-                    </p>
-
-                    <h2 class="font-display text-xl mt-1">
-                        Basic Details
-                    </h2>
-                </div>
-
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-                    <!-- Company Name -->
-                    <div class="md:col-span-2">
-
-                        <label for="{{ form.name.id_for_label }}"
-                               class="field-label block mb-2">
-                            Company Name
-                        </label>
-
-                        {{ form.name }}
-
-                        {% if form.name.errors %}
-                            <div class="mt-1 text-sm text-rust-dark">
-                                {% for error in form.name.errors %}
-                                    <p>{{ error }}</p>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-
-                    </div>
-
-
-                    <!-- Country -->
-                    <div>
-
-                        <label for="{{ form.country.id_for_label }}"
-                               class="field-label block mb-2">
-                            Country
-                        </label>
-
-                        {{ form.country }}
-
-                        {% if form.country.errors %}
-                            <div class="mt-1 text-sm text-rust-dark">
-                                {% for error in form.country.errors %}
-                                    <p>{{ error }}</p>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-
-                    </div>
-
-
-                    <!-- City -->
-                    <div>
-
-                        <label for="{{ form.city.id_for_label }}"
-                               class="field-label block mb-2">
-                            City
-                        </label>
-
-                        {{ form.city }}
-
-                        {% if form.city.errors %}
-                            <div class="mt-1 text-sm text-rust-dark">
-                                {% for error in form.city.errors %}
-                                    <p>{{ error }}</p>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            <!-- Contact Information -->
-            <div class="mb-8">
-
-                <div class="mb-5">
-                    <p class="eyebrow text-clay">
-                        Contact Information
-                    </p>
-
-                    <h2 class="font-display text-xl mt-1">
-                        Primary Contact
-                    </h2>
-                </div>
-
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-                    <!-- Contact Person -->
-                    <div>
-
-                        <label for="{{ form.contact_person.id_for_label }}"
-                               class="field-label block mb-2">
-                            Contact Person
-                        </label>
-
-                        {{ form.contact_person }}
-
-                        {% if form.contact_person.errors %}
-                            <div class="mt-1 text-sm text-rust-dark">
-                                {% for error in form.contact_person.errors %}
-                                    <p>{{ error }}</p>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-
-                    </div>
-
-
-                    <!-- Email -->
-                    <div>
-
-                        <label for="{{ form.email.id_for_label }}"
-                               class="field-label block mb-2">
-                            Email
-                        </label>
-
-                        {{ form.email }}
-
-                        {% if form.email.errors %}
-                            <div class="mt-1 text-sm text-rust-dark">
-                                {% for error in form.email.errors %}
-                                    <p>{{ error }}</p>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-
-                    </div>
-
-
-                    <!-- Phone -->
-                    <div>
-
-                        <label for="{{ form.phone_number.id_for_label }}"
-                               class="field-label block mb-2">
-                            Phone Number
-                        </label>
-
-                        {{ form.phone_number }}
-
-                        {% if form.phone_number.errors %}
-                            <div class="mt-1 text-sm text-rust-dark">
-                                {% for error in form.phone_number.errors %}
-                                    <p>{{ error }}</p>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-
-                    </div>
-
-
-                    <!-- Address -->
-                    <div>
-
-                        <label for="{{ form.address.id_for_label }}"
-                               class="field-label block mb-2">
-                            Address
-                        </label>
-
-                        {{ form.address }}
-
-                        {% if form.address.errors %}
-                            <div class="mt-1 text-sm text-rust-dark">
-                                {% for error in form.address.errors %}
-                                    <p>{{ error }}</p>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            <!-- Pipeline Information -->
-            <div class="mb-8">
-
-                <div class="mb-5">
-                    <p class="eyebrow text-clay">
-                        Sales Pipeline
-                    </p>
-
-                    <h2 class="font-display text-xl mt-1">
-                        Relationship Status
-                    </h2>
-                </div>
-
-
-                <div>
-
-                    <label for="{{ form.pipeline_stage.id_for_label }}"
-                           class="field-label block mb-2">
-                        Pipeline Stage
+            <!-- Clean, Unscrollable 2-Column Field Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-2.5 flex-grow overflow-hidden py-1">
+                
+                <!-- Row 1: Company Name (Full Width) -->
+                <div class="md:col-span-2">
+                    <label for="{{ form.name.id_for_label }}" class="text-[10px] font-bold tracking-wider text-gray-500 uppercase block mb-1">
+                        Company Name <span class="text-red-400">*</span>
                     </label>
-
-                    {{ form.pipeline_stage }}
-
-                    {% if form.pipeline_stage.errors %}
-                        <div class="mt-1 text-sm text-rust-dark">
-                            {% for error in form.pipeline_stage.errors %}
-                                <p>{{ error }}</p>
-                            {% endfor %}
-                        </div>
+                    <div class="[&>input]:py-1 [&>input]:px-3 [&>input]:text-xs [&>input]:h-8">{{ form.name }}</div>
+                    {% if form.name.errors %}
+                        <div class="text-[10px] text-rust-dark">{% for error in form.name.errors %}<p>{{ error }}</p>{% endfor %}</div>
                     {% endif %}
+                </div>
 
-                    <p class="mt-2 text-xs text-clay">
-                        This determines where the company currently sits
-                        in the sample-to-contract pipeline.
-                    </p>
+                <!-- Row 2 Left: Pipeline Stage -->
+                <div>
+                    <label for="{{ form.pipeline_stage.id_for_label }}" class="text-[10px] font-bold tracking-wider text-gray-500 uppercase block mb-1">
+                        Pipeline Stage <span class="text-red-400">*</span>
+                    </label>
+                    <div class="[&>select]:py-1 [&>select]:px-3 [&>select]:text-xs [&>select]:h-8">{{ form.pipeline_stage }}</div>
+                    {% if form.pipeline_stage.errors %}
+                        <div class="text-[10px] text-rust-dark">{% for error in form.pipeline_stage.errors %}<p>{{ error }}</p>{% endfor %}</div>
+                    {% endif %}
+                </div>
 
+                <!-- Row 2 Right: Address / Description (Now normal height matching other inputs) -->
+                <div>
+                    <label for="{{ form.address.id_for_label }}" class="text-[10px] font-bold tracking-wider text-gray-500 uppercase block mb-1">
+                        Address / Description
+                    </label>
+                    <div class="[&>textarea]:py-1 [&>textarea]:px-3 [&>textarea]:text-xs [&>textarea]:h-8 [&>textarea]:min-h-[32px] [&>textarea]:resize-none [&>input]:py-1 [&>input]:px-3 [&>input]:text-xs [&>input]:h-8">
+                        {{ form.address }}
+                    </div>
+                    {% if form.address.errors %}
+                        <div class="text-[10px] text-rust-dark">{% for error in form.address.errors %}<p>{{ error }}</p>{% endfor %}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Row 3 Left: Country -->
+                <div>
+                    <label for="{{ form.country.id_for_label }}" class="text-[10px] font-bold tracking-wider text-gray-500 uppercase block mb-1">
+                        Country
+                    </label>
+                    <div class="[&>input]:py-1 [&>input]:px-3 [&>input]:text-xs [&>input]:h-8">{{ form.country }}</div>
+                    {% if form.country.errors %}
+                        <div class="text-[10px] text-rust-dark">{% for error in form.country.errors %}<p>{{ error }}</p>{% endfor %}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Row 3 Right: City -->
+                <div>
+                    <label for="{{ form.city.id_for_label }}" class="text-[10px] font-bold tracking-wider text-gray-500 uppercase block mb-1">
+                        City
+                    </label>
+                    <div class="[&>input]:py-1 [&>input]:px-3 [&>input]:text-xs [&>input]:h-8">{{ form.city }}</div>
+                    {% if form.city.errors %}
+                        <div class="text-[10px] text-rust-dark">{% for error in form.city.errors %}<p>{{ error }}</p>{% endfor %}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Row 4 Left: Contact Person -->
+                <div>
+                    <label for="{{ form.contact_person.id_for_label }}" class="text-[10px] font-bold tracking-wider text-gray-500 uppercase block mb-1">
+                        Contact Person
+                    </label>
+                    <div class="[&>input]:py-1 [&>input]:px-3 [&>input]:text-xs [&>input]:h-8">{{ form.contact_person }}</div>
+                    {% if form.contact_person.errors %}
+                        <div class="text-[10px] text-rust-dark">{% for error in form.contact_person.errors %}<p>{{ error }}</p>{% endfor %}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Row 4 Right: Email Address -->
+                <div>
+                    <label for="{{ form.email.id_for_label }}" class="text-[10px] font-bold tracking-wider text-gray-500 uppercase block mb-1">
+                        Email Address
+                    </label>
+                    <div class="[&>input]:py-1 [&>input]:px-3 [&>input]:text-xs [&>input]:h-8">{{ form.email }}</div>
+                    {% if form.email.errors %}
+                        <div class="text-[10px] text-rust-dark">{% for error in form.email.errors %}<p>{{ error }}</p>{% endfor %}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Row 5: Phone Number (Full Width Bottom Row) -->
+                <div class="md:col-span-2">
+                    <label for="{{ form.phone_number.id_for_label }}" class="text-[10px] font-bold tracking-wider text-gray-500 uppercase block mb-1">
+                        Phone Number
+                    </label>
+                    <div class="[&>input]:py-1 [&>input]:px-3 [&>input]:text-xs [&>input]:h-8">{{ form.phone_number }}</div>
+                    {% if form.phone_number.errors %}
+                        <div class="text-[10px] text-rust-dark">{% for error in form.phone_number.errors %}<p>{{ error }}</p>{% endfor %}</div>
+                    {% endif %}
                 </div>
 
             </div>
 
-
-            <!-- Actions -->
-            <div class="flex items-center justify-end gap-3
-                        pt-6 border-t border-[#E4DECB]">
-
-                <a href="{% url 'company_list' %}"
-                   class="px-4 py-2.5 text-sm font-medium
-                          rounded-md border border-[#E4DECB]
-                          hover:bg-paper-dim transition">
+            <!-- Action Button Row -->
+            <div class="flex items-center justify-end gap-3 mt-3 pt-2.5 border-t border-gray-100 flex-shrink-0">
+                <a href="{% url 'company_list' %}" class="px-3.5 py-1.5 text-xs font-medium text-gray-600 rounded-lg border border-gray-200 hover:bg-gray-50 transition">
                     Cancel
                 </a>
-
-                <button type="submit"
-                        class="px-5 py-2.5 text-sm font-semibold
-                               rounded-md bg-rust text-white
-                               hover:bg-rust-dark transition">
-
-                    {% if object %}
-                        Save Changes
-                    {% else %}
-                        Add Company
-                    {% endif %}
-
+                <button type="submit" class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-[#FF6B00] text-white hover:bg-[#E05E00] transition shadow-sm">
+                    {% if object %}Save Changes{% else %}Create Account{% endif %}
                 </button>
-
             </div>
-
         </form>
-
     </div>
-
 </div>
-
 {% endblock %}

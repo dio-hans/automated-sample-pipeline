@@ -3,7 +3,7 @@ from platform import release
 from django.utils.decorators import method_decorator
 from datetime import datetime, time, timezone
 from django import forms
-from django.db.models import F, Q, DecimalField, ExpressionWrapper
+from django.db.models import F, Prefetch, Q, DecimalField, ExpressionWrapper
 from django.db.models.aggregates import Sum
 from django.forms.formsets import formset_factory
 from django.utils import timezone
@@ -23,7 +23,7 @@ from django.views.decorators.http import require_POST
 from .services.reporting.consumption import _decimal, get_stock_consumption_report
 from .services.reporting.periods import resolve_report_period
 
-from .services.internal_stock import ZERO, create_internal_stock_issue, get_packaged_internal_available
+from .services.internal_stock import ZERO, create_internal_stock_issue
 
 from .sales_workflow import (
     approve_existing_pack_return,
@@ -31,7 +31,7 @@ from .sales_workflow import (
     record_installment_payment,
     record_bulk_sale_payment,
 )
-from .models import AccountHolder, InternalAccount, InternalStockIssue, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage, CoffeeBatchSale
+from .models import AccountHolder, Blend, InternalAccount, InternalStockIssue, InternalStockIssueItem, PackSize, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage, CoffeeBatchSale
 from decimal import Decimal, InvalidOperation
 from .services.processing import complete_roasting, complete_sorting
 from django.views.generic import TemplateView
@@ -63,6 +63,7 @@ from .forms import (
     ContractForm,
     InternalAccountForm,
     PackagedProductBulkForm,
+    PackagedProductFormSet,
     PackagingRunForm,
     PackReleaseForm,
     PackagingRunStartForm,
@@ -277,7 +278,7 @@ class PackagingRunDetailView(InventoryRoleRequiredMixin, DetailView):
 
 @method_decorator(login_required, name="dispatch")
 class PackagingRunCreateView(InventoryRoleRequiredMixin, FormView):
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
     form_class = PackagingRunStartForm
     template_name = "pipeline/packaging_run_form.html"
 
@@ -1329,7 +1330,7 @@ class PackagedProductDetailView(InventoryRoleRequiredMixin, DetailView):
     model = PackagedProduct
     template_name = "pipeline/packaged_product_detail.html"
     context_object_name = "product"
-    allowed_roles =(User.Role.ACCOUNTS, User.Role.MANAGER, User.Role.ADMIN)
+    allowed_roles = (User.Role.ACCOUNTS, User.Role.MANAGER, User.Role.ADMIN)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -1337,6 +1338,9 @@ class PackagedProductDetailView(InventoryRoleRequiredMixin, DetailView):
         
         inventory, _ = PackagedInventory.objects.get_or_create(product=product)
         ctx["inventory"] = inventory
+        
+        # Pass available stocks for the quick packaging card modal
+        ctx["stocks"] = CoffeeStock.objects.select_related("variety").order_by("-batch_number")
         
         ctx["packaging_runs"] = (
             PackagingRun.objects
@@ -1365,32 +1369,111 @@ class PackagedProductDetailView(InventoryRoleRequiredMixin, DetailView):
         
         return ctx
 
+# this one is the one that makes it possiblke to record the stock with just one button
+#by linking input and output
+@method_decorator(login_required, name="dispatch")
+class QuickRecordPackagingView(InventoryRoleRequiredMixin, View):
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS)
+
+    def post(self, request, pk):
+        product = get_object_or_404(PackagedProduct, pk=pk)
+        stock_id = request.POST.get("stock_id")
+        raw_packs = request.POST.get("packs_produced")
+        notes = request.POST.get("notes", "").strip()
+
+        try:
+            stock = CoffeeStock.objects.get(pk=int(stock_id))
+            packs_produced = int(raw_packs)
+        except (ValueError, TypeError, CoffeeStock.DoesNotExist):
+            messages.error(request, "Please select a valid source batch and enter a valid pack count.")
+            return redirect("packaged_product_detail", pk=product.pk)
+
+        # Automatically determine stage based on product form ("beans" -> "roasted", else "ground")
+        source_stage = "roasted" if product.form == "beans" else "ground"
+        
+        # Calculate input kg required: (kg_per_pack * packs_produced)
+        input_kg = product.kg_per_pack * packs_produced
+
+        try:
+            run = execute_packaging_run(
+                stock=stock,
+                product=product,
+                source_stage=source_stage,
+                input_kg=input_kg,
+                packs_produced=packs_produced,
+                user=request.user,
+                notes=notes,
+            )
+            messages.success(
+                request,
+                f"Successfully recorded packaging of {packs_produced} packs ({input_kg} kg deducted from batch {stock.batch_number})."
+            )
+        except (ValidationError, ValueError) as exc:
+            msg = "; ".join(exc.messages) if isinstance(exc, ValidationError) else str(exc)
+            messages.error(request, msg)
+
+        return redirect("packaged_product_detail", pk=product.pk)
+
 
 
 @method_decorator(login_required, name='dispatch')
-class PackagedProductCreateView(InventoryRoleRequiredMixin, FormView):
-    form_class = PackagedProductBulkForm
-    template_name = "pipeline/packaged_product_form.html"  
-    success_url = reverse_lazy("packaged_inventory_list")
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)  
+class PackagedProductCreateView(InventoryRoleRequiredMixin, View):
+    template_name = "pipeline/packaged_product_form.html"
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
 
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-        
-        # Loop dynamically through every actual field name in the form
-        for name, field in form.fields.items():
-            field.widget.attrs.update({
-                'class': 'w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-rust'
-            })
+    def get(self, request):
+        formset = PackagedProductFormSet(prefix="variants")
+        existing_blends = Blend.objects.all()
+        return render(request, self.template_name, {
+            "formset": formset,
+            "existing_blends": existing_blends
+        })
+
+    def post(self, request):
+        formset = PackagedProductFormSet(request.POST, prefix="variants")
+        blend_name = request.POST.get("blend_input", "").strip()
+        existing_blends = Blend.objects.all()
+
+        if not blend_name:
+            messages.error(request, "Blend name is required.")
+            return render(request, self.template_name, {"formset": formset, "existing_blends": existing_blends})
+
+        if formset.is_valid():
+            with transaction.atomic():
+                blend, _ = Blend.objects.get_or_create(name=blend_name)
                 
-        return form
+                created_count = 0
+                for form in formset:
+                    if form.cleaned_data and not form.cleaned_data.get("DELETE", False):
+                        grams = form.cleaned_data["grams"]
+                        form_choice = form.cleaned_data["form_type"]
+                        price = form.cleaned_data["selling_price"]
+                        is_sachet = form.cleaned_data["is_sachet"]
+                        
+                        # 🎯 AUTO-CREATE PACK SIZE ON THE FLY IF IT DOESN'T EXIST YET
+                        label = f"{grams}g" if grams < 1000 else f"{grams // 1000}kg"
+                        if is_sachet:
+                            label = f"Sachet ({grams}g)"
 
-    def form_valid(self, form):
-        with transaction.atomic():
-            form.save()
-        messages.success(self.request, "Packaged products saved successfully.")
-        return super().form_valid(form)
-  
+                        pack_size, _ = PackSize.objects.get_or_create(
+                            grams=grams,
+                            is_sachet=is_sachet,
+                            defaults={"label": label, "is_active": True}
+                        )
+
+                        # Create or update the packaged product variant
+                        PackagedProduct.objects.update_or_create(
+                            blend=blend,
+                            pack_size=pack_size,
+                            form=form_choice,
+                            defaults={"selling_price": price, "is_active": True}
+                        )
+                        created_count += 1
+
+                messages.success(request, f"Successfully saved {created_count} product variant(s) for {blend.name}.")
+                return redirect("packaged_inventory_list")
+
+        return render(request, self.template_name, {"formset": formset, "existing_blends": existing_blends})
 
 
 from decimal import Decimal
@@ -1997,7 +2080,12 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
     def get_queryset(self):
         qs = (
             PackRelease.objects
-            .select_related("product__blend", "product__pack_size", "released_to")
+            .select_related(
+                "product__blend",
+                "product__pack_size",
+                "released_to",
+                "company",
+            )
             .prefetch_related("returns", "payments")
             .order_by("-released_at")
         )
@@ -2066,6 +2154,16 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
                 if sale.outstanding_balance > Decimal("0.00")
             ]
 
+        ledger_rows = [
+            {"kind": "packaged", "date": release.released_at, "record": release}
+            for release in ctx["object_list"]
+        ]
+        ledger_rows.extend(
+            {"kind": "bulk", "date": sale.sold_at, "record": sale}
+            for sale in bulk_sales
+        )
+        ledger_rows.sort(key=lambda row: row["date"], reverse=True)
+
         # 2. LIQUID CASH COLLECTED IN SELECTED PERIOD
         payments_qs, _, _, _, _ = apply_date_filters(
             self.request,
@@ -2107,6 +2205,7 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
             "total_collected_revenue": total_collected_revenue,
             "total_outstanding_debt": total_outstanding_debt,
             "bulk_sales": bulk_sales,
+            "ledger_rows": ledger_rows,
         })
         return ctx
     
@@ -2163,7 +2262,7 @@ def record_order_payment(request, order_pk):
                 if total_due <= Decimal("0.00"):
                     raise ValidationError("This order has no outstanding balance to collect.")
                 if amount > total_due:
-                    raise ValidationError(f"Payment exceeds the order's outstanding balance of UGX {total_due:,.2f}.")
+                    raise ValidationError(f"Payment exceeds the order's outstanding balance of UGX {total_due:,.0f}.")
                 
                 remaining = amount
                 for _, sale_type, sale, balance in order_sales:
@@ -2187,7 +2286,7 @@ def record_order_payment(request, order_pk):
                         record_bulk_sale_payment(bulk_sale=sale, **payment_args)
                     remaining -= allocation
                     
-            messages.success(request, f"Payment of UGX {amount:,.2f} recorded successfully for Order #{order.short_number}.")
+            messages.success(request, f"Payment of UGX {amount:,.0f} recorded successfully for Order #{order.short_number}.")
         except (ValueError, InvalidOperation):
             messages.error(request, "Enter a valid payment amount.")
         except ValidationError as exc:
@@ -2315,7 +2414,7 @@ def record_card_payment(
 
     if amount > total_outstanding:
         raise ValidationError(
-            f"Payment exceeds the outstanding balance of UGX {total_outstanding:,.2f} for this order."
+            f"Payment exceeds the outstanding balance of UGX {total_outstanding:,.0f} for this order."
         )
 
     if collected_by is None:
@@ -3166,7 +3265,7 @@ def account_holder_detail(request, pk):
                 if amount > total_due:
                     raise ValidationError(
                         f"Payment exceeds the account's outstanding "
-                        f"balance of UGX {total_due:,.2f}."
+                        f"balance of UGX {total_due:,.0f}."
                     )
 
                 remaining = amount
@@ -3197,7 +3296,7 @@ def account_holder_detail(request, pk):
 
             messages.success(
                 request,
-                f"Payment of UGX {amount:,.2f} recorded successfully "
+                f"Payment of UGX {amount:,.0f} recorded successfully "
                 f"for {account.name}.",
             )
 
@@ -3574,9 +3673,14 @@ class InternalStockIssueListView(
             InternalStockIssue.objects
             .select_related("account", "issued_by")
             .prefetch_related(
-                "items__coffee_stock__variety",
-                "items__packaged_product__blend",
-                "items__packaged_product__pack_size",
+                Prefetch(
+                    "items",
+                    queryset=InternalStockIssueItem.objects.select_related(
+                        "coffee_stock__variety",
+                        "packaged_product__blend",
+                        "packaged_product__pack_size",
+                    ),
+                ),
             )
             .order_by("-issue_date", "-created_at")
         )
@@ -3825,7 +3929,7 @@ class InternalStockIssueCreateView(
 
     def get_context_data(self):
 
-        stocks = list(
+        stocks = get_stock_rows_with_cached_inventory(
             CoffeeStock.objects
             .select_related("variety")
             .order_by(
@@ -3852,12 +3956,7 @@ class InternalStockIssueCreateView(
                 ),
             ):
 
-                available = (
-                    get_stage_inventory(
-                        stock,
-                        stage_value,
-                    )
-                )
+                available = stock._stage_quantity_cache[stage_value]
 
                 if available <= 0:
                     continue
@@ -3881,28 +3980,41 @@ class InternalStockIssueCreateView(
 
         packaged_products = []
 
-        products = (
-            PackagedProduct.objects
-            .filter(is_active=True)
+        inventory_rows = cache_packaged_inventory_totals(
+            PackagedInventory.objects
+            .filter(product__is_active=True)
             .select_related(
-                "blend",
-                "pack_size",
+                "product__blend",
+                "product__pack_size",
             )
             .order_by(
-                "blend__name",
-                "pack_size__grams",
-                "form",
+                "product__blend__name",
+                "product__pack_size__grams",
+                "product__form",
             )
         )
 
-        for product in products:
-
-            available = (
-                get_packaged_internal_available(
-                    product
-                )
+        internal_issues_by_product = dict(
+            InternalStockIssueItem.objects
+            .filter(
+                packaged_product_id__in=[
+                    inventory.product_id
+                    for inventory in inventory_rows
+                ],
+                packs__isnull=False,
             )
+            .values("packaged_product_id")
+            .annotate(total=Sum("packs"))
+            .values_list("packaged_product_id", "total")
+        )
 
+        for inventory in inventory_rows:
+            product = inventory.product
+            available = max(
+                inventory.available
+                - internal_issues_by_product.get(product.pk, 0),
+                0,
+            )
             if available <= 0:
                 continue
 

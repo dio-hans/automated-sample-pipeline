@@ -14,19 +14,19 @@ Inventory / Packaged Coffee
 {% endblock %}
 
 {% block header_action %}
-<div class="flex items-center gap-2">
+
+{% if request.user.role == "MANAGER" or request.user.role == "ADMIN" %}
+<div class="flex items-center gap-2">   
     <a href="{% url 'packaged_product_form' %}"
        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-[#E4DECB] rounded-lg hover:bg-slate-50 transition shadow-sm">
        
         New Product SKU
     </a>
 
-    <a href="{% url 'packaging_run_create' %}"
-       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition shadow-sm">
-        
-        Record Incoming Stock
+   ecord Incoming Stock
     </a>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -51,7 +51,7 @@ Inventory / Packaged Coffee
                     {{ total_available|default:"0" }} <span class="text-[10px] font-normal text-slate-400">packs</span>
                 </p>
             </div>
-            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+           
         </div>
 
         <!-- Released -->
@@ -62,7 +62,7 @@ Inventory / Packaged Coffee
                     {{ total_released|default:"0" }} <span class="text-[10px] font-normal text-slate-400">packs</span>
                 </p>
             </div>
-            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+          
         </div>
 
         <!-- Returned -->
@@ -73,7 +73,7 @@ Inventory / Packaged Coffee
                     {{ total_returned|default:"0" }} <span class="text-[10px] font-normal text-slate-400">packs</span>
                 </p>
             </div>
-            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+            
         </div>
     </div>
 

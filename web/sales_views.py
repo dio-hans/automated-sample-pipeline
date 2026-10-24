@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.paginator import Paginator
-from django.db.models import Q, Prefetch
+from django.db.models import Count, Q, Prefetch, Window
 from django.template import context
 from django.utils import timezone
 from django.conf import settings
@@ -82,6 +82,7 @@ class AdminDashboardView(RoleRequiredMixin, TemplateView):
         ctx["request_count"] = StockRequest.objects.count()
         ctx["open_releases"] = sum(
             1 for r in PackRelease.objects.select_related("request_item__request")
+            .prefetch_related("returns", "payments")
             if r.packs_outstanding > 0
         )
         return ctx
@@ -98,7 +99,7 @@ from decimal import Decimal, InvalidOperation
 from django.views.generic import TemplateView
 
 class InventoryDashboardView(RoleRequiredMixin, TemplateView):
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS)
     template_name = "pipeline/inventory_dashboard.html"
 
     def get_context_data(self, **kwargs):
@@ -121,8 +122,14 @@ class InventoryDashboardView(RoleRequiredMixin, TemplateView):
             "items__product__blend", "items__product__pack_size"
         ).order_by("-requested_at")
 
-        pending_count = pending_qs.count()
-        pending_requests = list(pending_qs[:8])
+        pending_requests = list(
+            pending_qs.annotate(
+                total_count=Window(expression=Count("pk"))
+            )[:8]
+        )
+        pending_count = (
+            pending_requests[0].total_count if pending_requests else 0
+        )
 
         # 3. 🚚 RECENT PHYSICAL RELEASES LOG
         releases = PackRelease.objects.select_related(
@@ -163,9 +170,18 @@ class InventoryDashboardView(RoleRequiredMixin, TemplateView):
             "total_ground_kg": total_ground,
             "total_bulk_kg": total_green + total_roasted + total_ground,
 
-            "open_packaging_runs": PackagingRun.objects.filter(status="open").order_by("issued_at")[:5],
-            "open_packaging_runs_count": PackagingRun.objects.filter(status="open").count(),
+            "open_packaging_runs": list(
+                PackagingRun.objects
+                .filter(status="open")
+                .annotate(total_count=Window(expression=Count("pk")))
+                .order_by("issued_at")[:5]
+            ),
         })
+        ctx["open_packaging_runs_count"] = (
+            ctx["open_packaging_runs"][0].total_count
+            if ctx["open_packaging_runs"]
+            else 0
+        )
 
         return ctx
 
@@ -698,7 +714,7 @@ class BulkSalePaymentView(RoleRequiredMixin, View):
                 )
                 messages.success(
                     request,
-                    f"UGX {payment.amount:,.2f} recorded against bulk sale #{sale.pk}.",
+                    f"UGX {payment.amount:,.0f} recorded against bulk sale #{sale.pk}.",
                 )
                 return redirect("bulk_sales")
             except ValidationError as exc:
@@ -844,7 +860,7 @@ class StockRequestFulfillView(RoleRequiredMixin, View):
                     )
                 else:
                     messages.info(request, "No stock was dispatched. The request remains open.")
-                return redirect("stock_request_list")
+                return redirect("inventory_dashboard")
             except ValidationError as exc:
                 error = "; ".join(exc.messages) if hasattr(exc, "messages") else str(exc)
                 if formset.forms:
@@ -854,8 +870,15 @@ class StockRequestFulfillView(RoleRequiredMixin, View):
                 else:
                     formset._non_form_errors = formset.error_class([error])
 
-                return redirect('order_queue')
-
+                return render(
+                    request,
+                    self.template_name,
+                    {
+                        "stock_request": stock_request,
+                        "formset": formset,
+                        "bulk_formset": bulk_formset,
+                    },
+                )
 
 
 class PackReleaseListView(RoleRequiredMixin, ListView):
@@ -949,6 +972,7 @@ class CashierQueueView(RoleRequiredMixin, ListView):
                     ).prefetch_related(
                         "releases__returns",
                         "releases__settlements",
+                        "releases__payments",
                     ),
                 ),
                 Prefetch(
@@ -996,10 +1020,11 @@ class CashierQueueView(RoleRequiredMixin, ListView):
                     total_issued += release.packs_out
                     total_value += release.gross_amount
                     total_paid += release.total_amount_paid
-                    total_outstanding += release.outstanding_balance
+                    release_outstanding = release.outstanding_balance
+                    total_outstanding += release_outstanding
                     
                     # 🎯 FIX: Only append releases that have an active outstanding balance
-                    if release.outstanding_balance > Decimal("0.00"):
+                    if release_outstanding > Decimal("0.00"):
                         releases.append(release)
 
             for item in order.bulk_items.all():
@@ -1008,8 +1033,9 @@ class CashierQueueView(RoleRequiredMixin, ListView):
                     total_bulk_issued += sale.kg_sold
                     total_value += sale.total_amount_due
                     total_paid += sale.total_amount_paid
-                    total_outstanding += sale.outstanding_balance
-                    if sale.outstanding_balance > Decimal("0.00"):
+                    sale_outstanding = sale.outstanding_balance
+                    total_outstanding += sale_outstanding
+                    if sale_outstanding > Decimal("0.00"):
                         bulk_sales.append(sale)
 
             # Keep order in queue if balance remains
@@ -1077,7 +1103,7 @@ class CashierClearanceView(RoleRequiredMixin, View):
                     messages.warning(
                         request,
                         f"Sale recorded. Balance remaining: "
-                        f"UGX {settlement.release.outstanding_balance:,.2f}.",
+                        f"UGX {settlement.release.outstanding_balance:,.0f}.",
                     )
                 return redirect("order_queue")
             except ValidationError as exc:

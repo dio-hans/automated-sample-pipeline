@@ -2,7 +2,7 @@ from decimal import Decimal
 from django import forms
 from .models import (
     AccountHolder, CoffeeStock, InternalStockIssueItem, PackagedProduct, PackagingRun, 
-PackRelease, PackReturn, PackSize
+PackRelease, PackReturn, PackSize, ProductForm
 )
 from .models import Blend
 
@@ -111,7 +111,12 @@ class CompanyForm(forms.ModelForm):
                          "focus:ring-rust focus:border-rust",
             }),
         }
-
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Explicitly force these fields to be optional on the form
+        self.fields['phone_number'].required = False
+        self.fields['email'].required = False
+        self.fields['contact_person'].required = False
 FIELD_CLASS = (
     "w-full rounded-md border border-[#E4DECB] px-3 py-2.5 bg-white "
     "text-sm focus:outline-none focus:ring-2 focus:ring-rust focus:border-rust"
@@ -516,105 +521,142 @@ FIELD_CLASS = (
 
 class PackagedProductBulkForm(forms.Form):
     blend_input = forms.CharField(
-        max_length=255,
-        label="Blend / Product Name",
-        widget=forms.TextInput(
-            attrs={
-                "list": "blend-list",
-                "class": FIELD_CLASS,
-                "autocomplete": "off",
-                "placeholder": "e.g. Kitiko Blend, Tendo, etc.",
-            }
-        ),
+        label="Blend Name",
+        max_length=250,
+        widget=forms.TextInput(attrs={
+            "class": FIELD_CLASS,
+            "placeholder": "Enter or select blend name...",
+            "list": "blend-list"
+        })
     )
-
-    SIZE_CONFIG = {
-        "sachet": {"label": "Sachet", "grams": 15, "is_sachet": True},
-        "50g": {"label": "50g", "grams": 50, "is_sachet": False},
-        "250g": {"label": "250g", "grams": 250, "is_sachet": False},
-        "500g": {"label": "500g", "grams": 500, "is_sachet": False},
-        "1kg": {"label": "1kg", "grams": 1000, "is_sachet": False},
-    }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.existing_blends = Blend.objects.filter(is_active=True).order_by("name")
-
-        # Dynamically create checkboxes and inputs for the grid
-        for key, conf in self.SIZE_CONFIG.items():
-            # Checkbox for whether this size is offered
-            self.fields[f"size_{key}"] = forms.BooleanField(
-                required=False, 
-                label=conf["label"],
-                widget=forms.CheckboxInput(attrs={'class': 'w-4 h-4 rounded text-rust focus:ring-rust interaction-trigger'})
+        self.existing_blends = Blend.objects.all()
+        
+        # Dynamically generate fields for every active PackSize in the database
+        for size in PackSize.objects.filter(is_active=True):
+            prefix = f"size_{size.pk}"
+            self.fields[f"{prefix}_enable"] = forms.BooleanField(
+                required=False,
+                initial=False,
+                widget=forms.CheckboxInput(attrs={"class": "rounded text-rust focus:ring-rust"})
             )
-            
-            # Price inputs for variants
-            forms_for_size = ["beans"] if conf["is_sachet"] else ["beans", "ground"]
-            for form_type in forms_for_size:
-                self.fields[f"price_{key}_{form_type}"] = forms.DecimalField(
-                    required=False,
-                    min_value=Decimal("0"),
-                    max_digits=10,
-                    decimal_places=2,
-                    widget=forms.NumberInput(
-                        attrs={
-                            "class": FIELD_CLASS + " price-input",
-                            "step": "100",  # Easy stepping for UGX increments
-                            "placeholder": "Price (UGX)",
-                            "data-size": key,
-                            "data-type": form_type
-                        }
-                    ),
-                )
+            self.fields[f"{prefix}_beans_price"] = forms.DecimalField(
+                required=False,
+                max_digits=10,
+                decimal_places=2,
+                widget=forms.NumberInput(attrs={
+                    "class": "w-full px-2.5 py-1.5 text-xs border border-[#E4DECB] rounded bg-white focus:outline-none focus:ring-2 focus:ring-rust",
+                    "placeholder": "UGX"
+                })
+            )
+            self.fields[f"{prefix}_ground_price"] = forms.DecimalField(
+                required=False,
+                max_digits=10,
+                decimal_places=2,
+                widget=forms.NumberInput(attrs={
+                    "class": "w-full px-2.5 py-1.5 text-xs border border-[#E4DECB] rounded bg-white focus:outline-none focus:ring-2 focus:ring-rust",
+                    "placeholder": "UGX"
+                })
+            )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        blend_name = cleaned_data.get("blend_input", "").strip()
+        if not blend_name:
+            raise ValidationError({"blend_input": "Blend name is required."})
+        
+        enabled_any = False
+        for size in PackSize.objects.filter(is_active=True):
+            prefix = f"size_{size.pk}"
+            if cleaned_data.get(f"{prefix}_enable"):
+                beans_price = cleaned_data.get(f"{prefix}_beans_price")
+                ground_price = cleaned_data.get(f"{prefix}_ground_price")
+                if beans_price or ground_price:
+                    enabled_any = True
+                    break
+        if not enabled_any:
+            raise ValidationError("Please enable at least one pack size and provide a price for beans or ground coffee.")
+        return cleaned_data
 
     def save(self):
-        """
-        Creates or updates multiple PackagedProduct variants all at once.
-        """
         blend_name = self.cleaned_data["blend_input"].strip()
-        blend, _ = Blend.objects.get_or_create(name=blend_name, defaults={"is_active": True})
-
-        for key, conf in self.SIZE_CONFIG.items():
-            # Only save configurations where the size checkbox is ticked
-            if self.cleaned_data.get(f"size_{key}"):
-                if conf["is_sachet"]:
-                    pack_size, _ = PackSize.objects.get_or_create(
-                        is_sachet=True,
-                        defaults={
-                            "label": conf['label'],
-                            "grams": conf["grams"],
-                            "is_active": True
-                        }
+        blend, _ = Blend.objects.get_or_create(name=blend_name)
+        
+        for size in PackSize.objects.filter(is_active=True):
+            prefix = f"size_{size.pk}"
+            if self.cleaned_data.get(f"{prefix}_enable"):
+                # Save Whole Beans variant if price provided
+                beans_price = self.cleaned_data.get(f"{prefix}_beans_price")
+                if beans_price:
+                    PackagedProduct.objects.update_or_create(
+                        blend=blend,
+                        pack_size=size,
+                        form="beans",
+                        defaults={"selling_price": beans_price, "is_active": True}
                     )
-                else:
-                    pack_size, _ = PackSize.objects.get_or_create(
-                        grams=conf["grams"],
-                        is_sachet=False,
-                        defaults={
-                            "label": conf["label"],
-                            "is_active": True
-                        }
+                # Save Ground variant if price provided
+                ground_price = self.cleaned_data.get(f"{prefix}_ground_price")
+                if ground_price:
+                    PackagedProduct.objects.update_or_create(
+                        blend=blend,
+                        pack_size=size,
+                        form="ground",
+                        defaults={"selling_price": ground_price, "is_active": True}
                     )
 
-                forms_for_size = ["beans"] if conf["is_sachet"] else ["beans", "ground"]
 
-                for form_type in forms_for_size:
-                    price = self.cleaned_data.get(f"price_{key}_{form_type}")
-                    
-                    if price is not None:
-                        product, created = PackagedProduct.objects.get_or_create(
-                            blend=blend,
-                            pack_size=pack_size,
-                            form=form_type,
-                            defaults={"selling_price": price, "is_active": True},
-                        )
-                        if not created:
-                            product.selling_price = price
-                            product.is_active = True
-                            product.save()
-        return blend
+from django.forms import formset_factory
 
+class PackagedProductRowForm(forms.Form):
+    grams = forms.IntegerField(
+        min_value=1,
+        widget=forms.NumberInput(attrs={
+            "class": "w-full px-2.5 py-1.5 text-xs border border-[#E4DECB] rounded bg-white focus:outline-none focus:ring-2 focus:ring-rust",
+            "placeholder": "e.g. 30, 250, 1000"
+        })
+    )
+    form_type = forms.ChoiceField(
+        choices=ProductForm.choices,
+        widget=forms.Select(attrs={
+            "class": "w-full px-2.5 py-1.5 text-xs border border-[#E4DECB] rounded bg-white focus:outline-none focus:ring-2 focus:ring-rust"
+        })
+    )
+    selling_price = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={
+            "class": "w-full px-2.5 py-1.5 text-xs border border-[#E4DECB] rounded bg-white focus:outline-none focus:ring-2 focus:ring-rust",
+            "placeholder": "UGX"
+        })
+    )
+    is_sachet = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "rounded text-rust focus:ring-rust"})
+    )
+
+class BasePackagedProductFormSet(forms.BaseFormSet):
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        
+        has_valid_row = False
+        for form in self.forms:
+            if form.cleaned_data and not form.cleaned_data.get("DELETE", False):
+                if form.cleaned_data.get("grams") and form.cleaned_data.get("selling_price"):
+                    has_valid_row = True
+                    break
+        if not has_valid_row:
+            raise ValidationError("Please add at least one valid product variant with grams and price.")
+
+PackagedProductFormSet = formset_factory(
+    PackagedProductRowForm,
+    formset=BasePackagedProductFormSet,
+    extra=1,
+    can_delete=True
+)
 
 
 class PackagingRunForm(forms.ModelForm):
@@ -857,12 +899,27 @@ from django import forms
 from .models import InternalAccount, InternalStockIssue, CoffeeStock, PackagedProduct, StockStage
 
 
+from django import forms
+from .models import InternalAccount
+
 class InternalAccountForm(forms.ModelForm):
     class Meta:
         model = InternalAccount
         fields = ["name", "account_type", "description", "is_active"]
         widgets = {
-            "description": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
+            "name": forms.TextInput(attrs={
+                "class": "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-rust"
+            }),
+            "account_type": forms.Select(attrs={
+                "class": "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-rust"
+            }),
+            "description": forms.Textarea(attrs={
+                "rows": 3, 
+                "class": "w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-rust resize-none"
+            }),
+            "is_active": forms.CheckboxInput(attrs={
+                "class": "w-4 h-4 rounded text-rust focus:ring-rust border-gray-300"
+            }),
         }
 
 

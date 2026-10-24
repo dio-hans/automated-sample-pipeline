@@ -14,6 +14,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
+from pydantic import ValidationError
 
 from ..models import CoffeeStock, CoffeeVariety
 from .inventory import record_receipt

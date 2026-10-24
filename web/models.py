@@ -41,9 +41,9 @@ class Company(models.Model):
     name = models.CharField(max_length=250, unique=True)
     country = models.CharField(max_length=250, unique=False)
     city = models.CharField(max_length=100)
-    contact_person = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
-    phone_number = models.CharField(max_length=20, unique=True)
+    contact_person = models.CharField(max_length=100, null=True, blank=True )
+    email = models.EmailField(null=True, blank=True)
+    phone_number = models.CharField(max_length=20, null=True, blank=True)
     address = models.TextField()
     is_acquired_client = models.BooleanField(default=True)
     account_holder = models.OneToOneField(
@@ -1131,7 +1131,7 @@ class PackSize(models.Model):
         (250, "250g"),
         (500, "500g"),
         (1000, "1kg"),
-        (15, "Sachet (15g)"),  # sachets are beans-only, small
+        (10, "Sachet (10g)"),  # sachets are beans-only, small
     ]
     grams = models.PositiveIntegerField(choices=GRAM_CHOICES)
     label = models.CharField(max_length=30)  # "50g", "250g", etc.
@@ -1184,6 +1184,11 @@ class PackagedProduct(models.Model):
         choices=ProductForm.choices,
     )
 
+    is_spiced_blend = models.BooleanField(
+        default=False,
+        help_text="Check if this blend includes secret spices or additives that increase final output weight."
+    )
+
     kg_per_pack = models.DecimalField(
         max_digits=8,
         decimal_places=4,
@@ -1203,6 +1208,18 @@ class PackagedProduct(models.Model):
         decimal_places=2,
         default=Decimal("0.00"),
     )
+
+    def clean(self):
+        # Allow sachets and any other pack size to be either beans or ground freely
+        pass
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        self.kg_per_pack = (
+            Decimal(self.pack_size.grams)
+            / Decimal("1000")
+        )
+        super().save(*args, **kwargs)
 
     class Meta:
         constraints = [

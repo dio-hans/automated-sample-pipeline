@@ -25,31 +25,31 @@ Manage the internal purposes to which Nonda can issue coffee.
 {% block header_action %}
       <a
             href="{% url 'internal_account_create' %}"
-            class="px-2.5 py-2.5 rounded-lg bg-green-700 text-white text-sm font-bold hover:bg-green-800"
-        >
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#00674F] text-white text-xs font-bold hover:bg-[#00523e] transition-colors shadow-sm">
             Create Account
         </a>
 {% endblock %}
 
 {% block content %}
 
-<div class="max-w-6xl mx-auto space-y-6">
+<!-- Reduced top vertical padding/margins and brought child elements closer together using space-y-4 -->
+<div class="max-w-6xl mx-auto pt-2 space-y-4">
 
     <div class="flex items-center justify-between">
 
         <div>
-            <h2 class="text-lg font-bold text-gray-900">
+            <!-- Reduced line height and tightened any implicit spacing -->
+            <h2 class="text-lg font-bold text-gray-900 leading-tight">
                 Internal Accounts
             </h2>
 
-            <p class="text-sm text-gray-500 mt-1">
+            <p class="text-sm text-gray-500 mt-0.5">
                 These accounts are for coffee used by Nonda rather than sold.
             </p>
         </div>
 
-      
-
     </div>
+
 
 
     <div class="bg-white border border-[#E4DECB] rounded-xl overflow-hidden shadow-sm">

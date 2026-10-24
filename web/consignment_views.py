@@ -14,6 +14,8 @@ from django.urls import reverse
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView
 
+from .services.inventory import cache_packaged_inventory_totals
+
 from .sales_workflow import create_stock_request
 
 from .sales_forms import StockRequestItemFormSet
@@ -28,7 +30,7 @@ from .consignment_forms import (
 from .consignment_forms import BranchForm, ConsignmentDeliveryForm, ShelfTransferForm, BranchReturnForm, AuditDecisionForm
 from .models import (
     BranchStockLedger, Company, CompanyBranch, 
-    ConsignmentInvoice, PackagedProduct, PackRelease, ConsignmentInventory, StockAudit, User,
+    ConsignmentInvoice, PackagedInventory, PackagedProduct, PackRelease, ConsignmentInventory, StockAudit, User,
 )
 from .sales_views import RoleRequiredMixin
 from .services.consignments import (
@@ -37,10 +39,10 @@ from .services.consignments import (
     transfer_to_shelf,
 )
 
-READ_ROLES = (User.Role.SALES, User.Role.MANAGER, User.Role.CASHIER,
+READ_ROLES = (User.Role.SALES, User.Role.CASHIER,
               User.Role.ACCOUNTS, User.Role.ADMIN)
-FIELD_ROLES = (User.Role.SALES, User.Role.MANAGER, User.Role.ADMIN)
-MANAGER_ROLES = (User.Role.MANAGER, User.Role.ADMIN)
+FIELD_ROLES = (User.Role.CASHIER, User.Role.MANAGER, User.Role.ADMIN)
+MANAGER_ROLES = (User.Role.ADMIN, User.Role.CASHIER, User.Role.CASHIER)
 
 
 def _has_role(user, roles):
@@ -635,8 +637,27 @@ class ConsignmentDeliveryView(RoleRequiredMixin, View):
     allowed_roles = FIELD_ROLES
     template_name = "consignments/consignment_delivery.html"
 
+    def _get_catalog_products(self, item_formset):
+        products = list(item_formset.forms[0].fields["product"].queryset)
+        product_ids = [product.pk for product in products]
+        inventory = cache_packaged_inventory_totals(
+            PackagedInventory.objects.filter(
+                product_id__in=product_ids
+            ).select_related("product__blend", "product__pack_size")
+        )
+        available_by_product = {item.product_id: item.available for item in inventory}
+        return [
+            {
+                "product": product,
+                "available": available_by_product.get(product.pk, 0),
+            }
+            for product in products
+        ]
+
     def get(self, request, pk, branch_pk):
         branch = _branch(pk, branch_pk)
+        item_formset = StockRequestItemFormSet(prefix="items")
+        catalog_products = self._get_catalog_products(item_formset)
 
         return render(
             request,
@@ -644,20 +665,17 @@ class ConsignmentDeliveryView(RoleRequiredMixin, View):
             {
                 "company": branch.company,
                 "branch": branch,
-                "item_formset": StockRequestItemFormSet(
-                    prefix="items"
-                ),
+                "item_formset": item_formset,
+                "catalog_products": catalog_products,
             },
         )
 
     def post(self, request, pk, branch_pk):
         branch = _branch(pk, branch_pk)
-
         item_formset = StockRequestItemFormSet(
             request.POST,
             prefix="items",
         )
-
         if item_formset.is_valid():
             try:
                 items = [
@@ -670,7 +688,6 @@ class ConsignmentDeliveryView(RoleRequiredMixin, View):
                     and not form.cleaned_data.get("DELETE")
                     and form.cleaned_data.get("product")
                 ]
-
                 stock_request = create_stock_request(
                     user=request.user,
                     purpose="display",
@@ -684,19 +701,16 @@ class ConsignmentDeliveryView(RoleRequiredMixin, View):
                         "",
                     ).strip(),
                 )
-
                 messages.success(
                     request,
                     f"Delivery request "
                     f"{stock_request.short_number} submitted "
                     f"for {branch.branch_name}.",
                 )
-
                 return redirect(
                     "stock_request_detail",
                     pk=stock_request.pk,
                 )
-
             except ValidationError as exc:
                 messages.error(
                     request,
@@ -705,6 +719,7 @@ class ConsignmentDeliveryView(RoleRequiredMixin, View):
                     else str(exc),
                 )
 
+        catalog_products = self._get_catalog_products(item_formset)
         return render(
             request,
             self.template_name,
@@ -712,10 +727,10 @@ class ConsignmentDeliveryView(RoleRequiredMixin, View):
                 "company": branch.company,
                 "branch": branch,
                 "item_formset": item_formset,
+                "catalog_products": catalog_products,
             },
         )
-
-
+    
 class ConsignmentShelfTransferView(RoleRequiredMixin, View):
     allowed_roles = FIELD_ROLES
 

@@ -107,7 +107,7 @@ def complete_packaging_run(*, packaging_run, outputs, user=None, notes=""):
     )
     if run.status != "open":
         raise ValidationError("This packaging run is not in progress; it cannot be completed again.")
-
+    
     counts_by_product = defaultdict(int)
     for product, raw_count in outputs:
         try:
@@ -128,9 +128,10 @@ def complete_packaging_run(*, packaging_run, outputs, user=None, notes=""):
         .select_related("blend", "pack_size")
         .order_by("pk")
     }
+
     if len(locked_products) != len(counts_by_product):
         raise ValidationError("One of the selected packaged products no longer exists.")
-
+    
     products = list(locked_products.values())
     if any(not product.is_active for product in products):
         raise ValidationError("Inactive packaged products cannot be produced.")
@@ -151,8 +152,13 @@ def complete_packaging_run(*, packaging_run, outputs, user=None, notes=""):
 
     total_packs = 0
     represented_kg = ZERO
+    has_spiced_blend = False
+
     for product_id, count in counts_by_product.items():
         product = locked_products[product_id]
+        if product.is_spiced_blend:
+            has_spiced_blend = True
+
         kg_per_pack = Decimal(str(product.kg_per_pack or ZERO))
         if kg_per_pack <= ZERO:
             raise ValidationError(f"{product} has no valid kilogram weight per pack configured.")
@@ -160,13 +166,17 @@ def complete_packaging_run(*, packaging_run, outputs, user=None, notes=""):
         represented_kg += kg_per_pack * count
 
     total_input = Decimal(str(run.input_kg))
-    if represented_kg > total_input:
-        raise ValidationError(
-            f"The entered packs represent {represented_kg} kg, but the run only received "
-            f"{total_input} kg. Reduce the pack quantities before completing."
-        )
 
-    loss_kg = total_input - represented_kg
+    # 🎯 INTEL-SAFE VALIDATION: Allow weight gain if any product in the run is a spiced blend
+    if represented_kg > total_input:
+        if not has_spiced_blend:
+            raise ValidationError(
+                f"The entered packs represent {represented_kg} kg, but the run only received "
+                f"{total_input} kg. Reduce the pack quantities before completing."
+            )
+        loss_kg = ZERO  # Spiced blend additive weight gain is accepted silently
+    else:
+        loss_kg = total_input - represented_kg
 
     for product_id, count in counts_by_product.items():
         PackagingRunOutput.objects.create(
@@ -179,10 +189,8 @@ def complete_packaging_run(*, packaging_run, outputs, user=None, notes=""):
     completion_note = (notes or "").strip()
     if completion_note:
         run.notes = "\n".join(part for part in (run.notes.strip(), f"Completion: {completion_note}") if part)
-
-    run.product = locked_products[next(iter(counts_by_product))]  # legacy/summary anchor
     
-    # 🎯 CHANGED: Removed run.packs_produced assignment and field from update_fields
+    run.product = locked_products[next(iter(counts_by_product))]  # legacy/summary anchor
     run.coffee_used_kg = represented_kg
     run.loss_kg = loss_kg
     run.status = "completed"
@@ -210,7 +218,7 @@ def complete_packaging_run(*, packaging_run, outputs, user=None, notes=""):
 
     for product_id in counts_by_product:
         PackagedInventory.objects.get_or_create(product=locked_products[product_id])
-
+    
     return run
 
 @transaction.atomic

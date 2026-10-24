@@ -22,7 +22,7 @@
                 <span class="text-[10px] font-bold uppercase tracking-wider text-stone-500">Inventory</span>
                 <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">Active</span>
             </div>
-            <p class="text-xl font-extrabold text-stone-900 mt-1 group-hover:text-[#8B3A2B] transition-colors">Open</p>
+            <p class="text-xl font-semibold text-stone-900 mt-1 group-hover:text-[#8B3A2B] transition-colors">Open</p>
             <p class="text-[11px] text-stone-500 mt-1 flex items-center justify-between">
                 <span>Store operations</span>
                 
@@ -35,7 +35,7 @@
                 <span class="text-[10px] font-bold uppercase tracking-wider text-stone-500">Sales</span>
                 <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">Active</span>
             </div>
-            <p class="text-xl font-extrabold text-stone-900 mt-1 group-hover:text-[#8B3A2B] transition-colors">Open</p>
+            <p class="text-xl font-semibold text-stone-900 mt-1 group-hover:text-[#8B3A2B] transition-colors">Open</p>
             <p class="text-[11px] text-stone-500 mt-1 flex items-center justify-between">
                 <span>Sales workspace</span>
                 
@@ -48,7 +48,7 @@
                 <span class="text-[10px] font-bold uppercase tracking-wider text-stone-500">Cashier</span>
                 <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">Queue</span>
             </div>
-            <p class="text-xl font-extrabold text-stone-900 mt-1 group-hover:text-[#8B3A2B] transition-colors">Open</p>
+            <p class="text-xl font-semibold text-stone-900 mt-1 group-hover:text-[#8B3A2B] transition-colors">Open</p>
             <p class="text-[11px] text-stone-500 mt-1 flex items-center justify-between">
                 <span>Clear pending orders</span>
                 
@@ -56,6 +56,7 @@
         </a>
 
         <!-- Staff Card -->
+         {% if request.user.role == 'ADMIN' %}
         <a href="{% url 'register' %}" class="bg-white border border-stone-200 rounded-lg p-3 hover:border-[#8B3A2B]/60 transition-all shadow-sm group">
             <div class="flex items-center justify-between">
                 <span class="text-[10px] font-bold uppercase tracking-wider text-stone-500">Staff</span>
@@ -67,6 +68,7 @@
                
             </p>
         </a>
+        {% endif %}
 
     </div>
 

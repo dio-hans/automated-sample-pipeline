@@ -27,6 +27,7 @@ def get_sales_report(period):
     # ============================================================
     settlements = (
         PackSettlement.objects
+        .filter(release__isnull=False)
         .select_related(
             "release",
             "release__product",

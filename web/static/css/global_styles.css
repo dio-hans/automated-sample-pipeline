@@ -3,7 +3,7 @@ table {
     width: 100%;
     border-collapse: separate; /* Required for custom border radii */
     border-spacing: 0;
-    font-family: 'Inter', system-ui, sans-serif; /* Clean modern font */
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background-color: #ffffff;
     margin-bottom: 1.5rem;
 }

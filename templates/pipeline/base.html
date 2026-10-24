@@ -27,16 +27,13 @@
                         line: '#E4DECB'
                     },
                     fontFamily: {
-                        display: ['Fraunces', 'serif'],
-                        sans: ['Inter', 'sans-serif']
+                        display: ['ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+                        sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif']
                     }
                 }
             }
         }
     </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- GLOBAL STYLES -->
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
@@ -110,11 +107,13 @@
             {% if request.user.role == "MANAGER" %}
                 <div>
                     <p class="nav-section-title">Inventory</p>
+                   
                     <div class="space-y-0.5">
                          <a href="{% url 'stock_list' %}" class="nav-link">
                             <i class="fa-solid fa-seedling nav-icon"></i>
                             <span>Coffee Stock</span>
                         </a>
+                   
                          <a href="{% url 'pending_return_approvals' %}" class="nav-link">
                             <i class="fa-solid fa-boxes-stacked nav-icon"></i>
                             <span>Pending Returns</span>
@@ -148,13 +147,16 @@
             {% if request.user.role == "ADMIN" or request.user.role == "CASHIER" or request.user.role == "ACCOUNTS" %}
                 <div>
                     <p class="nav-section-title">Stock Movement</p>
+                
+                     
                     <div class="space-y-0.5">
-                        <a href="{% url 'stock_request_create' %}" class="nav-link">
-                            <i class="fa-solid fa-clipboard-list fa-fw"></i>
-                            <span>Request stock</span>
+                    <a href="{% url 'stock_list' %}" class="nav-link">
+                            <i class="fa-solid fa-seedling nav-icon"></i>
+                            <span>Coffee Stock</span>
                         </a>
-                    </div>
+                        </div>
                 </div>
+
             {% endif %}
 
           
@@ -190,24 +192,21 @@
                             <span>Account Holders</span>
                         </a>
 
-                        {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
+                    
 
-                        <a href="{% url 'expense_list' %}" class="nav-link">
-                           <i class="fa-solid fa-receipt nav-icon"></i>
-                            <span>Expenses</span>
-                        </a>
+                        <!-- {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %} -->
+
+                   <!-- <a href="{% url 'expense_list' %}" class="nav-link"> -->
+                           <!-- <i class="fa-solid fa-receipt nav-icon"></i> -->
+                            <!-- <span>Expenses</span> -->
+                        <!-- </a> -->
                         
-                        {% endif %}
+                        <!-- {% endif %} -->
                     </div>
                 </div>
             {% endif %}
 
-           {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
-                  <a href="{% url 'reports_overview' %}" class="nav-link">
-                           <i class="fa-solid fa-chart-line nav-icon"></i>
-                            <span>Reports</span>
-                        </a>
-            {% endif %}
+           
  
                     
 
@@ -250,7 +249,7 @@
 
 {% endif %}
 
-            <!-- {% if request.user.role == "ADMIN" %}
+           {% if request.user.role == "ADMIN" or request.user.role == 'CASHIER' or request.user.role == 'ACCOUNTS' %}
                 <div>
                     <p class="nav-section-title">Commercial</p>
                     <div class="space-y-0.5">
@@ -258,23 +257,21 @@
                             <i class="fa-solid fa-building nav-icon"></i>
                             <span>Companies</span>      
                         </a>
-                        <a href="{% url 'sample_list' %}" class="nav-link">
-                            <i class="fa-solid fa-flask nav-icon"></i>
-                            <span>Samples</span>
-                        </a>
-                        <a href="{% url 'followup_list' %}" class="nav-link">
-                            <i class="fa-solid fa-arrows-rotate nav-icon"></i>
-                            <span>Follow-ups</span>
-                        </a>
-            ]            <a href="{% url 'contract_list' %}" class="nav-link">
-                            <i class="fa-solid fa-file-contract nav-icon"></i>
-                            <span>Contracts</span>
-                        </a>
+                        <!-- <a href="{% url 'sample_list' %}" class="nav-link"> -->
+                            <!-- <i class="fa-solid fa-flask nav-icon"></i> -->
+                            <!-- <span>Samples</span> -->
+                        <!-- </a> -->
+                        <!-- <a href="{% url 'followup_list' %}" class="nav-link"> -->
+                            <!-- <i class="fa-solid fa-arrows-rotate nav-icon"></i> -->
+                            <!-- <span>Follow-ups</span> -->
+                        <!-- </a> -->
+                      <!-- <a href="{% url 'contract_list' %}" class="nav-link"> -->
+                            <!-- <i class="fa-solid fa-file-contract nav-icon"></i> -->
+                            <!-- <span>Contracts</span> -->
+                        <!-- </a> -->
                     </div>
                 </div>
-                 -->
-
-                <div>
+                          <div>
                     <p class="nav-section-title">Administration</p>
                     <div class="space-y-0.5">
                         <a href="{% url 'register' %}" class="nav-link">
@@ -287,7 +284,7 @@
 
             <!-- Internal Stock Navigation Block -->
 
-            {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" or request.user.role == "CASHIER" or request.user.role == "MANAGER" %}
+            {% if request.user.role == "ADMIN" or request.user.role == "CASHIER" or request.user.role == "MANAGER" %}
                 <div>
                <div class="sidebar-section">
 
@@ -326,6 +323,20 @@
                 </div>
 
                 {% endif %}
+
+                    {% if request.user.role == "ACCOUNTS" or request.user.role == "ADMIN" %}
+                    <div>
+
+                    <p class="nav-section-title">
+                        Reports
+                    </p>
+
+                  <a href="{% url 'reports_overview' %}" class="nav-link">
+                           <i class="fa-solid fa-chart-line nav-icon"></i>
+                            <span>Reports</span>
+                        </a>
+                    </div>
+            {% endif %}
 
         </nav>                            
         <!-- SIDEBAR FOOTER -->

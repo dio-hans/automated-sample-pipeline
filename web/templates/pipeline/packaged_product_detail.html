@@ -6,15 +6,16 @@
 {% endblock %}
 
 {% block header_action %}
- <div>
-            <a href="{% url 'packaging_run_create' %}"
-               class="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-rust hover:bg-rust-dark text-white text-xs font-semibold shadow-xs transition">
-                Record Packaging
-            </a>
-        </div>
+<div>
+    <button type="button" onclick="openPackagingModal()"
+      class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition shadow-sm">
+        Record Packaging
+    </button>
+</div>
 {% endblock %}
 
 {% block content %}
+
 <div class="space-y-3">
 
     <!-- TOP BAR: BREADCRUMB + PAGE TITLE + ACTION -->
@@ -129,4 +130,59 @@
     </div>
 
 </div>
+
+<!-- QUICK RECORD PACKAGING MODAL CARD -->
+<div id="packagingModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden">
+    <div class="bg-white rounded-xl shadow-xl border border-[#E4DECB] w-full max-w-md p-5 space-y-4 m-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h3 class="text-sm font-bold text-slate-800">Record Packaging for {{ product.blend.name }} {{ product.pack_size.label }}</h3>
+            <button type="button" onclick="closePackagingModal()" class="text-slate-400 hover:text-slate-600 text-sm font-bold">&times;</button>
+        </div>
+
+        <form method="post" action="{% url 'quick_record_packaging' product.pk %}" class="space-y-3">
+            {% csrf_token %}
+            <div>
+                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Select Source Batch</label>
+                <select name="stock_id" required class="w-full px-3 py-2 border border-[#E4DECB] rounded-md bg-white text-xs focus:outline-none focus:ring-2 focus:ring-rust">
+                    <option value="">-- Choose Batch --</option>
+                    {% for stock in stocks %}
+                        <option value="{{ stock.pk }}">Batch #{{ stock.batch_number }} — {{ stock.variety.name }}</option>
+                    {% endfor %}
+                </select>
+                <p class="text-[10px] text-slate-400 mt-0.5">Deducts from {% if product.form == 'beans' %}Roasted{% else %}Ground{% endif %} stock.</p>
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Number of Packs Produced</label>
+                <input type="number" name="packs_produced" min="1" required placeholder="e.g. 30"
+                    class="w-full px-3 py-2 border border-[#E4DECB] rounded-md bg-white text-xs focus:outline-none focus:ring-2 focus:ring-rust">
+                <p class="text-[10px] text-slate-400 mt-0.5">System will automatically compute total kg ({{ product.kg_per_pack }} kg/pack) and subtract from batch.</p>
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Notes (Optional)</label>
+                <textarea name="notes" rows="2" placeholder="Any packaging note..." class="w-full px-3 py-2 border border-[#E4DECB] rounded-md bg-white text-xs focus:outline-none focus:ring-2 focus:ring-rust"></textarea>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onclick="closePackagingModal()" class="px-3 py-1.5 text-xs font-medium text-slate-600 rounded border border-slate-200 hover:bg-slate-50">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-1.5 text-xs font-semibold rounded bg-rust hover:bg-rust-dark text-white transition shadow-xs">
+                    Save & Deduct Stock
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openPackagingModal() {
+    document.getElementById('packagingModal').classList.remove('hidden');
+}
+function closePackagingModal() {
+    document.getElementById('packagingModal').classList.add('hidden');
+}
+</script>
+
 {% endblock %}  

@@ -59,6 +59,7 @@ path('forgot-password/', views.forgot_password_view, name='forgot_password'),
 path('packaged-inventory/', views.PackagedInventoryListView.as_view(), name='packaged_inventory_list'),
 path('packaged-product/add/', views.PackagedProductCreateView.as_view(), name='packaged_product_form'),
 path('packaged-product/<int:pk>/', views.PackagedProductDetailView.as_view(), name='packaged_product_detail'),
+path('packaged-product/<int:pk>/quick-record/', views.QuickRecordPackagingView.as_view(), name='quick_record_packaging'),
 
 # --- Packaging Runs ---
 path('packaging-runs/', views.PackagingRunListView.as_view(), name='packaging_run_list'),
