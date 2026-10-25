@@ -1965,7 +1965,7 @@ class CashLedgerListView(RoleRequiredMixin, ListView):
     """
     Central financial control screen.
 
-    Cashiers collect money.
+   Cashiers collect money.
     Accounts can review/manage collections.
     Managers and Admins retain oversight.
     """
