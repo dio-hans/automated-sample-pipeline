@@ -201,7 +201,14 @@ def submit_branch_audit(*, branch, user, rows, notes=''):
 @transaction.atomic
 def approve_branch_audit(*, audit_id, manager):
     """FIFO bill unbilled branch-linked releases and post each movement once."""
-    audit = StockAudit.objects.select_for_update().select_related('branch', 'company').get(pk=audit_id)
+    
+    audit = (
+        StockAudit.objects
+        .select_for_update(of=("self",))
+        .select_related("branch", "company")
+        .get(pk=audit_id)
+    )
+
     if audit.status != 'pending_approval':
         raise ValidationError('Only a pending audit can be approved.')
     if audit.branch_id is None:
