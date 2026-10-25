@@ -785,6 +785,13 @@ def approve_existing_pack_return(*, return_item, user):
     release = (PackRelease.objects.select_for_update()
                .prefetch_related("returns", "settlements")
                .get(pk=pending.release_id))
+    if release.purpose == "display" and release.branch_id:
+        from .services.consignments import (
+            approve_existing_pack_return as approve_branch_return,
+        )
+
+        return approve_branch_return(return_item=pending, user=user)
+
     _forbid_generic_display(release)
 
     approved = sum(r.packs_returned for r in release.returns.all() if r.status == "approved")

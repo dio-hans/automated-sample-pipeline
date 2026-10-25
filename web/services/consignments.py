@@ -335,38 +335,189 @@ def reject_branch_audit(*, audit_id, manager, reason):
 
 @transaction.atomic
 def record_good_branch_return(*, branch, release, location, quantity, manager):
-    """Manager-verifies sealed unsold stock returned to central warehouse."""
+    """
+    Stages a physical consignment return for manager verification and approval,
+    preventing unverified stock from altering live inventory automatically.
+    """
+    if location not in ('shelf', 'backroom'):
+        raise ValidationError('Choose a valid branch return location.')
+
     quantity = int(quantity)
-    if location not in ('shelf', 'backroom') or quantity <= 0:
-        raise ValidationError('Enter a valid location and positive quantity.')
+    if quantity <= 0:
+        raise ValidationError("Return quantity must be greater than zero.")
+
+    release = (PackRelease.objects.select_for_update()
+               .prefetch_related('returns')
+               .get(pk=release.pk))
+    if release.purpose != 'display':
+        raise ValidationError("Only display/consignment releases can use branch returns.")
+    if not release.branch_id or release.branch_id != branch.pk:
+        raise ValidationError('The selected release does not belong to this branch.')
+
     branch = CompanyBranch.objects.select_for_update().get(pk=branch.pk)
     _block_pending_audit(branch)
-    release = PackRelease.objects.select_for_update().get(pk=release.pk)
-    if release.branch_id != branch.pk or release.purpose != 'display':
-        raise ValidationError('Release does not belong to this consignment branch.')
-    inv = ConsignmentInventory.objects.select_for_update().get(branch=branch, product=release.product)
-    _consistent_ledger(inv)
-    current = inv.current_shelf_quantity if location == 'shelf' else inv.current_backroom_quantity
-    if quantity > current:
-        raise ValidationError('Return exceeds the physical stock in this location.')
-    _assert_attributed_shrinkage(branch, release.product)
-    if quantity > _unbilled_release_quantity(release):
-        raise ValidationError('Return exceeds the unbilled, unreturned, non-damaged units of this delivery.')
-    pack_return = PackReturn.objects.create(
-        release=release, packs_returned=quantity, condition='good',
-        status='approved', disposition='accepted', approved_by=manager,
-        received_by=manager, approved_at=timezone.now(),
-        reason=f'Unbilled consignment return from {branch}',
+    inventory = (ConsignmentInventory.objects.select_for_update()
+                 .filter(branch=branch, product=release.product).first())
+    if not inventory:
+        raise ValidationError('Branch inventory is missing for this product.')
+    _consistent_ledger(inventory)
+    location_quantity = (
+        inventory.current_shelf_quantity if location == 'shelf'
+        else inventory.current_backroom_quantity
     )
+    if quantity > location_quantity:
+        raise ValidationError(
+            f'Only {location_quantity} packs are currently recorded at the {location}.'
+        )
+
+    available = _unbilled_release_quantity(release)
+    if quantity > available:
+        raise ValidationError(
+            f"Cannot return {quantity} packs. Only {available} packs are eligible for return "
+            f"on release #{release.pk}."
+        )
+
+    PackReturn.objects.create(
+        release=release,
+        packs_returned=quantity,
+        condition="good",
+        disposition="accepted",
+        status="pending_approval",
+        submitted_by=manager,
+        returned_at=timezone.now(),
+        reason=f"Physical return from consignment branch: {branch.branch_name} ({location} destination)",
+        notes=f"Staged via branch return interface. Target destination: {location}.",
+    )
+
+    return release
+
+from django.core.exceptions import ValidationError
+from django.db import transaction
+
+@transaction.atomic
+def reverse_duplicate_consignment_delivery(*, release, user, reason):
+    """
+    Reverses a duplicate/erroneous consignment delivery where physical stock never left.
+    Deducts stock from branch consignment inventory and records a ledger audit trail.
+    """
+    if release.purpose != 'display':
+        raise ValidationError("Only display consignment deliveries can be reversed.")
+    
+    # Check if already reversed
+    if getattr(release, 'is_reversed', False) or "[REVERSED]" in (release.notes or ""):
+        raise ValidationError("This delivery record has already been reversed.")
+
+    from web.models  import ConsignmentInventory, BranchStockLedger
+
+    # Retrieve branch inventory record
+    inventory = ConsignmentInventory.objects.filter(
+        branch=release.branch, 
+        product=release.product
+    ).first()
+
+    if inventory:
+        # Check that stock hasn't already been depleted below what's being reversed
+        total_branch_stock = inventory.shelf + inventory.backroom
+        if total_branch_stock < release.packs_out:
+            raise ValidationError(
+                f"Cannot reverse delivery: Branch has only {total_branch_stock} packs left, "
+                f"which is less than the {release.packs_out} packs recorded in delivery #{release.pk}. "
+                "Some packs may have already been sold or audited."
+            )
+        
+        # Deduct from backroom first, then shelf
+        deduct = release.packs_out
+        if inventory.backroom >= deduct:
+            inventory.backroom -= deduct
+        else:
+            deduct -= inventory.backroom
+            inventory.backroom = 0
+            inventory.shelf = max(0, inventory.shelf - deduct)
+            
+        inventory.save()
+
+    # Log an explicit audit trail in the branch stock ledger
     BranchStockLedger.objects.create(
-        branch=branch, product=release.product, stock_location=location,
-        transaction_type='return', quantity=-quantity, release=release,
-        created_by=manager,
+        branch=release.branch,
+        product=release.product,
+        change_type='correction_reversal',
+        quantity=-release.packs_out,
+        reference=f"Duplicate entry reversal for Release #{release.pk}: {reason}",
+        recorded_by=user,
     )
-    if location == 'shelf':
-        inv.current_shelf_quantity -= quantity
-        inv.save(update_fields=['current_shelf_quantity'])
+
+    # Annotate notes to show reversal record
+    release.notes = f"[REVERSED DUPLICATE ENTRY by {user.username} on {timezone.now().strftime('%Y-%m-%d %H:%M')}]: {reason} | {release.notes or ''}"
+    release.save()
+
+    return release
+@transaction.atomic
+def approve_existing_pack_return(*, return_item, user):
+    pending = (PackReturn.objects.select_for_update()
+               .select_related('release__product')
+               .get(pk=return_item.pk))
+    if pending.status != 'pending_approval':
+        raise ValidationError("This return has already been processed.")
+
+    release = (PackRelease.objects.select_for_update()
+               .select_related('branch', 'product')
+               .prefetch_related('returns')
+               .get(pk=pending.release_id))
+    if release.purpose != 'display' or not release.branch_id:
+        raise ValidationError('Only branch consignment returns use this approval workflow.')
+
+    notes = (pending.notes or '').lower()
+    if 'target storage location: shelf' in notes or 'target destination: shelf' in notes:
+        target_location = 'shelf'
+    elif ('target storage location: backroom' in notes
+          or 'target destination: backroom' in notes):
+        target_location = 'backroom'
     else:
-        inv.current_backroom_quantity -= quantity
-        inv.save(update_fields=['current_backroom_quantity'])
-    return pack_return
+        raise ValidationError(
+            f'Return #{pending.pk} has no valid branch storage location. '
+            'Re-submit it from the consignment branch page.'
+        )
+
+    branch = CompanyBranch.objects.select_for_update().get(pk=release.branch_id)
+    _block_pending_audit(branch)
+    inventory = (ConsignmentInventory.objects.select_for_update()
+                 .filter(branch=branch, product=release.product).first())
+    if not inventory:
+        raise ValidationError('Branch inventory is missing for this product.')
+    _consistent_ledger(inventory)
+
+    location_field = (
+        'current_shelf_quantity' if target_location == 'shelf'
+        else 'current_backroom_quantity'
+    )
+    location_quantity = getattr(inventory, location_field)
+    if pending.packs_returned > location_quantity:
+        raise ValidationError(
+            f'Only {location_quantity} packs remain at the {target_location}; '
+            'reconcile branch stock before approving this return.'
+        )
+
+    _unbilled_release_quantity(release)
+    setattr(inventory, location_field, location_quantity - pending.packs_returned)
+    inventory.save(update_fields=[location_field])
+
+    BranchStockLedger.objects.create(
+        branch=branch,
+        product=release.product,
+        stock_location=target_location,
+        transaction_type='return',
+        quantity=-pending.packs_returned,
+        release=release,
+        created_by=user,
+    )
+
+    pending.status = 'approved'
+    pending.approved_by = user
+    pending.approved_at = timezone.now()
+    pending.received_by = user
+    pending.disposition = 'accepted'
+    pending.save(update_fields=[
+        'status', 'approved_by', 'approved_at', 'received_by', 'disposition',
+    ])
+
+    return pending

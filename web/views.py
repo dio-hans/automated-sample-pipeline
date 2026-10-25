@@ -1571,16 +1571,33 @@ class PackReturnCreateView(InventoryRoleRequiredMixin, TemplateView):
             ),
             pk=self.kwargs["pk"],
         )
-
-    # Consignment/display stock must never use the ordinary
-    # warehouse return workflow.
-        if release.purpose == "display":
-            raise PermissionDenied(
-                "Consignment stock must be returned through the "
-                "verified branch consignment return workflow."
-            )
-
         return release
+
+    def get_order(self):
+        release = self.get_release_from_url()
+        if release.purpose == "display":
+            # Return a pseudo-order object or the branch/company for consignment context
+            return release.branch
+        if release.request_item_id and release.request_item.request_id:
+            return release.request_item.request
+        raise ValidationError(
+            "This release batch is not tied to a valid order or branch."
+        )
+
+    def _get_releases(self, order):
+        # If it's a consignment branch, fetch its display releases
+        if hasattr(order, 'branch_name'): # checks if order is a CompanyBranch
+            return list(
+                PackRelease.objects.filter(branch=order, purpose='display')
+                .select_related("product__blend", "product__pack_size", "released_to")
+                .order_by("product__blend__name", "product__pack_size__grams", "pk")
+            )
+        # Otherwise, handle normal warehouse stock requests
+        return list(
+            PackRelease.objects.filter(request_item__request=order)
+            .select_related("product__blend", "product__pack_size", "released_to")
+            .order_by("product__blend__name", "product__pack_size__grams", "pk")
+        )
 
     def get_order(self):
         release = self.get_release_from_url()
@@ -1769,11 +1786,11 @@ class PackReturnConfirmationView(InventoryRoleRequiredMixin, TemplateView):
                     request_item__request_id=order_id,
                 )
 
-                if release.purpose == "display":
-                    raise PermissionDenied(
-                        "Display/consignment stock cannot be returned through "
-                        "the ordinary warehouse return workflow."
-                    )
+            #    if release.purpose == "display":
+             #       raise PermissionDenied(
+              #          "Display/consignment stock cannot be returned through "
+               #         "the ordinary warehouse return workflow."
+                #    )
 
                 # Revalidate against sold + approved + pending quantities immediately
                 # before creating the pending row.
@@ -1861,6 +1878,7 @@ class PackReturnApproveView(InventoryRoleRequiredMixin, View):
 
         return redirect("pending_return_approvals")  
 
+    
 @method_decorator(login_required, name='dispatch')
 class PendingReturnApprovalListView(InventoryRoleRequiredMixin, ListView):
     template_name = "pipeline/pack_return_approval_list.html"
@@ -1875,11 +1893,11 @@ class PendingReturnApprovalListView(InventoryRoleRequiredMixin, ListView):
         return (
             PackReturn.objects
             .filter(status="pending_approval")
-            .exclude(release__purpose="display")
             .select_related(
                 "release__product__blend",
                 "release__product__pack_size",
                 "release__released_to",
+                "release__branch__company", # Added to support consignment branches cleanly
                 "release__request_item__request__company",
                 "submitted_by",
             )

@@ -37,37 +37,41 @@
 <div class="space-y-4">
 
     <!-- KPI STRIP -->
-    <section class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-
-        <div class="rounded-lg border border-line bg-white px-3 py-2.5 shadow-sm">
-            <p class="text-[10px] uppercase tracking-wide text-slate-400">Branches</p>
-            <p class="mt-0.5 text-lg font-semibold text-slate-800">
-                {{ total_branches|intcomma }}
-            </p>
-        </div>
-
-        <div class="rounded-lg border border-line bg-white px-3 py-2.5 shadow-sm">
-            <p class="text-[10px] uppercase tracking-wide text-slate-400">
-                Packs on consignment
-            </p>
-            <p class="mt-0.5 text-lg font-semibold text-slate-800">
-                {{ total_on_hand|intcomma }}
-            </p>
-        </div>
-
-        <div class="rounded-lg border border-line bg-white px-3 py-2.5 shadow-sm">
-            <p class="text-[10px] uppercase tracking-wide text-slate-400">
-                Confirmed outstanding · UGX
-            </p>
-            <p class="mt-0.5 text-lg font-semibold text-rust">
-                {{ total_outstanding|floatformat:0|intcomma }}
-            </p>
-            <p class="text-[10px] text-slate-400">
-                Approved audits only
-            </p>
-        </div>
-
-    </section>
+<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+    <div class="rounded-lg border border-line bg-white px-3 py-2.5 shadow-sm">
+        <p class="text-[10px] uppercase tracking-wide text-slate-400">Branches</p>
+        <p class="mt-0.5 text-lg font-semibold text-slate-800">
+            {{ total_branches|intcomma }}
+        </p>
+    </div>
+    <div class="rounded-lg border border-line bg-white px-3 py-2.5 shadow-sm">
+        <p class="text-[10px] uppercase tracking-wide text-slate-400">
+            Packs on consignment
+        </p>
+        <p class="mt-0.5 text-lg font-semibold text-slate-800">
+            {{ total_on_hand|intcomma }}
+        </p>
+    </div>
+    <div class="rounded-lg border border-line bg-white px-3 py-2.5 shadow-sm">
+        <p class="text-[10px] uppercase tracking-wide text-slate-400">
+            Total Dispatched · UGX
+        </p>
+        <p class="mt-0.5 text-lg font-semibold text-slate-700">
+            {{ total_dispatched_value|floatformat:0|intcomma }}
+        </p>
+    </div>
+    <div class="rounded-lg border border-line bg-white px-3 py-2.5 shadow-sm">
+        <p class="text-[10px] uppercase tracking-wide text-slate-400">
+            Confirmed outstanding · UGX
+        </p>
+        <p class="mt-0.5 text-lg font-semibold text-rust">
+            {{ total_outstanding|floatformat:0|intcomma }}
+        </p>
+        <p class="text-[10px] text-slate-400">
+            Approved audits only
+        </p>
+    </div>
+</section>
 
     <!-- COMPANY TABLE -->
     <section class="rounded-lg border border-line bg-white shadow-sm overflow-hidden">

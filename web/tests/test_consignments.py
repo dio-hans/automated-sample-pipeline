@@ -1,7 +1,20 @@
 """Core stock-arithmetic tests. Run via python manage.py test web.tests.test_consignments."""
 from django.core.exceptions import ValidationError
-from django.test import SimpleTestCase
-from web.services.consignments import calculate_variance
+from django.test import SimpleTestCase, TestCase
+from web.models import (
+    Blend,
+    BranchStockLedger,
+    Company,
+    CompanyBranch,
+    ConsignmentInventory,
+    PackReturn,
+    PackRelease,
+    PackSize,
+    PackagedProduct,
+    User,
+)
+from web.sales_workflow import approve_existing_pack_return as approve_pack_return
+from web.services.consignments import calculate_variance, record_good_branch_return
 
 
 class ConsignmentVarianceTests(SimpleTestCase):
@@ -30,3 +43,85 @@ class ConsignmentVarianceTests(SimpleTestCase):
         for counts in ((-1, 0, 0, 0), (3, 0, 1.5, 0)):
             with self.subTest(counts=counts), self.assertRaises(ValidationError):
                 calculate_variance(*counts)
+
+
+class BranchReturnApprovalTests(TestCase):
+    def setUp(self):
+        self.manager = User.objects.create_user(
+            username='consignment-manager',
+            password='test-password',
+            role=User.Role.MANAGER,
+        )
+        company = Company.objects.create(
+            name='Branch Return Test Company',
+            country='Uganda',
+            city='Kampala',
+            address='Kampala',
+        )
+        self.branch = CompanyBranch.objects.create(
+            company=company,
+            branch_name='Return Test Branch',
+        )
+        blend = Blend.objects.create(name='Branch Return Test Blend')
+        size = PackSize.objects.create(grams=250, label='Branch Return Test 250g')
+        self.product = PackagedProduct.objects.create(
+            blend=blend,
+            pack_size=size,
+            form='ground',
+        )
+        self.release = PackRelease.objects.create(
+            product=self.product,
+            branch=self.branch,
+            company=company,
+            purpose='display',
+            packs_out=5,
+        )
+        self.inventory = ConsignmentInventory.objects.create(
+            branch=self.branch,
+            product=self.product,
+            current_shelf_quantity=2,
+            current_backroom_quantity=3,
+        )
+        for location, quantity in (('shelf', 2), ('backroom', 3)):
+            BranchStockLedger.objects.create(
+                branch=self.branch,
+                product=self.product,
+                stock_location=location,
+                transaction_type='delivery',
+                quantity=quantity,
+                release=self.release,
+                created_by=self.manager,
+            )
+
+    def test_pending_branch_return_approval_decrements_location_and_ledger(self):
+        record_good_branch_return(
+            branch=self.branch,
+            release=self.release,
+            location='shelf',
+            quantity=1,
+            manager=self.manager,
+        )
+        pending = PackReturn.objects.get(release=self.release)
+
+        approved = approve_pack_return(return_item=pending, user=self.manager)
+
+        self.assertEqual(approved.status, 'approved')
+        self.inventory.refresh_from_db()
+        self.assertEqual(self.inventory.current_shelf_quantity, 1)
+        self.assertEqual(self.inventory.current_backroom_quantity, 3)
+        ledger_entry = BranchStockLedger.objects.get(
+            release=self.release,
+            transaction_type='return',
+        )
+        self.assertEqual(ledger_entry.quantity, -1)
+        self.assertEqual(ledger_entry.stock_location, 'shelf')
+
+    def test_branch_return_submission_rejects_invalid_location(self):
+        with self.assertRaises(ValidationError):
+            record_good_branch_return(
+                branch=self.branch,
+                release=self.release,
+                location='warehouse',
+                quantity=1,
+                manager=self.manager,
+            )

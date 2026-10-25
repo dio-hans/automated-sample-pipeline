@@ -1,6 +1,10 @@
 """New branch-level views. Import in web/urls.py; old sales_views classes remain unused."""
 from datetime import timedelta
-
+from .services.consignments import (
+    approve_branch_audit, record_consignment_delivery,
+    record_good_branch_return, reject_branch_audit, submit_branch_audit,
+    transfer_to_shelf, reverse_duplicate_consignment_delivery, # <--- ADD THIS IMPORT
+)
 from django.conf import settings
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -30,7 +34,7 @@ from .consignment_forms import (
 from .consignment_forms import BranchForm, ConsignmentDeliveryForm, ShelfTransferForm, BranchReturnForm, AuditDecisionForm
 from .models import (
     BranchStockLedger, Company, CompanyBranch, 
-    ConsignmentInvoice, PackagedInventory, PackagedProduct, PackRelease, ConsignmentInventory, StockAudit, User,
+    ConsignmentInvoice, PackReturn, PackagedInventory, PackagedProduct, PackRelease, ConsignmentInventory, StockAudit, User,
 )
 from .sales_views import RoleRequiredMixin
 from .services.consignments import (
@@ -187,7 +191,7 @@ class ConsignmentListView(RoleRequiredMixin, ListView):
     model = Company
     template_name = "consignments/consignment_list.html"
     context_object_name = "companies"
-
+    
     def get_queryset(self):
         qs = (
             Company.objects
@@ -197,103 +201,60 @@ class ConsignmentListView(RoleRequiredMixin, ListView):
             )
             .distinct()
             .prefetch_related(
-                "branches__consignment_inventories",
+                "branches__consignment_inventories__product",
                 "audits",
                 _display_prefetch(),
             )
             .order_by("name")
         )
-
         term = self.request.GET.get("q", "").strip()
-
         if term:
             qs = qs.filter(name__icontains=term)
-
         return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
         rows = []
+        total_dispatched_val = Decimal("0.00")
 
         for company in context["companies"]:
             branches = list(company.branches.all())
             releases = _company_releases(company)
             audits = list(company.audits.all())
+            
+            company_on_hand = 0
+            company_dispatched_value = Decimal("0.00")
+
+            for branch in branches:
+                for inv in branch.consignment_inventories.all():
+                    qty = inv.total_consignment_stock
+                    company_on_hand += qty
+                    # Multiply physical stock quantity by product selling price
+                    price = inv.product.selling_price if inv.product else Decimal("0.00")
+                    company_dispatched_value += Decimal(qty) * price
+
+            total_dispatched_val += company_dispatched_value
 
             rows.append({
                 "company": company,
-
                 "branch_count": len(branches),
-
-                "on_hand": sum(
-                    inventory.total_consignment_stock
-                    for branch in branches
-                    for inventory in branch.consignment_inventories.all()
-                ),
-
-                "billed": sum(
-                    (
-                        release.gross_amount
-                        for release in releases
-                    ),
-                    Decimal("0.00"),
-                ),
-
-                "paid": sum(
-                    (
-                        release.total_amount_paid
-                        for release in releases
-                    ),
-                    Decimal("0.00"),
-                ),
-
-                "outstanding": sum(
-                    (
-                        release.outstanding_balance
-                        for release in releases
-                    ),
-                    Decimal("0.00"),
-                ),
-
-                "pending": sum(
-                    audit.status == "pending_approval"
-                    for audit in audits
-                ),
+                "on_hand": company_on_hand,
+                "dispatched_value": company_dispatched_value,
+                "billed": sum((release.gross_amount for release in releases), Decimal("0.00")),
+                "paid": sum((release.total_amount_paid for release in releases), Decimal("0.00")),
+                "outstanding": sum((release.outstanding_balance for release in releases), Decimal("0.00")),
+                "pending": sum(audit.status == "pending_approval" for audit in audits),
             })
-
+            
         context.update(
             rows=rows,
-
-            query=self.request.GET.get(
-                "q",
-                "",
-            ).strip(),
-
-            total_branches=sum(
-                row["branch_count"]
-                for row in rows
-            ),
-
-            total_on_hand=sum(
-                row["on_hand"]
-                for row in rows
-            ),
-
-            total_outstanding=sum(
-                (
-                    row["outstanding"]
-                    for row in rows
-                ),
-                Decimal("0.00"),
-            ),
-
-            can_edit=_has_role(
-                self.request.user,
-                FIELD_ROLES,
-            ),
+            query=self.request.GET.get("q", "").strip(),
+            total_branches=sum(row["branch_count"] for row in rows),
+            total_on_hand=sum(row["on_hand"] for row in rows),
+            total_dispatched_value=total_dispatched_val,
+            total_outstanding=sum((row["outstanding"] for row in rows), Decimal("0.00")),
+            can_edit=_has_role(self.request.user, FIELD_ROLES),
         )
-
         return context
 
 class ConsignmentAuditListView(RoleRequiredMixin, View):
@@ -897,3 +858,55 @@ class ConsignmentLegacyAuditRedirectView(RoleRequiredMixin, View):
             "consignment_detail",
             pk=pk,
         )
+
+class ConsignmentBranchReturnView(RoleRequiredMixin, View):
+    allowed_roles = MANAGER_ROLES
+
+    def post(self, request, pk, branch_pk):
+        branch = _branch(pk, branch_pk)
+        action_type = request.POST.get('action_type', 'physical_return')
+
+        if action_type == 'duplicate_correction':
+            # Case B: Duplicate Entry Reversal
+            release_id = request.POST.get('release_id')
+            reason = request.POST.get('reason', '').strip()
+            release = get_object_or_404(PackRelease, pk=release_id, branch=branch, purpose='display')
+            
+            if not reason:
+                messages.error(request, "A reason for reversal must be provided.")
+                return redirect('consignment_branch_detail', pk=pk, branch_pk=branch_pk)
+
+            try:
+                with transaction.atomic():
+                    reverse_duplicate_consignment_delivery(release=release, user=request.user, reason=reason)
+                messages.success(request, f"Duplicate delivery #{release.pk} successfully reversed.")
+            except ValidationError as exc:
+                messages.error(request, str(exc))
+
+        else:
+            # Case A: Physical Return
+            form = BranchReturnForm(request.POST)
+            if form.is_valid():
+                release = get_object_or_404(PackRelease, pk=form.cleaned_data['release_id'], branch=branch)
+                quantity = form.cleaned_data['quantity']
+                location = form.cleaned_data['location']
+
+                try:
+                    record_good_branch_return(
+                        branch=branch,
+                        release=release,
+                        location=location,
+                        quantity=quantity,
+                        manager=request.user,
+                    )
+                    messages.success(
+                        request, 
+                        f"Return of {quantity} packs submitted for store approval. "
+                        "Stock and ledgers remain unchanged until approved."
+                    )
+                except ValidationError as exc:
+                    messages.error(request, str(exc))
+            else:
+                messages.error(request, 'Enter a valid release, location and quantity.')
+
+        return redirect('consignment_branch_detail', pk=pk, branch_pk=branch_pk)
