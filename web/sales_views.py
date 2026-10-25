@@ -1074,21 +1074,21 @@ class CashierClearanceView(RoleRequiredMixin, View):
                 "product__blend", "product__pack_size", "released_to", "request_item__request"
             ).prefetch_related("returns"),
             pk=pk,
-        )]
+        )
 
     def get(self, request, pk):
-    release = self.get_release(pk)
-    return render(
-        request,
-        self.template_name,
-        {
-            "release": release,
-            "form": SettlementForm(initial={
-                "packs_sold": release.packs_outstanding,
-                "amount_paid": release.packs_outstanding * release.selling_price
-            }),
-        },
-    )
+        release = self.get_release(pk)
+        return render(
+            request,
+            self.template_name,
+            {
+                "release": release,
+                "form": SettlementForm(initial={
+                    "packs_sold": release.packs_outstanding,
+                    "amount_paid": release.packs_outstanding * release.selling_price
+                }),
+            },
+        )
 
     def post(self, request, pk):
         release = self.get_release(pk)
