@@ -148,13 +148,19 @@ CONSIGNMENT_AUDIT_INTERVAL_DAYS = 14
 # settings.py
 LOGIN_URL = 'login'
 # Change this section near the bottom of settings.py:
-CSRF_TRUSTED_ORIGINS = ['http://162.0.224.104', 'http://162.0.224.104:8000']
+ALLOWED_HOSTS = ['nondapipelineonline.online', 'www.nondapipelineonline.online', '162.0.224.104', '127.0.0.1', 'localhost']
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://nondapipelineonline.online',
+    'https://www.nondapipelineonline.online',
+    'http://162.0.224.104',
+    'http://162.0.224.104:8000',
+]
 SECURE_PROXY_SSL_HEADER = (
     "HTTP_X_FORWARDED_PROTO",
     "https",
 )
 
 # Your production site uses HTTPS.
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
