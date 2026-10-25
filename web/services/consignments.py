@@ -459,10 +459,8 @@ def approve_existing_pack_return(*, return_item, user):
     if pending.status != 'pending_approval':
         raise ValidationError("This return has already been processed.")
 
-    release = (PackRelease.objects.select_for_update()
-               .select_related('branch', 'product')
-               .prefetch_related('returns')
-               .get(pk=pending.release_id))
+    # 1. Lock the PackRelease row cleanly WITHOUT joins or prefetch
+    release = PackRelease.objects.select_for_update().get(pk=pending.release_id)
     if release.purpose != 'display' or not release.branch_id:
         raise ValidationError('Only branch consignment returns use this approval workflow.')
 
