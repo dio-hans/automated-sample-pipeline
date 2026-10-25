@@ -72,7 +72,10 @@ path("packaging-runs/<int:pk>/", views.PackagingRunDetailView.as_view(), name="p
 path('pack-releases/', views.PackReleaseListView.as_view(), name='pack_release_list'),
 path('pack-releases/add/', views.PackReleaseCreateView.as_view(), name='pack_release_create'),
 path('pack-releases/<int:pk>/', views.PackReleaseDetailView.as_view(), name='pack_release_detail'),
-
+path('packaged-inventory/initialize/', views.InitializeUnlistedStockView.as_view(), name='initialize_unlisted_stock'), # <--- ADD THIS LINE
+path('packaged-product/add/', views.PackagedProductCreateView.as_view(), name='packaged_product_form'),
+path('packaged-product/<int:pk>/', views.PackagedProductDetailView.as_view(), name='packaged_product_detail'),
+path('packaged-product/<int:pk>/quick-record/', views.QuickRecordPackagingView.as_view(), name='quick_record_packaging'),
 # --- Pack Returns ---
 # 1. The Form Page to Record/Add a New Pack Return Transaction
 path("returns/<int:pk>/add/", views.PackReturnCreateView.as_view(), name="pack_return_form"),

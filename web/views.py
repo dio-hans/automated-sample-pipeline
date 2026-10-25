@@ -1311,19 +1311,74 @@ class PackagedInventoryListView(InventoryRoleRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         
-        # 1. Turn the inventory queryset into a list
         inv = cache_packaged_inventory_totals(ctx["inventory"])
-        
-        # 2. 📊 Sort the list in memory using your 'available' property (lowest stock first)
         inv_sorted = sorted(inv, key=lambda i: i.available)
         
-        # 3. Save the newly sorted list back into the context for your HTML table template
         ctx["inventory"] = inv_sorted
         ctx["products"] = [item.product for item in inv_sorted]
         ctx["total_available"] = sum(i.available for i in inv_sorted)
         ctx["total_released"] = sum(i.packs_released for i in inv_sorted)
         ctx["total_returned"] = sum(i.packs_returned for i in inv_sorted)
+        
+        # 🌟 CRITICAL FIX: Query PackagedProduct and exclude ones already in PackagedInventory
+        existing_inventory_product_ids = PackagedInventory.objects.values_list('product_id', flat=True)
+        ctx["unstocked_products"] = PackagedProduct.objects.filter(is_active=True).exclude(id__in=existing_inventory_product_ids)
+
         return ctx
+
+
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+from django.views import View
+from .models import PackagedProduct, PackagedInventory
+
+@method_decorator(login_required, name='dispatch')
+class InitializeOrRestockProductView(View):
+    def post(self, request, product_id):
+        product = get_object_or_404(PackagedProduct, id=product_id)
+        quantity_to_add = int(request.POST.get('quantity', 0))
+
+        # Get or create the PackagedInventory row for this master product
+        inventory_item, created = PackagedInventory.objects.get_or_create(
+            product=product,
+            defaults={'some_initial_field': 0} # Adjust defaults if your model requires them
+        )
+
+        # Add your stock calculation logic here (depending on how you recorded it yesterday)
+        # For example, if you create a transaction log or update a field:
+        # inventory_item.add_stock(quantity_to_add) 
+        # inventory_item.save()
+
+        messages.success(request, f"Successfully stocked {quantity_to_add} units for {product}.")
+        return redirect('packaged_inventory_list') # Replace with your actual list URL name
+
+
+from django.views import View
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.utils.decorators import method_decorator
+from django.contrib.auth.decorators import login_required
+from .models import PackagedProduct, PackagedInventory
+
+@method_decorator(login_required, name='dispatch')
+class InitializeUnlistedStockView(View):
+    def post(self, request):
+        product_id = request.POST.get('product_id')
+        product = get_object_or_404(PackagedProduct, pk=product_id)
+        
+        # Create the inventory record so it appears on the active list
+        inventory_item, created = PackagedInventory.objects.get_or_create(
+            product=product
+        )
+        
+        if created:
+            messages.success(request, f"Successfully added {product} to your packaged inventory list.")
+        else:
+            messages.info(request, f"{product} is already on your inventory list.")
+            
+        return redirect('packaged_inventory_list')
+    
 
 @method_decorator(login_required, name='dispatch')
 class PackagedProductDetailView(InventoryRoleRequiredMixin, DetailView):
