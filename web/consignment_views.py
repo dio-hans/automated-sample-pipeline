@@ -142,8 +142,6 @@ class ConsigneeCreateView(RoleRequiredMixin, View):
                 "This consignee already has a branch with this name.",
             )
 
-            transaction.set_rollback(True)
-
             return render(
                 request,
                 self.template_name,
