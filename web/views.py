@@ -2139,11 +2139,12 @@ from django.views.generic import ListView
 
 
 
-@method_decorator(login_required, name='dispatch')
+@method_decorator(login_required, name="dispatch")
 class CreditControlLedgerView(RoleRequiredMixin, ListView):
     model = PackRelease
     template_name = "pipeline/credit_control_ledger.html"
     context_object_name = "releases"
+
     allowed_roles = (
         User.Role.CASHIER,
         User.Role.ACCOUNTS,
@@ -2163,7 +2164,20 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
             .order_by("-released_at")
         )
 
-        # Apply date filters for table list
+        # Choose which credit category to display.
+        self._release_filter = self.request.GET.get(
+            "release_type",
+            "regular",
+        )
+
+        if self._release_filter not in {
+            "regular",
+            "consignments",
+            "all",
+        }:
+            self._release_filter = "regular"
+
+        # Apply the existing date filters.
         qs, preset, today, start, end = apply_date_filters(
             self.request,
             qs,
@@ -2175,111 +2189,237 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
         self._end = end
         self._view_scope = self.request.GET.get("scope", "active")
 
+        # Separate consignment releases from regular releases.
+        # Consignment releases use purpose="display".
+        if self._release_filter == "consignments":
+            qs = qs.filter(purpose="display")
+
+        elif self._release_filter == "regular":
+            qs = qs.exclude(purpose="display")
+
+        # Preserve the existing active/all behaviour.
         if self._view_scope == "active":
             return [
-                release for release in qs
-                if getattr(release, "outstanding_balance", Decimal("0.00")) > Decimal("0.00")
+                release
+                for release in qs
+                if getattr(
+                    release,
+                    "outstanding_balance",
+                    Decimal("0.00"),
+                ) > Decimal("0.00")
             ]
+
         return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
 
-        # 1. TOTAL VALUE DISPATCHED IN SELECTED PERIOD
+        release_filter = getattr(
+            self,
+            "_release_filter",
+            "regular",
+        )
+        view_scope = getattr(self, "_view_scope", "active")
+
+        # --------------------------------------------------
+        # 1. TOTAL VALUE DISPATCHED IN THE SELECTED PERIOD
+        # --------------------------------------------------
+
         dispatched_qs, preset, today, start, end = apply_date_filters(
             self.request,
             PackRelease.objects.all(),
             "released_at",
         )
 
-        total_value_issued = dispatched_qs.aggregate(
-            total=Sum(
-                ExpressionWrapper(
-                    F("packs_out") * F("selling_price"),
-                    output_field=DecimalField(max_digits=12, decimal_places=2),
-                )
+        # Apply the same category filter used by the table.
+        if release_filter == "consignments":
+            dispatched_qs = dispatched_qs.filter(
+                purpose="display",
             )
-        )["total"] or Decimal("0.00")
-        bulk_dispatched_qs, _, _, _, _ = apply_date_filters(
-            self.request,
-            CoffeeBatchSale.objects.all(),
-            "sold_at",
-        )
-        total_value_issued += bulk_dispatched_qs.aggregate(
-            total=Sum(
-                ExpressionWrapper(
-                    F("kg_sold") * F("price_per_kg"),
-                    output_field=DecimalField(max_digits=14, decimal_places=2),
-                )
-            )
-        )["total"] or Decimal("0.00")
-        bulk_sales = list(
-            bulk_dispatched_qs.select_related(
-                "stock__variety",
-                "account_holder",
-                "company",
-                "bulk_request_item__request",
-            ).prefetch_related("payments")
-        )
-        if getattr(self, "_view_scope", "active") == "active":
-            bulk_sales = [
-                sale for sale in bulk_sales
-                if sale.outstanding_balance > Decimal("0.00")
-            ]
 
+        elif release_filter == "regular":
+            dispatched_qs = dispatched_qs.exclude(
+                purpose="display",
+            )
+
+        total_value_issued = (
+            dispatched_qs.aggregate(
+                total=Sum(
+                    ExpressionWrapper(
+                        F("packs_out") * F("selling_price"),
+                        output_field=DecimalField(
+                            max_digits=12,
+                            decimal_places=2,
+                        ),
+                    )
+                )
+            )["total"]
+            or Decimal("0.00")
+        )
+
+        # Bulk sales belong in Regular or All, not Consignments.
+        bulk_sales = []
+
+        if release_filter != "consignments":
+            bulk_dispatched_qs, _, _, _, _ = apply_date_filters(
+                self.request,
+                CoffeeBatchSale.objects.all(),
+                "sold_at",
+            )
+
+            bulk_value = (
+                bulk_dispatched_qs.aggregate(
+                    total=Sum(
+                        ExpressionWrapper(
+                            F("kg_sold") * F("price_per_kg"),
+                            output_field=DecimalField(
+                                max_digits=14,
+                                decimal_places=2,
+                            ),
+                        )
+                    )
+                )["total"]
+                or Decimal("0.00")
+            )
+
+            total_value_issued += bulk_value
+
+            bulk_sales_qs = (
+                bulk_dispatched_qs
+                .select_related(
+                    "stock__variety",
+                    "account_holder",
+                    "company",
+                    "bulk_request_item__request",
+                )
+                .prefetch_related("payments")
+            )
+
+            bulk_sales = list(bulk_sales_qs)
+
+            if view_scope == "active":
+                bulk_sales = [
+                    sale
+                    for sale in bulk_sales
+                    if sale.outstanding_balance > Decimal("0.00")
+                ]
+
+        # Combine packaged and bulk transactions for the table.
         ledger_rows = [
-            {"kind": "packaged", "date": release.released_at, "record": release}
+            {
+                "kind": "packaged",
+                "date": release.released_at,
+                "record": release,
+            }
             for release in ctx["object_list"]
         ]
+
         ledger_rows.extend(
-            {"kind": "bulk", "date": sale.sold_at, "record": sale}
+            {
+                "kind": "bulk",
+                "date": sale.sold_at,
+                "record": sale,
+            }
             for sale in bulk_sales
         )
-        ledger_rows.sort(key=lambda row: row["date"], reverse=True)
 
-        # 2. LIQUID CASH COLLECTED IN SELECTED PERIOD
+        ledger_rows.sort(
+            key=lambda row: row["date"],
+            reverse=True,
+        )
+
+        # --------------------------------------------------
+        # 2. PAYMENTS COLLECTED IN THE SELECTED PERIOD
+        # --------------------------------------------------
+
         payments_qs, _, _, _, _ = apply_date_filters(
             self.request,
             PaymentReceipt.objects.all(),
             "collected_at",
         )
 
+        if release_filter == "consignments":
+            # Only receipts associated with consignment releases.
+            payments_qs = payments_qs.filter(
+                release__purpose="display",
+            )
+
+        elif release_filter == "regular":
+            # Regular releases, bulk-sale receipts, and receipts
+            # without a packaged release association.
+            payments_qs = payments_qs.filter(
+                Q(release__isnull=True)
+                | ~Q(release__purpose="display")
+            )
+
         total_collected_revenue = (
-            payments_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+            payments_qs.aggregate(
+                total=Sum("amount"),
+            )["total"]
+            or Decimal("0.00")
         )
 
-        # 3. TOTAL OUTSTANDING DEBT (GLOBAL / ALL TIME)
-        all_releases = PackRelease.objects.prefetch_related("returns", "payments").all()
+        # --------------------------------------------------
+        # 3. OUTSTANDING DEBT: GLOBAL ALL-TIME TOTAL
+        #    WITH THE SELECTED CREDIT CATEGORY APPLIED
+        # --------------------------------------------------
+
+        all_releases = (
+            PackRelease.objects
+            .prefetch_related("returns", "payments")
+            .all()
+        )
+
+        if release_filter == "consignments":
+            all_releases = all_releases.filter(
+                purpose="display",
+            )
+
+        elif release_filter == "regular":
+            all_releases = all_releases.exclude(
+                purpose="display",
+            )
+
         total_outstanding_debt = sum(
             (
                 release.outstanding_balance
                 for release in all_releases
-                if getattr(release, "outstanding_balance", Decimal("0.00")) > Decimal("0.00")
-            ),
-            Decimal("0.00"),
-        ) + sum(
-            (
-                sale.outstanding_balance
-                for sale in CoffeeBatchSale.objects.prefetch_related("payments")
-                if sale.outstanding_balance > Decimal("0.00")
+                if release.outstanding_balance > Decimal("0.00")
             ),
             Decimal("0.00"),
         )
 
-        # CONTEXT MAPPING MATCHING TEMPLATE EXPECTATIONS
+        # Do not include bulk-sale debt in the Consignments view.
+        if release_filter != "consignments":
+            total_outstanding_debt += sum(
+                (
+                    sale.outstanding_balance
+                    for sale in CoffeeBatchSale.objects
+                    .prefetch_related("payments")
+                    if sale.outstanding_balance > Decimal("0.00")
+                ),
+                Decimal("0.00"),
+            )
+
+        # --------------------------------------------------
+        # 4. TEMPLATE CONTEXT
+        # --------------------------------------------------
+
         ctx.update({
             "preset": preset,
             "period": {
                 "start_date": start,
                 "end_date": end,
             },
-            "view_scope": getattr(self, "_view_scope", "active"),
+            "view_scope": view_scope,
+            "release_filter": release_filter,
             "total_value_issued": total_value_issued,
             "total_collected_revenue": total_collected_revenue,
             "total_outstanding_debt": total_outstanding_debt,
             "bulk_sales": bulk_sales,
             "ledger_rows": ledger_rows,
         })
+
         return ctx
     
 from decimal import Decimal, InvalidOperation
@@ -3220,8 +3360,30 @@ def get_context_data(self, **kwargs):
 # ---------------------------------------------------------
 @login_required
 def account_holder_list(request):
-    accounts = AccountHolder.objects.all().select_related('system_user')
-    return render(request, 'pipeline/account_holder_list.html', {'accounts': accounts})
+    # Accounts associated with companies managed as consignees
+    # should not appear in the ordinary Account Holders directory.
+    consignment_account_ids = (
+        Company.objects
+        .filter(account_holder__isnull=False)
+        .filter(
+            Q(branches__isnull=False)
+            | Q(pack_releases__purpose="display")
+        )
+        .values_list("account_holder_id", flat=True)
+    )
+
+    accounts = (
+        AccountHolder.objects
+        .exclude(pk__in=consignment_account_ids)
+        .select_related("system_user")
+        .order_by("name")
+    )
+
+    return render(
+        request,
+        "pipeline/account_holder_list.html",
+        {"accounts": accounts},
+    )
 
 @login_required
 def account_holder_create(request):

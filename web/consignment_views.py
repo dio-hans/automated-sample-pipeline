@@ -556,8 +556,15 @@ class ConsignmentBranchCreateView(RoleRequiredMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.company = self.company
-        messages.success(self.request, 'Branch created.')
-        return super().form_valid(form)
+
+        response = super().form_valid(form)
+
+        messages.success(
+            self.request,
+            f"Branch '{self.object.branch_name}' created successfully.",
+        )
+
+        return response
 
     def get_success_url(self):
         return reverse('consignment_branch_detail', kwargs={'pk': self.company.pk, 'branch_pk': self.object.pk})
