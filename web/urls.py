@@ -109,7 +109,7 @@ path("cashier/releases/<int:pk>/clear/", sales_views.CashierClearanceView.as_vie
 path("admin-dashboard/", sales_views.AdminDashboardView.as_view(), name="admin_dashboard"),
 path("inventory-dashboard/", sales_views.InventoryDashboardView.as_view(), name="inventory_dashboard"),
 
-# --- Return from a specific physical release ---
+# --- Return from a specific physical release ---``
 path("pack-releases/<int:release_pk>/return/", sales_views.PackReturnFromReleaseView.as_view(), name="pack_return_create"),
 
 #PROCESSING

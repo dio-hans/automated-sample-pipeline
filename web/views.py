@@ -25,6 +25,9 @@ from .services.reporting.periods import resolve_report_period
 
 from .services.internal_stock import ZERO, create_internal_stock_issue
 
+from .services.inventory import cache_packaged_inventory_totals, set_packaged_stock_count, reset_packaged_stock_to_zero
+
+
 from .sales_workflow import (
     approve_existing_pack_return,
     fulfill_request_item,
@@ -42,7 +45,7 @@ from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError
 from .services.packaging import complete_packaging_run, execute_pack_return, start_packaging_run
 from django.db import models, transaction
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import (
@@ -56,6 +59,7 @@ from django.views.generic import (
 )
 # Adjust this import to match wh
 # ere your mixin resides
+from .models import PackagedStockAdjustment
 from .forms import (
     CoffeeStockForm,
     CoffeeStockIntakeForm,
@@ -225,7 +229,7 @@ class PackagingRunListView(InventoryRoleRequiredMixin, ListView):
             .order_by("-issued_at")
         )
         
-        # 🎯 Apply timeline filters based on the run's timestamp field
+        #Apply timeline filters based on the run's timestamp field
         qs, preset, today, start, end = apply_date_filters(
             self.request,
             qs,
@@ -923,7 +927,7 @@ def get_variety_details(request):
 
 
 def stock_stage_inventory_api(request, pk):
-    """JSON snapshot of a batch's quantity at every stage Ã¢â‚¬â€ powers the processing form."""
+    """JSON snapshot of a batch's quantity at every stage powers the processing form."""
     stock = get_object_or_404(CoffeeStock, pk=pk)
     return JsonResponse({
         "green_received": float(get_stage_inventory(stock, "green_received")),
@@ -1296,34 +1300,108 @@ class PackReleaseListView(InventoryRoleRequiredMixin, ListView):
         return context
     
 # PACKAGED INVENTORY VIEWS
-@method_decorator(login_required, name='dispatch')
+@method_decorator(login_required, name="dispatch")
 class PackagedInventoryListView(InventoryRoleRequiredMixin, ListView):
     model = PackagedInventory
     template_name = "pipeline/packaged_inventory_list.html"
     context_object_name = "inventory"
-    allowed_roles =(User.Role.ACCOUNTS, User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER)
+    allowed_roles = (
+        User.Role.ACCOUNTS,
+        User.Role.MANAGER,
+        User.Role.ADMIN,
+        User.Role.CASHIER,
+    )
 
     def get_queryset(self):
         return PackagedInventory.objects.select_related(
             "product__blend", "product__pack_size"
         ).all()
 
+    def post(self, request, *args, **kwargs):
+        # GET access remains available to existing inventory roles, but only an
+        # ADMIN may submit either packaged-stock adjustment action.
+        if getattr(request.user, "role", None) != User.Role.ADMIN:
+            return HttpResponseForbidden(
+                "Only a System Admin can adjust packaged stock."
+            )
+
+        action = request.POST.get("stock_adjustment_action", "")
+        reason = request.POST.get("reason", "").strip()
+
+        try:
+            if action == "set_count":
+                product_id = request.POST.get("product_id", "").strip()
+                if not product_id:
+                    raise ValidationError("Select a packaged product.")
+
+                product = PackagedProduct.objects.get(pk=product_id)
+                adjustment = set_packaged_stock_count(
+                    product=product,
+                    counted_quantity=request.POST.get("counted_quantity", ""),
+                    reason=reason,
+                    user=request.user,
+                )
+                if adjustment is None:
+                    messages.info(
+                        request,
+                        f"{product} was already at that balance; no adjustment was needed.",
+                    )
+                else:
+                    messages.success(
+                        request,
+                        f"{product} adjusted from {adjustment.previous_quantity} "
+                        f"to {adjustment.counted_quantity} packs. The adjustment is recorded.",
+                    )
+
+            elif action == "reset_all_zero":
+                if request.POST.get("confirm_reset_all") != "yes":
+                    raise ValidationError(
+                        "Confirm the bulk reset before submitting it."
+                    )
+                adjusted_count = reset_packaged_stock_to_zero(
+                    reason=reason,
+                    user=request.user,
+                )
+                if adjusted_count:
+                    messages.success(
+                        request,
+                        f"Stock was reset to zero for {adjusted_count} packaged SKU(s). "
+                        "Production, releases, returns and prior adjustments were retained.",
+                    )
+                else:
+                    messages.info(
+                        request,
+                        "All listed packaged-stock balances were already zero; no adjustments were needed.",
+                    )
+            else:
+                raise ValidationError("Choose a valid packaged-stock adjustment action.")
+
+        except (ValidationError, ValueError, TypeError, PackagedProduct.DoesNotExist) as exc:
+            if isinstance(exc, ValidationError):
+                error_message = "; ".join(str(message) for message in exc.messages)
+            else:
+                error_message = str(exc)
+            messages.error(request, error_message or "The stock adjustment could not be saved.")
+
+        return redirect(request.get_full_path())
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        
         inv = cache_packaged_inventory_totals(ctx["inventory"])
-        inv_sorted = sorted(inv, key=lambda i: i.available)
-        
+        inv_sorted = sorted(inv, key=lambda item: item.available)
+
         ctx["inventory"] = inv_sorted
         ctx["products"] = [item.product for item in inv_sorted]
-        ctx["total_available"] = sum(i.available for i in inv_sorted)
-        ctx["total_released"] = sum(i.packs_released for i in inv_sorted)
-        ctx["total_returned"] = sum(i.packs_returned for i in inv_sorted)
-        
-        # 🌟 CRITICAL FIX: Query PackagedProduct and exclude ones already in PackagedInventory
-        existing_inventory_product_ids = PackagedInventory.objects.values_list('product_id', flat=True)
-        ctx["unstocked_products"] = PackagedProduct.objects.filter(is_active=True).exclude(id__in=existing_inventory_product_ids)
+        ctx["total_available"] = sum(item.available for item in inv_sorted)
+        ctx["total_released"] = sum(item.packs_released for item in inv_sorted)
+        ctx["total_returned"] = sum(item.packs_returned for item in inv_sorted)
 
+        existing_inventory_product_ids = PackagedInventory.objects.values_list(
+            "product_id", flat=True
+        )
+        ctx["unstocked_products"] = PackagedProduct.objects.filter(
+            is_active=True
+        ).exclude(id__in=existing_inventory_product_ids)
         return ctx
 
 

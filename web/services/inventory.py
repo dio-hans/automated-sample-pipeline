@@ -22,6 +22,7 @@ from ..models import (
 ZERO = Decimal("0.00")
 
 
+
 def cache_packaged_inventory_totals(inventory):
     inventory = list(inventory)
     product_ids = [item.product_id for item in inventory]
@@ -30,10 +31,7 @@ def cache_packaged_inventory_totals(inventory):
 
     produced_by_product = dict(
         PackagingRunOutput.objects
-        .filter(
-            run__status="completed",
-            product_id__in=product_ids,
-        )
+        .filter(run__status="completed", product_id__in=product_ids)
         .values("product_id")
         .annotate(total=Sum("packs_produced"))
         .values_list("product_id", "total")
@@ -56,18 +54,127 @@ def cache_packaged_inventory_totals(inventory):
         .annotate(total=Sum("packs_returned"))
         .values_list("release__product_id", "total")
     )
+    adjusted_by_product = dict(
+        PackagedStockAdjustment.objects
+        .filter(product_id__in=product_ids)
+        .values("product_id")
+        .annotate(total=Sum("quantity_delta"))
+        .values_list("product_id", "total")
+    )
+    # Use the actual FK field name on InternalStockIssueItem: packaged_product.
+    internal_issues_by_product = dict(
+        InternalStockIssueItem.objects
+        .filter(packaged_product_id__in=product_ids, packs__isnull=False)
+        .values("packaged_product_id")
+        .annotate(total=Sum("packs"))
+        .values_list("packaged_product_id", "total")
+    )
 
     for item in inventory:
-        item._packs_produced_cache = produced_by_product.get(item.product_id, 0)
-        item._packs_released_cache = released_by_product.get(item.product_id, 0)
-        item._packs_returned_cache = returned_by_product.get(item.product_id, 0)
+        item._packs_produced_cache = produced_by_product.get(item.product_id, 0) or 0
+        item._packs_released_cache = released_by_product.get(item.product_id, 0) or 0
+        item._packs_returned_cache = returned_by_product.get(item.product_id, 0) or 0
+        item._packs_adjusted_cache = adjusted_by_product.get(item.product_id, 0) or 0
+        item._packs_used_internally_cache = internal_issues_by_product.get(item.product_id, 0) or 0
         item._available_cache = (
             item._packs_produced_cache
             - item._packs_released_cache
             + item._packs_returned_cache
+            + item._packs_adjusted_cache
+            - item._packs_used_internally_cache
         )
 
     return inventory
+
+
+# 3. Add the following two service functions below cache_packaged_inventory_totals
+# (before the RAW / STAGE INVENTORY section is a good location).
+
+
+def _require_packaged_stock_admin(user):
+    if user is None or getattr(user, "role", None) != User.Role.ADMIN:
+        raise ValidationError("Only a System Admin can adjust packaged stock.")
+
+
+def _validate_counted_pack_quantity(value):
+    if isinstance(value, bool):
+        raise ValidationError("Counted stock must be a whole number of packs.")
+    try:
+        quantity = int(str(value).strip())
+    except (TypeError, ValueError):
+        raise ValidationError("Counted stock must be a whole number of packs.")
+    if quantity < 0:
+        raise ValidationError("Counted stock cannot be negative.")
+    return quantity
+
+
+@transaction.atomic
+def set_packaged_stock_count(*, product, counted_quantity, reason, user):
+    """Set one SKU to its counted balance without deleting stock history."""
+    _require_packaged_stock_admin(user)
+    counted_quantity = _validate_counted_pack_quantity(counted_quantity)
+    reason = (reason or "").strip()
+    if not reason:
+        raise ValidationError("Enter a reason for the stock adjustment.")
+    if len(reason) > 2000:
+        raise ValidationError("The adjustment reason cannot exceed 2,000 characters.")
+
+    locked_product = PackagedProduct.objects.select_for_update().get(pk=product.pk)
+    inventory, _ = PackagedInventory.objects.select_for_update().get_or_create(
+        product=locked_product
+    )
+
+    # Use the live, uncached balance; the delta makes the displayed balance
+    # equal the physical count after the new adjustment is recorded.
+    previous_quantity = inventory.available
+    quantity_delta = counted_quantity - previous_quantity
+    if quantity_delta == 0:
+        return None
+
+    return PackagedStockAdjustment.objects.create(
+        product=locked_product,
+        previous_quantity=previous_quantity,
+        counted_quantity=counted_quantity,
+        quantity_delta=quantity_delta,
+        reason=reason,
+        adjusted_by=user,
+    )
+
+
+@transaction.atomic
+def reset_packaged_stock_to_zero(*, reason, user):
+    """Set every existing packaged-inventory row to zero, retaining history."""
+    _require_packaged_stock_admin(user)
+    reason = (reason or "").strip()
+    if not reason:
+        raise ValidationError("Enter a reason for the bulk stock reset.")
+    if len(reason) > 2000:
+        raise ValidationError("The reset reason cannot exceed 2,000 characters.")
+
+    inventory_rows = list(
+        PackagedInventory.objects.select_for_update().order_by("pk")
+    )
+    cache_packaged_inventory_totals(inventory_rows)
+
+    adjustments = []
+    for inventory in inventory_rows:
+        previous_quantity = int(inventory.available)
+        if previous_quantity == 0:
+            continue
+        adjustments.append(
+            PackagedStockAdjustment(
+                product_id=inventory.product_id,
+                previous_quantity=previous_quantity,
+                counted_quantity=0,
+                quantity_delta=-previous_quantity,
+                reason=reason,
+                adjusted_by=user,
+            )
+        )
+
+    if adjustments:
+        PackagedStockAdjustment.objects.bulk_create(adjustments)
+    return len(adjustments)
 
 
 # ============================================================

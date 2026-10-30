@@ -117,31 +117,16 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 
 
 def get_packaged_internal_available(product):
-    """
-    Calculate packaged coffee currently available for internal issue.
-    Returns 0 if no inventory record exists yet for the product.
-    """
+    """Return the common calculated packaged balance for internal use."""
     try:
         inventory = product.inventory
     except ObjectDoesNotExist:
-        # If no inventory record exists yet, return 0 available packs
-        # instead of throwing a ValidationError that crashes GET page renders.
         return 0
 
-    internal_issues = get_internal_pack_issues(product)
+    # PackagedInventory.available now includes approved stock adjustments
+    # and internal issues exactly once, so do not subtract internal issues again.
+    return max(inventory.available, 0)
 
-    # Option A: If using ledger components
-    available = (
-        inventory.packs_produced
-        - inventory.packs_released
-        + inventory.packs_returned
-        - internal_issues
-    )
-
-    # Option B: If PackagedInventory already stores a live stock field, uncomment below:
-    # available = inventory.packs_available - internal_issues
-
-    return max(available, 0)
 
 
 def validate_packaged_stock(*, product, packs):

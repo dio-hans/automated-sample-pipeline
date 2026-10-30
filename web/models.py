@@ -1566,6 +1566,38 @@ class PackagingRunOutput(models.Model):
 
 # 6. PACKAGED INVENTORY  (live stock per product)
 #    packs_in - packs_released + packs_returned
+
+class PackagedStockAdjustment(models.Model):
+    """Auditable correction of the central packaged-pack balance."""
+
+    product = models.ForeignKey(
+        PackagedProduct,
+        on_delete=models.PROTECT,
+        related_name="packaged_stock_adjustments",
+    )
+    previous_quantity = models.IntegerField()
+    counted_quantity = models.PositiveIntegerField()
+    quantity_delta = models.IntegerField()
+    reason = models.TextField()
+    adjusted_by = models.ForeignKey(
+        "User",
+        on_delete=models.PROTECT,
+        related_name="packaged_stock_adjustments",
+    )
+    adjusted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-adjusted_at", "-pk"]
+        verbose_name = "packaged stock adjustment"
+        verbose_name_plural = "packaged stock adjustments"
+
+    def __str__(self):
+        return (
+            f"{self.product}: {self.previous_quantity} → "
+            f"{self.counted_quantity} packs"
+        )
+
+
 class PackagedInventory(models.Model):
 
     product = models.OneToOneField(
@@ -1617,17 +1649,37 @@ class PackagedInventory(models.Model):
         )
 
     @property
+    def packs_adjusted(self):
+        if "_packs_adjusted_cache" in self.__dict__:
+            return self.__dict__["_packs_adjusted_cache"]
+        total = PackagedStockAdjustment.objects.filter(
+            product_id=self.product_id
+        ).aggregate(total=models.Sum("quantity_delta"))["total"]
+        return total or 0
+
+    @property
+    def packs_used_internally(self):
+        if "_packs_used_internally_cache" in self.__dict__:
+            return self.__dict__["_packs_used_internally_cache"]
+        total = InternalStockIssueItem.objects.filter(
+            packaged_product_id=self.product_id,
+            packs__isnull=False,
+        ).aggregate(total=models.Sum("packs"))["total"]
+        return total or 0
+
+    @property
     def available(self):
         if "_available_cache" in self.__dict__:
             return self.__dict__["_available_cache"]
-
         return (
             self.packs_produced
             - self.packs_released
             + self.packs_returned
+            + self.packs_adjusted
+            - self.packs_used_internally
         )
 
-# 7. PACK RELEASE  (store keeper â†’ salesperson)
+# 7. PACK RELEASE  (store keeper salesperson)
 from decimal import Decimal
 from django.db import models
 from django.conf import settings
