@@ -1551,7 +1551,7 @@ class PackagingRunOutput(models.Model):
                 condition=models.Q(packs_produced__gt=0),
                 name="packrun_output_gt0",
             ),
-            models.UniqueConstraint(
+                models.UniqueConstraint(
                 fields=["run", "product"],
                 name="uniq_packrun_product",
             ),
