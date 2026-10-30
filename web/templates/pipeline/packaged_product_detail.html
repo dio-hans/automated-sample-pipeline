@@ -5,6 +5,20 @@
 {{ product.blend.name }} {{ product.pack_size.label }} | Nonda
 {% endblock %}
 
+{% block breadcrumb %}
+Inventory / Packaged Coffee / {{ product.blend.name }} {{ product.pack_size.label }}
+{% endblock %}
+
+{% block page_title %}
+<span class="text-slate-900 font-bold text-base">{{ product.blend.name }}</span>
+<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider {% if product.form == 'beans' %}bg-amber-50 text-amber-700 border border-amber-100{% else %}bg-slate-100 text-slate-700 border border-slate-200{% endif %}">
+    {{ product.get_form_display }}
+</span>
+<span class="ml-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-[#E4DECB]">
+    {{ product.pack_size.label }}
+</span>
+{% endblock %}
+
 {% block header_action %}
 <div class="flex items-center gap-2">    
     <button type="button" onclick="openPackagingModal()"
@@ -20,26 +34,8 @@
 </div>
 {% endblock %}
 
-<div class="space-y-3">
-
-    <!-- TOP BAR: BREADCRUMB + PAGE TITLE + ACTION -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-[#E4DECB]">
-        <div>
-            <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                Inventory / Packaged Coffee / <span class="text-slate-600">{{ product.blend.name }} {{ product.pack_size.label }}</span>
-            </div>
-            <div class="flex items-center gap-2 mt-0.5">
-                <h1 class="text-base font-bold text-slate-800 leading-tight">{{ product.blend.name }}</h1>
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider {% if product.form == 'beans' %}bg-amber-50 text-amber-700 border border-amber-100{% else %}bg-slate-100 text-slate-700 border border-slate-200{% endif %}">
-                    {{ product.get_form_display }}
-                </span>
-                <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-[#E4DECB]">
-                    {{ product.pack_size.label }}
-                </span>
-            </div>
-        </div>
-       
-    </div>
+{% block content %}
+<div class="space-y-4 max-w-7xl mx-auto">
 
     <!-- 1. COMPACT KPI SUMMARY CARDS -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -86,8 +82,7 @@
         </div>
     </div>
 
-
-    <!-- 3. RELEASE & RETURN HISTORY TABLE -->
+    <!-- 2. RELEASE & RETURN HISTORY TABLE -->
     <div class="bg-white border border-[#E4DECB] rounded-lg shadow-2xs overflow-hidden">
         <div class="px-3 py-2 bg-slate-50/80 border-b border-[#E4DECB] flex items-center justify-between">
             <h2 class="text-xs font-bold uppercase tracking-wider text-slate-700">Release & Return History</h2>
@@ -135,8 +130,8 @@
 
 </div>
 
-<!-- QUICK RECORD PACKAGING MODAL CARD -->
-<div id="packagingModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden">
+<!-- QUICK RECORD PACKAGING MODAL -->
+<div id="packagingModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 hidden">
     <div class="bg-white rounded-xl shadow-xl border border-[#E4DECB] w-full max-w-md p-5 space-y-4 m-4">
         <div class="flex items-center justify-between border-b border-slate-100 pb-2">
             <h3 class="text-sm font-bold text-slate-800">Record Packaging for {{ product.blend.name }} {{ product.pack_size.label }}</h3>
@@ -147,7 +142,7 @@
             {% csrf_token %}
             <div>
                 <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Select Source Batch</label>
-                <select name="stock_id" required class="w-full px-3 py-2 border border-[#E4DECB] rounded-md bg-white text-xs focus:outline-none focus:ring-2 focus:ring-rust">
+                <select name="stock_id" required class="w-full px-3 py-2 border border-[#E4DECB] rounded-md bg-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500">
                     <option value="">-- Choose Batch --</option>
                     {% for stock in stocks %}
                         <option value="{{ stock.pk }}">Batch #{{ stock.batch_number }} — {{ stock.variety.name }}</option>
@@ -159,20 +154,20 @@
             <div>
                 <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Number of Packs Produced</label>
                 <input type="number" name="packs_produced" min="1" required placeholder="e.g. 30"
-                    class="w-full px-3 py-2 border border-[#E4DECB] rounded-md bg-white text-xs focus:outline-none focus:ring-2 focus:ring-rust">
+                    class="w-full px-3 py-2 border border-[#E4DECB] rounded-md bg-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500">
                 <p class="text-[10px] text-slate-400 mt-0.5">System will automatically compute total kg ({{ product.kg_per_pack }} kg/pack) and subtract from batch.</p>
             </div>
 
             <div>
                 <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Notes (Optional)</label>
-                <textarea name="notes" rows="2" placeholder="Any packaging note..." class="w-full px-3 py-2 border border-[#E4DECB] rounded-md bg-white text-xs focus:outline-none focus:ring-2 focus:ring-rust"></textarea>
+                <textarea name="notes" rows="2" placeholder="Any packaging note..." class="w-full px-3 py-2 border border-[#E4DECB] rounded-md bg-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500"></textarea>
             </div>
 
             <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button type="button" onclick="closePackagingModal()" class="px-3 py-1.5 text-xs font-medium text-slate-600 rounded border border-slate-200 hover:bg-slate-50">
                     Cancel
                 </button>
-                <button type="submit" class="px-4 py-1.5 text-xs font-semibold rounded bg-rust hover:bg-rust-dark text-white transition shadow-xs">
+                <button type="submit" class="px-4 py-1.5 text-xs font-semibold rounded bg-orange-600 hover:bg-orange-700 text-white transition shadow-xs">
                     Save & Deduct Stock
                 </button>
             </div>
@@ -181,15 +176,14 @@
 </div>
 
 <!-- STOCK ADJUSTMENT MODAL -->
-<div id="adjustmentModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden">
+<div id="adjustmentModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 hidden">
     <div class="bg-white rounded-xl shadow-xl border border-[#E4DECB] w-full max-w-md p-5 space-y-4 m-4">
         <div class="flex items-center justify-between border-b border-slate-100 pb-2">
             <h3 class="text-sm font-bold text-slate-800">Adjust Physical Count: {{ product.blend.name }} {{ product.pack_size.label }}</h3>
             <button type="button" onclick="closeAdjustmentModal()" class="text-slate-400 hover:text-slate-600 text-sm font-bold">&times;</button>
         </div>
 
-        <!-- Note: action points to the list view or a dedicated URL handling the POST view logic -->
-        <form method="post" action="{% url 'packaged_inventory' %}" class="space-y-3">
+        <form method="post" action="{% url 'packaged_inventory_list' %}" class="space-y-3">
             {% csrf_token %}
             <input type="hidden" name="stock_adjustment_action" value="set_count">
             <input type="hidden" name="product_id" value="{{ product.pk }}">
@@ -225,240 +219,6 @@
     </div>
 </div>
 
-{% extends "pipeline/base.html" %}
-{% load static %}
-
-{% block title %}
-Packaged Coffee Inventory | Nonda
-{% endblock %}
-
-{% block breadcrumb %}
-Inventory / Packaged Coffee
-{% endblock %}
-
-{% block page_title %}
-<span class="text-slate-900 font-bold text-base">Packaged Coffee Inventory</span>
-{% endblock %}
-
-{% block header_action %}
-{% if request.user.role == "MANAGER" or request.user.role == "ADMIN" %}
-<div class="flex items-center gap-2">    
-    <a href="{% url 'packaged_product_form' %}"
-       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-[#E4DECB] rounded-lg hover:bg-slate-50 transition shadow-sm">
-        New Product SKU
-    </a>
-    <button onclick="toggleRestockModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition shadow-sm">
-        Restock Product Not on List
-    </button>
-</div>
-{% endif %}
-{% endblock %}
-
-{% block content %}
-<div class="space-y-3 max-w-7xl mx-auto">
-    <!-- COMPACT KPI METRIC STRIP -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <!-- Active SKUs -->
-        <div class="bg-white border border-[#E4DECB] rounded-lg p-2.5 shadow-sm flex items-center justify-between">
-            <div>
-                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active SKUs</p>
-                <p class="text-lg font-black text-slate-800 leading-tight mt-0.5">{{ products|length }}</p>
-            </div>
-            <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono font-medium border border-slate-200">Catalog</span>
-        </div>
-        <!-- Available Packs -->
-        <div class="bg-white border border-[#E4DECB] rounded-lg p-2.5 shadow-sm border-l-4 border-l-emerald-500 flex items-center justify-between">
-            <div>
-                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Available Stock</p>
-                <p class="text-lg font-black text-slate-800 leading-tight mt-0.5">
-                    {{ total_available|default:"0" }} <span class="text-[10px] font-normal text-slate-400">packs</span>
-                </p>
-            </div>
-        </div>
-        <!-- Released -->
-        <div class="bg-white border border-[#E4DECB] rounded-lg p-2.5 shadow-sm flex items-center justify-between">
-            <div>
-                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Released Out</p>
-                <p class="text-lg font-bold text-slate-800 leading-tight mt-0.5">
-                    {{ total_released|default:"0" }} <span class="text-[10px] font-normal text-slate-400">packs</span>
-                </p>
-            </div>
-        </div>
-        <!-- Returned -->
-        <div class="bg-white border border-[#E4DECB] rounded-lg p-2.5 shadow-sm flex items-center justify-between">
-            <div>
-                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Returned Units</p>
-                <p class="text-lg font-bold text-slate-800 leading-tight mt-0.5">
-                    {{ total_returned|default:"0" }} <span class="text-[10px] font-normal text-slate-400">packs</span>
-                </p>
-            </div>
-        </div>
-    </div>
-         
-    <!-- FILTER -->
-    {% include "reports/components/report_filters.html" %}
-
-    <!-- DENSE HIGH-EFFICIENCY DATA TABLE -->
-    <div class="bg-white border border-[#E4DECB] rounded-lg shadow-sm overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-xs text-left border-collapse">
-                <thead class="bg-slate-50 border-b border-[#E4DECB] text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                    <tr>
-                        <th class="px-4 py-2">Product Specification</th>
-                        <th class="px-4 py-2">Form</th>
-                        <th class="px-4 py-2">Pack Size</th>
-                        <th class="px-4 py-2">Entry Date</th>
-                        <th class="px-4 py-2 text-right">Available</th>
-                        <th class="px-4 py-2 text-right">Released</th>
-                        <th class="px-4 py-2 text-right">Returned</th>
-                        <th class="px-4 py-2 text-center">Action</th>
-                    </tr>
-                </thead>
-                <tbody id="productTable" class="divide-y divide-slate-100 text-slate-700">
-                    {% for item in inventory %}
-                    <tr class="hover:bg-slate-50/80 transition">
-                        <!-- Product Title -->
-                        <td class="px-4 py-2">
-                            <span class="font-bold text-slate-800 block">{{ item.product.blend.name }}</span>
-                            <span class="text-[10px] text-slate-400 font-mono">{{ item.product }}</span>
-                        </td>
-                        <!-- Bean / Ground Form Tag -->
-                        <td class="px-4 py-2 whitespace-nowrap">
-                            {% if item.product.form == "beans" %}
-                                <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/60">
-                                    Beans
-                                </span>
-                            {% else %}
-                                <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold bg-stone-100 text-stone-700 border border-stone-200">
-                                    Ground
-                                </span>
-                            {% endif %}
-                        </td>
-                        <!-- Size -->
-                        <td class="px-4 py-2 font-medium text-slate-700 whitespace-nowrap">
-                            {{ item.product.pack_size.label }}
-                        </td>
-                        <!-- Date Entered -->
-                        <td class="px-4 py-2 text-slate-500 whitespace-nowrap font-mono text-[11px]">
-                            {% if item.created_at %}
-                                {{ item.created_at|date:"Y-m-d" }}
-                            {% elif item.product.created_at %}
-                                {{ item.product.created_at|date:"Y-m-d" }}
-                            {% else %}
-                                —
-                            {% endif %}
-                        </td>
-                        <!-- Available Packs -->
-                        <td class="px-4 py-2 text-right font-mono font-bold whitespace-nowrap">
-                            {% if item.available <= 0 %}
-                                <span class="text-red-600 bg-red-50 px-1.5 py-0.5 rounded">0</span>
-                            {% elif item.available <= 10 %}
-                                <span class="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">{{ item.available }} <span class="text-[9px] font-sans text-amber-600 uppercase font-normal">(Low)</span></span>
-                            {% else %}
-                                <span class="text-slate-800">{{ item.available }}</span>
-                            {% endif %}
-                        </td>
-                        <!-- Released -->
-                        <td class="px-4 py-2 text-right font-mono text-slate-600 whitespace-nowrap">
-                            {{ item.packs_released }}
-                        </td>
-                        <!-- Returned -->
-                        <td class="px-4 py-2 text-right font-mono text-slate-600 whitespace-nowrap">
-                            {{ item.packs_returned }}
-                        </td>
-                        <!-- Action -->
-                        <td class="px-4 py-2 text-center whitespace-nowrap">
-                            <a href="{% url 'packaged_product_detail' item.product.pk %}"
-                               class="inline-flex items-center px-2 py-0.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-semibold text-[11px] transition">
-                                View
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="8" class="px-4 py-8 text-center text-slate-400">
-                            <p class="font-semibold text-xs text-slate-600">No packaged inventory entries found</p>
-                            <p class="text-[11px] mt-0.5">Try clearing your search query or altering the selected date filter range.</p>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-
-<!-- Restock Modal -->
-<div id="restockModal" class="hidden fixed inset-0 bg-slate-900 bg-opacity-50 z-50 flex items-center justify-center">
-    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md border border-[#E4DECB]">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Add Product to Inventory List</h3>
-            <button onclick="toggleRestockModal()" class="text-slate-400 hover:text-slate-600 text-sm font-bold">&times;</button>
-        </div>
-        
-        <form method="POST" action="{% url 'initialize_unlisted_stock' %}">
-            {% csrf_token %}
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Select Product SKU</label>
-                    <select name="product_id" class="w-full text-xs border border-slate-300 rounded-md p-2 focus:ring-orange-500 focus:border-orange-500" required>
-                        <option value="">-- Choose unstocked product SKU --</option>
-                        {% for product in unstocked_products %}
-                            <option value="{{ product.pk }}">{{ product }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="flex justify-end gap-2 pt-2">
-                    <button type="button" onclick="toggleRestockModal()" class="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition">Cancel</button>
-                    <button type="submit" class="px-3 py-1.5 text-xs font-semibold text-white bg-orange-600 rounded-md hover:bg-orange-700 transition">Add to Inventory</button>
-                </div>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Stock Adjustment Modal (Admin Only) -->
-<div id="adjustmentModal" class="hidden fixed inset-0 bg-slate-900 bg-opacity-50 z-50 flex items-center justify-center">
-    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg border border-[#E4DECB]">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Adjust Packaged Inventory</h3>
-            <button onclick="toggleAdjustmentModal()" class="text-slate-400 hover:text-slate-600 text-sm font-bold">&times;</button>
-        </div>
-        
-        <form method="POST" class="space-y-4">
-            {% csrf_token %}
-            <input type="hidden" name="stock_adjustment_action" value="set_count">
-            
-            <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1">Select Product SKU</label>
-                <select name="product_id" class="w-full text-xs border border-slate-300 rounded-md p-2 focus:ring-orange-500 focus:border-orange-500" required>
-                    <option value="">-- Choose Product SKU --</option>
-                    {% for item in inventory %}
-                        <option value="{{ item.product.pk }}">{{ item.product.blend.name }} ({{ item.product }}) - Current: {{ item.available }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1">New Physical Count (Packs)</label>
-                <input type="number" name="counted_quantity" min="0" class="w-full text-xs border border-slate-300 rounded-md p-2 font-mono" placeholder="Enter actual physical count" required>
-            </div>
-
-            <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1">Reason for Adjustment / Audit Note</label>
-                <textarea name="reason" rows="2" class="w-full text-xs border border-slate-300 rounded-md p-2" placeholder="e.g., Physical stock count discrepancy, damaged boxes written off" required></textarea>
-            </div>
-
-            <div class="flex justify-end gap-2 pt-2">
-                <button type="button" onclick="toggleAdjustmentModal()" class="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition">Cancel</button>
-                <button type="submit" class="px-3 py-1.5 text-xs font-semibold text-white bg-orange-600 rounded-md hover:bg-orange-700 transition">Save Physical Count</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <script>
 function openPackagingModal() {
     document.getElementById('packagingModal').classList.remove('hidden');
@@ -475,5 +235,3 @@ function closeAdjustmentModal() {
 }
 </script>
 {% endblock %}
-
-{% endblock %}  
