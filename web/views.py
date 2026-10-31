@@ -2132,9 +2132,7 @@ class CashLedgerListView(RoleRequiredMixin, ListView):
 
         all_records = list(all_records_qs)
 
-        # ---------------------------------------------------------
         # SUMMARY CARDS
-        # ---------------------------------------------------------
 
         # Gross value of all stock dispatched
         total_value_issued = sum(
