@@ -324,4 +324,16 @@ path(
     name="consignment_audit_list",
 ),
 
+path(
+    'sales/consignments/<int:pk>/branches/<int:branch_pk>/movements/',
+    consignment_views.ConsignmentStockMovementsView.as_view(),
+    name='consignment_stock_movements',
+),
+path(
+    'sales/consignments/<int:pk>/branches/<int:branch_pk>/releases/',
+    consignment_views.ConsignmentBranchReleasesView.as_view(),
+    name='consignment_branch_releases',
+),
+
+
 ]

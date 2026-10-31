@@ -1221,6 +1221,7 @@ class PackagedProduct(models.Model):
         )
         super().save(*args, **kwargs)
 
+    
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -1235,16 +1236,7 @@ class PackagedProduct(models.Model):
             "form",
         ]
 
-    def clean(self):
-
-        if self.pack_size.is_sachet:
-            if self.form != ProductForm.BEANS:
-                raise ValidationError(
-                    "Sachets can only contain whole beans."
-                )
-
     def save(self, *args, **kwargs):
-
         self.full_clean()
 
         self.kg_per_pack = (
@@ -1260,6 +1252,7 @@ class PackagedProduct(models.Model):
             f"{self.pack_size.label} "
             f"({self.form})"
         )
+
 
 class StockRequest(models.Model):
     DESTINATION_CHOICES = (

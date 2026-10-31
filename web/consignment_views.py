@@ -599,6 +599,73 @@ class ConsignmentBranchDetailView(RoleRequiredMixin, View):
         })
 
 
+
+class ConsignmentStockMovementsView(RoleRequiredMixin, View):
+    allowed_roles = READ_ROLES
+    template_name = 'consignments/consignment_stock_movements.html'
+
+    def get(self, request, pk, branch_pk):
+        branch = _branch(pk, branch_pk)
+
+        movements = (
+            BranchStockLedger.objects
+            .filter(branch=branch)
+            .select_related('product', 'created_by')
+            .order_by('-created_at')
+        )
+
+        return render(request, self.template_name, {
+            'company': branch.company,
+            'branch': branch,
+            'movements': movements,
+            'pending_audit': StockAudit.objects.filter(
+                branch=branch,
+                status='pending_approval'
+            ).first(),
+        })
+
+
+class ConsignmentBranchReleasesView(RoleRequiredMixin, View):
+    allowed_roles = READ_ROLES
+    template_name = 'consignments/consignment_branch_releases.html'
+
+    def get(self, request, pk, branch_pk):
+        branch = _branch(pk, branch_pk)
+
+        releases = list(
+            PackRelease.objects
+            .filter(branch=branch, purpose='display')
+            .select_related('product')
+            .prefetch_related('settlements', 'payments', 'returns')
+            .order_by('-released_at')
+        )
+
+        return render(request, self.template_name, {
+            'company': branch.company,
+            'branch': branch,
+            'releases': releases,
+            'pending_audit': StockAudit.objects.filter(
+                branch=branch,
+                status='pending_approval'
+            ).first(),
+            'billed': sum(
+                (release.gross_amount for release in releases),
+                Decimal('0.00')
+            ),
+            'paid': sum(
+                (release.total_amount_paid for release in releases),
+                Decimal('0.00')
+            ),
+            'outstanding': sum(
+                (release.outstanding_balance for release in releases),
+                Decimal('0.00')
+            ),
+            'can_edit': _has_role(request.user, FIELD_ROLES),
+            'can_manage': _has_role(request.user, MANAGER_ROLES),
+        })
+
+
+
 class ConsignmentDeliveryView(RoleRequiredMixin, View):
     allowed_roles = FIELD_ROLES
     template_name = "consignments/consignment_delivery.html"

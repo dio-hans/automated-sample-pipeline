@@ -1,0 +1,151 @@
+
+{% extends 'pipeline/base.html' %}
+{% load humanize %}
+
+{% block title %}Branch Deliveries | {{ branch.branch_name }}{% endblock %}
+{% block breadcrumb %}
+Sales / Consignments / {{ company.name }} / {{ branch.branch_name }} / Deliveries
+{% endblock %}
+{% block page_title %}Branch Deliveries{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-0.5 text-xs text-slate-500">
+    {{ company.name }} · {{ branch.branch_name }} · Delivery records and collection balances.
+</p>
+{% endblock %}
+
+{% block header_action %}
+<div class="flex flex-wrap items-center gap-1.5">
+    <a href="{% url 'consignment_delivery' company.pk branch.pk %}"
+       class="inline-flex h-8 items-center gap-1.5 rounded-md bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700">
+        <i class="fa-solid fa-truck text-[10px]"></i>
+        New delivery
+    </a>
+
+    <a href="{% url 'consignment_branch_detail' company.pk branch.pk %}"
+       class="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        <i class="fa-solid fa-arrow-left text-[10px]"></i>
+        Back to branch
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+
+    {% if pending_audit %}
+    <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        Audit #{{ pending_audit.pk }} is awaiting approval.
+        Deliveries and branch returns are paused.
+    </div>
+    {% endif %}
+
+    <section class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+        <div class="rounded-lg border border-line bg-white px-3 py-2.5">
+            <p class="text-[10px] uppercase tracking-wide text-slate-400">Approved billed · UGX</p>
+            <p class="mt-0.5 text-lg font-semibold">{{ billed|floatformat:0|intcomma }}</p>
+        </div>
+
+        <div class="rounded-lg border border-line bg-white px-3 py-2.5">
+            <p class="text-[10px] uppercase tracking-wide text-slate-400">Money collected · UGX</p>
+            <p class="mt-0.5 text-lg font-semibold text-emerald-700">{{ paid|floatformat:0|intcomma }}</p>
+        </div>
+
+        <div class="rounded-lg border border-line bg-white px-3 py-2.5">
+            <p class="text-[10px] uppercase tracking-wide text-slate-400">Outstanding · UGX</p>
+            <p class="mt-0.5 text-lg font-semibold text-rust">{{ outstanding|floatformat:0|intcomma }}</p>
+        </div>
+    </section>
+
+    <section class="rounded-lg border border-line bg-white shadow-sm overflow-hidden">
+        <div class="border-b border-line px-3 py-2.5">
+            <h2 class="text-sm font-semibold text-slate-800">
+                Branch deliveries & collection balances
+            </h2>
+            <p class="text-[11px] text-slate-400">
+                Physical quantities dispatched, audited billable quantities and payments received.
+            </p>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-xs">
+                <thead class="bg-slate-50/80 text-[10px] uppercase tracking-wide text-slate-500">
+                    <tr>
+                        <th class="px-3 py-2 text-left">Release</th>
+                        <th class="px-3 py-2 text-left">Product</th>
+                        <th class="px-3 py-2 text-right">Dispatched</th>
+                        <th class="px-3 py-2 text-right">Billable</th>
+                        <th class="px-3 py-2 text-right">Paid · UGX</th>
+                        <th class="px-3 py-2 text-right">Owed · UGX</th>
+                        <th class="px-3 py-2 text-right">Warehouse return</th>
+                    </tr>
+                </thead>
+
+                <tbody class="divide-y divide-slate-100">
+                    {% for release in releases %}
+                    <tr>
+                        <td class="px-3 py-2.5">
+                            <span class="font-medium">#{{ release.pk }}</span>
+                            <span class="ml-1 text-[10px] text-slate-400">
+                                {{ release.released_at|date:'d M Y' }}
+                            </span>
+                        </td>
+
+                        <td class="px-3 py-2.5">{{ release.product }}</td>
+                        <td class="px-3 py-2.5 text-right">{{ release.packs_out|intcomma }}</td>
+                        <td class="px-3 py-2.5 text-right font-medium">{{ release.billable_packs|intcomma }}</td>
+
+                        <td class="px-3 py-2.5 text-right text-emerald-700">
+                            {{ release.total_amount_paid|floatformat:0|intcomma }}
+                        </td>
+
+                        <td class="px-3 py-2.5 text-right font-semibold
+                            {% if release.outstanding_balance %}text-rust{% endif %}">
+                            {{ release.outstanding_balance|floatformat:0|intcomma }}
+                        </td>
+
+                        <td class="px-3 py-2 text-right">
+                            {% if can_manage and not pending_audit %}
+                            <form method="post"
+                                  action="{% url 'consignment_branch_return' company.pk branch.pk %}"
+                                  class="inline-flex items-center gap-1">
+                                {% csrf_token %}
+                                <input type="hidden" name="release_id" value="{{ release.pk }}">
+
+                                <select name="location"
+                                        class="h-7 rounded-md border border-line bg-white px-1.5 text-[10px]">
+                                    <option value="shelf">Shelf</option>
+                                    <option value="backroom">Backroom</option>
+                                </select>
+
+                                <input type="number" name="quantity" min="1"
+                                       placeholder="Qty"
+                                       class="h-7 w-14 rounded-md border border-line px-1.5 text-[10px]">
+
+                                <button class="h-7 rounded-md border border-line bg-slate-50 px-2 text-[10px] font-semibold hover:bg-slate-100">
+                                    Return
+                                </button>
+                            </form>
+                            {% else %}
+                            <span class="text-slate-300">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-3 py-7 text-center text-xs text-slate-400">
+                            No branch-linked display deliveries recorded.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="border-t border-line bg-slate-50/50 px-3 py-2 text-[10px] text-slate-400">
+            Only managers can approve sealed, unsold returns to central stock.
+            Damaged or missing stock belongs in audit shrinkage.
+        </div>
+    </section>
+</div>
+{% endblock %}
