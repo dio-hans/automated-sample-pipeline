@@ -10,6 +10,7 @@ exist yet auto-generates a new variety definition.
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from ..models import StockStage, StockMovement
 
 from django.db import transaction
 from django.utils import timezone

@@ -2048,6 +2048,31 @@ class PackRelease(models.Model):
         qty = self.billable_packs if self.purpose == 'display' else self.packs_out
         return Decimal(qty) * self.selling_price
 
+    @property
+    def total_discounts(self):
+        """Sum of all approved price reduction adjustments (Credit Notes)."""
+        return sum(
+            (adj.total_adjustment_amount for adj in self.price_adjustments.filter(adjustment_type="discount")),
+            Decimal("0.00")
+        )
+
+    @property
+    def total_price_increases(self):
+        """Sum of all approved price increase adjustments (Debit Notes)."""
+        return sum(
+            (adj.total_adjustment_amount for adj in self.price_adjustments.filter(adjustment_type="increase")),
+            Decimal("0.00")
+        )
+
+    @property
+    def net_amount_due(self):
+        """
+        Calculates net invoice value after accounting for approved return credits,
+        discounts (credit notes), and price increases (debit notes).
+        """
+        adjusted_gross = self.gross_amount - self.total_discounts + self.total_price_increases
+        return max(adjusted_gross - self.return_credit, Decimal("0.00"))
+
 class PaymentReceipt(models.Model):
 
     release = models.ForeignKey(
@@ -2117,6 +2142,129 @@ class PaymentReceipt(models.Model):
             f"{self.amount} — "
             f"{self.get_payment_method_display()}"
         )
+
+
+class PriceAdjustmentType(models.TextChoices):
+    DISCOUNT = "discount", "Discount / Credit Note (Reduce Amount Owed)"
+    INCREASE = "increase", "Price Increase / Debit Note (Increase Amount Owed)"
+
+class PriceAdjustmentReason(models.TextChoices):
+    PROMOTIONAL = "promotional", "Promotional selling price"
+    MANAGEMENT_DISCOUNT = "management_discount", "Management-approved discount"
+    NEGOTIATED = "negotiated", "Negotiated customer price"
+    MARKET_ADJUSTMENT = "market_adjustment", "Market price adjustment"
+    SPECIAL_ARRANGEMENT = "special_arrangement", "Special customer arrangement"
+    INCORRECT_PRICING = "incorrect_pricing", "Incorrect original pricing"
+    OTHER = "other", "Other (requires explanation)"
+
+class ReleasePriceAdjustment(models.Model):
+    """
+    Records authorized price adjustments (Credit Notes for discounts or Debit Notes 
+    for price increases) on open releases or bulk sales.
+    """
+    release = models.ForeignKey(
+        'PackRelease',
+        on_delete=models.PROTECT,
+        related_name="price_adjustments",
+        null=True,
+        blank=True,
+    )
+    bulk_sale = models.ForeignKey(
+        'CoffeeBatchSale',
+        on_delete=models.PROTECT,
+        related_name="price_adjustments",
+        null=True,
+        blank=True,
+    )
+    
+    adjustment_type = models.CharField(
+        max_length=20,
+        choices=PriceAdjustmentType.choices,
+    )
+    
+    # Quantity of units/packs/kg this adjustment applies to
+    quantity_affected = models.PositiveIntegerField(
+        help_text="Number of units/packs/kg affected by this price adjustment."
+    )
+    
+    # Unit price difference (absolute value per unit)
+    unit_adjustment_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Price change per unit (packs or kg)."
+    )
+    
+    # Total adjustment amount = quantity_affected * unit_adjustment_amount
+    total_adjustment_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+    )
+    
+    reason = models.CharField(
+        max_length=50,
+        choices=PriceAdjustmentReason.choices,
+    )
+    
+    explanation = models.TextField(
+        blank=True,
+        default="",
+        help_text="Mandatory custom explanation if 'Other' is selected or for audit detail."
+    )
+    
+    # Mandatory supporting evidence file attachment
+    evidence_document = models.FileField(
+        upload_to="price_adjustments/evidence/",
+        help_text="Mandatory supporting authorization document or evidence."
+    )
+    
+    authorized_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="authorized_price_adjustments",
+    )
+    
+    authorized_at = models.DateTimeField(
+        auto_now_add=True,
+        editable=False,
+    )
+    
+    notes = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["-authorized_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(release__isnull=False, bulk_sale__isnull=True)
+                    | models.Q(release__isnull=True, bulk_sale__isnull=False)
+                ),
+                name="adjustment_exactly_one_sale_target",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(quantity_affected__gt=0),
+                name="adjustment_quantity_gt_zero",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(unit_adjustment_amount__gt=Decimal("0.00")),
+                name="adjustment_unit_amount_gt_zero",
+            ),
+        ]
+
+    def __str__(self):
+        target = self.release or self.bulk_sale
+        return (
+            f"{self.get_adjustment_type_display()} — "
+            f"UGX {self.total_adjustment_amount:,.0f} on {target}"
+        )
+
+    def save(self, *args, **kwargs):
+        # Enforce immutability once created
+        if self.pk:
+            raise ValidationError("Approved price adjustments are immutable and cannot be modified.")
+        
+        # Automatically compute total adjustment amount
+        self.total_adjustment_amount = Decimal(self.quantity_affected) * self.unit_adjustment_amount
+        super().save(*args, **kwargs)
     # 8. PACK RETURN  (salesperson â†’ store)
 from django.conf import settings
 from django.db import models
@@ -2353,6 +2501,24 @@ class CoffeeBatchSale(models.Model):
     def outstanding_balance(self):
         return max(self.total_amount_due - self.total_amount_paid, Decimal("0.00"))
 
+    @property
+    def total_discounts(self):
+        return sum(
+            (adj.total_adjustment_amount for adj in self.price_adjustments.filter(adjustment_type="discount")),
+            Decimal("0.00")
+        )
+
+    @property
+    def total_price_increases(self):
+        return sum(
+            (adj.total_adjustment_amount for adj in self.price_adjustments.filter(adjustment_type="increase")),
+            Decimal("0.00")
+        )
+
+    @property
+    def total_amount_due(self):
+        base_due = self.kg_sold * self.price_per_kg
+        return max(base_due - self.total_discounts + self.total_price_increases, Decimal("0.00"))
 
 class PackSettlement(models.Model):
 

@@ -2048,6 +2048,7 @@ class CashLedgerListView(RoleRequiredMixin, ListView):
     Managers and Admins retain oversight.
     """
 
+
     model = PackRelease
     template_name = "pipeline/credit_control_ledger.html"
     context_object_name = "releases"

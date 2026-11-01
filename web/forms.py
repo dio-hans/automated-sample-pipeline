@@ -835,6 +835,44 @@ class PackReleaseForm(forms.ModelForm):
 
         return price
 
+from django import forms
+from .models import ReleasePriceAdjustment, PriceAdjustmentType, PriceAdjustmentReason
+
+class ReleasePriceAdjustmentForm(forms.ModelForm):
+    class Meta:
+        model = ReleasePriceAdjustment
+        fields = [
+            "adjustment_type",
+            "quantity_affected",
+            "unit_adjustment_amount",
+            "reason",
+            "explanation",
+            "evidence_document",
+            "notes",
+        ]
+        widgets = {
+            "adjustment_type": forms.Select(attrs={"class": "form-control"}),
+            "quantity_affected": forms.NumberInput(attrs={"class": "form-control", "min": "1"}),
+            "unit_adjustment_amount": forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "min": "0.01"}),
+            "reason": forms.Select(attrs={"class": "form-control"}),
+            "explanation": forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Required if 'Other' reason is selected..."}),
+            "evidence_document": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        reason = cleaned_data.get("reason")
+        explanation = cleaned_data.get("explanation", "").strip()
+        evidence = cleaned_data.get("evidence_document")
+
+        if reason == "other" and not explanation:
+            self.add_error("explanation", "A custom explanation is required when 'Other' reason is selected.")
+        
+        if not evidence:
+            self.add_error("evidence_document", "Mandatory supporting authorization evidence is required.")
+
+        return cleaned_data
 # expenses form
 from django import forms
 from django.core.exceptions import ValidationError
@@ -967,3 +1005,43 @@ class BaseInternalIssueItemForm(forms.Form):
     unit_cost = forms.DecimalField(
         max_digits=12, decimal_places=2, min_value=0, required=False
     )
+
+
+from django import forms
+from .models import ReleasePriceAdjustment, PriceAdjustmentType, PriceAdjustmentReason
+
+class ReleasePriceAdjustmentForm(forms.ModelForm):
+    class Meta:
+        model = ReleasePriceAdjustment
+        fields = [
+            "adjustment_type",
+            "quantity_affected",
+            "unit_adjustment_amount",
+            "reason",
+            "explanation",
+            "evidence_document",
+            "notes",
+        ]
+        widgets = {
+            "adjustment_type": forms.Select(attrs={"class": "form-control"}),
+            "quantity_affected": forms.NumberInput(attrs={"class": "form-control", "min": "1"}),
+            "unit_adjustment_amount": forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "min": "0.01"}),
+            "reason": forms.Select(attrs={"class": "form-control"}),
+            "explanation": forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Required if 'Other' reason is selected..."}),
+            "evidence_document": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        reason = cleaned_data.get("reason")
+        explanation = cleaned_data.get("explanation", "").strip()
+        evidence = cleaned_data.get("evidence_document")
+
+        if reason == "other" and not explanation:
+            self.add_error("explanation", "A custom explanation is required when 'Other' reason is selected.")
+        
+        if not evidence:
+            self.add_error("evidence_document", "Mandatory supporting authorization evidence is required.")
+
+        return cleaned_data

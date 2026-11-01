@@ -1,0 +1,132 @@
+{% extends "pipeline/base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Authorize Price Adjustment | Nonda{% endblock %}
+
+{% block breadcrumb %}Financials / Unified Credit Ledger / Adjust Price{% endblock %}
+
+{% block page_title %}Authorize Price Adjustment{% endblock %}
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Issue an authorized Credit Note (Discount) or Debit Note (Price Increase) for Release #{{ release.pk }}.
+</p>
+{% endblock %}
+
+{% block content %}
+<div class="w-full flex items-start justify-center pt-2 pb-8">
+    <div class="w-full max-w-2xl bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-6">
+        
+        <!-- RELEASE SUMMARY CARD -->
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+            <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Target Release Summary
+            </h2>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
+                <div>
+                    <span class="block text-[10px] font-bold uppercase text-slate-400">Product</span>
+                    <strong class="text-slate-800 font-semibold">
+                        {% if release.product.blend %}{{ release.product.blend.name }}{% else %}{{ release.product }}{% endif %}
+                        {% if release.product.pack_size %}({{ release.product.pack_size.label }}){% endif %}
+                    </strong>
+                </div>
+                <div>
+                    <span class="block text-[10px] font-bold uppercase text-slate-400">Customer / Agent</span>
+                    <strong class="text-slate-800 font-semibold">
+                        {% if release.released_to %}{{ release.released_to.name }}{% elif release.company %}{{ release.company.name }}{% else %}Unassigned{% endif %}
+                    </strong>
+                </div>
+                <div>
+                    <span class="block text-[10px] font-bold uppercase text-slate-400">Original Unit Price</span>
+                    <strong class="text-slate-800 font-semibold">UGX {{ release.selling_price|floatformat:0|intcomma }}</strong>
+                </div>
+                <div>
+                    <span class="block text-[10px] font-bold uppercase text-slate-400">Packs Out</span>
+                    <strong class="text-slate-800 font-semibold">{{ release.packs_out }} Packs</strong>
+                </div>
+                <div>
+                    <span class="block text-[10px] font-bold uppercase text-slate-400">Current Outstanding</span>
+                    <strong class="text-rose-600 font-bold">UGX {{ release.outstanding_balance|floatformat:0|intcomma }}</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- FORM ENTRY -->
+        <form method="post" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+                <div class="rounded-lg bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {% for field in form %}
+                    <div class="{% if field.name == 'explanation' or field.name == 'notes' or field.name == 'evidence_document' %}sm:col-span-2{% endif %}">
+                        <label for="{{ field.id_for_label }}" class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                            {{ field.label }} {% if field.field.required %}<span class="text-rose-500">*</span>{% endif %}
+                        </label>
+                        
+                        <div class="block-form-input">
+                            {{ field }}
+                        </div>
+                        
+                        {% if field.help_text %}
+                            <p class="mt-1 text-[10px] text-slate-400">{{ field.help_text }}</p>
+                        {% endif %}
+                        
+                        {% if field.errors %}
+                            <div class="mt-1 text-[11px] text-rose-600 font-medium">{{ field.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+            
+            <!-- ACTIONS -->
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <a 
+                    href="{% url 'credit_control_ledger' %}" 
+                    class="px-4 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                    Cancel
+                </a>
+                <button 
+                    type="submit" 
+                    class="px-5 py-2 rounded-lg bg-emerald-700 text-white text-xs font-bold hover:bg-emerald-800 transition-colors shadow-sm"
+                >
+                    Authorize & Save Adjustment
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Styling helper for uniform form inputs -->
+<style>
+    .block-form-input input, .block-form-input select {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #CBD5E1;
+        border-radius: 0.5rem;
+        font-size: 0.75rem;
+        background-color: #FFFFFF;
+        outline: none;
+        transition: ring 0.2s, border-color 0.2s;
+    }
+    .block-form-input textarea {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #CBD5E1;
+        border-radius: 0.5rem;
+        font-size: 0.75rem;
+        background-color: #FFFFFF;
+        outline: none;
+        resize: vertical;
+    }
+    .block-form-input input:focus, .block-form-input select:focus, .block-form-input textarea:focus {
+        border-color: #047857;
+        ring: 2px solid #047857;
+    }
+</style>
+{% endblock %}

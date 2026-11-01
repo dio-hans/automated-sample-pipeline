@@ -1859,3 +1859,82 @@ class ConsignmentAuditListView(RoleRequiredMixin, View):
                 "pending_count": pending_count,
             },
         )
+
+
+
+    # price adjustments;
+from django.shortcuts import get_object_or_404, redirect, render
+from django.contrib import messages
+from django.utils.decorators import method_decorator
+from django.contrib.auth.decorators import login_required
+from django.views import View
+from django.core.exceptions import ValidationError
+
+from .models import PackRelease, User
+from .forms import ReleasePriceAdjustmentForm
+from .sales_workflow import create_price_adjustment
+
+@method_decorator(login_required, name="dispatch")
+class ReleasePriceAdjustmentCreateView(View):
+    """
+    Allows ADMIN or ACCOUNTS roles to authorize price adjustments (credit/debit notes)
+    on open packaged product releases during settlement reconciliation.
+    """ 
+    template_name = "pipeline/release_price_adjustment_form.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        user = request.user
+        if not user.is_superuser and getattr(user, "role", None) not in (User.Role.ADMIN, User.Role.ACCOUNTS):
+            messages.error(request, "You do not have permission to authorize price adjustments.")
+            return redirect("dashboard")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_release(self, pk):
+        return get_object_or_404(
+            PackRelease.objects.select_related(
+                "product__blend",
+                "product__pack_size",
+                "released_to",
+                "company",
+                "branch",
+            ).prefetch_related("price_adjustments", "returns", "payments"),
+            pk=pk,
+        )
+
+    def get(self, request, pk):
+        release = self.get_release(pk)
+        if release.status == "settled" or release.outstanding_balance <= Decimal("0.00"):
+            messages.info(request, "This release is fully settled and cannot be adjusted.")
+            return redirect("pack_release_detail", pk=release.pk)
+
+        form = ReleasePriceAdjustmentForm(initial={"quantity_affected": release.packs_outstanding})
+        return render(request, self.template_name, {"release": release, "form": form})
+
+    def post(self, request, pk):
+        release = self.get_release(pk)
+        form = ReleasePriceAdjustmentForm(request.POST, request.FILES)
+
+        if form.is_valid():
+            try:
+                adjustment = create_price_adjustment(
+                    release=release,
+                    adjustment_type=form.cleaned_data["adjustment_type"],
+                    quantity_affected=form.cleaned_data["quantity_affected"],
+                    unit_adjustment_amount=form.cleaned_data["unit_adjustment_amount"],
+                    reason=form.cleaned_data["reason"],
+                    explanation=form.cleaned_data.get("explanation", ""),
+                    evidence_document=form.cleaned_data.get("evidence_document"),
+                    user=request.user,
+                    notes=form.cleaned_data.get("notes", ""),
+                )
+                messages.success(
+                    request,
+                    f"Successfully authorized {adjustment.get_adjustment_type_display()} "
+                    f"of UGX {adjustment.total_adjustment_amount:,.0f} for release #{release.pk}."
+                )
+                return redirect("pack_release_detail", pk=release.pk)
+            except ValidationError as exc:
+                error_msg = "; ".join(exc.messages) if hasattr(exc, "messages") else str(exc)
+                form.add_error(None, error_msg)
+
+        return render(request, self.template_name, {"release": release, "form": form})

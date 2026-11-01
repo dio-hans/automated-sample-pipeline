@@ -1,148 +1,135 @@
 {% extends "pipeline/base.html" %}
-{% load static humanize %}
+{% load static %}
+{% load humanize %}
 
-{% block title %}Record Payment | Nonda{% endblock %}
-{% block breadcrumb %}Accounts / Receive Payment{% endblock %}
-{% block page_title %}Record Cashier Collection{% endblock %}
-{% block page_subtitle %}
-<p class="mt-0.5 text-xs text-slate-500">
-    Record a partial or full payment installment received against this active distribution account.
-</p>
-{% endblock %}
+{% block title %}Authorize Price Adjustment | Nonda{% endblock %}
 
-{% block header_action %}
-<a href="{% url 'credit_control_ledger' %}"
-   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 transition shadow-sm">
-    View Credit Ledger
-</a>
-{% endblock %}
+{% block breadcrumb %}Financials / Unified Credit Ledger / Adjust Price{% endblock %}
 
 {% block content %}
-<div class="max-w-lg mx-auto">
-    <div class="bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-200 text-left flex flex-col">
+<div class="w-full flex items-start justify-center pt-4 pb-12 px-4">
+    <div class="w-full max-w-3xl bg-white border border-[#E4DECB] rounded-2xl shadow-sm p-6 space-y-5">
         
-        <!-- Dark Header Bar -->
-        <div class="bg-slate-950 text-white px-4 py-2.5 flex items-center justify-between border-b border-slate-800 shrink-0">
-            <div>
-                <span class="text-[9px] font-mono tracking-wider text-emerald-400 font-bold uppercase block">
-                    RELEASE #{{ release.pk }}
-                </span>
-                <h3 class="text-xs font-bold text-white">Record Order Settlement</h3>
-            </div>
+        <!-- HEADER TITLE & SUBTITLE -->
+        <div>
+            <h1 class="text-lg font-bold text-stone-900">Authorize Price Adjustment</h1>
+            <p class="text-xs text-stone-500 mt-0.5">
+                Issue an authorized Credit Note (Discount) or Debit Note (Price Increase) for Release #{{ release.pk }}.
+            </p>
         </div>
 
-        <!-- Body Container -->
-        <div class="p-4 space-y-3">
-            
-            <!-- Customer & Financial Summary -->
-            <div class="bg-slate-50 border border-slate-200/80 rounded-lg p-2.5 grid grid-cols-2 gap-2 text-xs">
+        <!-- TARGET RELEASE SUMMARY CARD -->
+        <div class="bg-stone-50/60 border border-[#E4DECB] rounded-xl p-4">
+            <h2 class="text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-2.5">
+                Target Release Summary
+            </h2>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
                 <div>
-                    <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Account Holder</span>
-                    <p class="text-xs font-bold text-slate-800 truncate">
-                        {{ release.released_to.name|default:"Unassigned Account" }}
-                    </p>
+                    <span class="block text-[10px] font-bold uppercase tracking-wider text-stone-500">Product</span>
+                    <strong class="text-stone-900 font-semibold block leading-tight">
+                        {% if release.product.blend %}{{ release.product.blend.name }}{% else %}{{ release.product }}{% endif %}
+                        {% if release.product.pack_size %}({{ release.product.pack_size.label }}){% endif %}
+                    </strong>
                 </div>
-                <div class="text-right">
-                    <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Outstanding Balance</span>
-                    <p class="text-sm font-black text-rose-600 font-mono">UGX {{ release.outstanding_balance|intcomma|default:"0" }}</p>
+                <div>
+                    <span class="block text-[10px] font-bold uppercase tracking-wider text-stone-500">Customer / Agent</span>
+                    <strong class="text-stone-900 font-semibold block leading-tight">
+                        {% if release.released_to %}{{ release.released_to.name }}{% elif release.company %}{{ release.company.name }}{% else %}Unassigned{% endif %}
+                    </strong>
                 </div>
-            </div>
-
-            <!-- Allocated Products Payload -->
-            <div class="space-y-1.5">
-                <div class="flex items-center justify-between border-b border-slate-100 pb-1">
-                    <h4 class="text-[9px] uppercase tracking-wider font-bold text-slate-500">
-                        Allocated Products Payload
-                    </h4>
-                    <span class="text-[9px] text-slate-400 font-mono">1 item</span>
+                <div>
+                    <span class="block text-[10px] font-bold uppercase tracking-wider text-stone-500">Original Unit Price</span>
+                    <strong class="text-stone-900 font-semibold block leading-tight">UGX {{ release.selling_price|floatformat:0|intcomma }}</strong>
                 </div>
-                
-                <div class="space-y-1">
-                    <div class="bg-slate-50 border border-slate-200/60 rounded-md px-2.5 py-1.5 flex justify-between items-center text-xs">
-                        <div class="flex items-center gap-2 truncate">
-                            <div class="truncate">
-                                <p class="font-bold text-slate-800 leading-tight truncate">
-                                    {% if release.product.blend %}{{ release.product.blend.name }}{% else %}{{ release.product }}{% endif %}
-                                </p>
-                                <p class="text-[9px] text-slate-500 leading-tight">
-                                    {% if release.product.pack_size %}{{ release.product.pack_size.label }}{% endif %}
-                                    {% if release.product.get_form_display %} · {{ release.product.get_form_display }}{% endif %}
-                                </p>
-                            </div>
-                        </div>
-                        <div class="text-right shrink-0">
-                            <p class="font-mono font-bold text-slate-700 text-xs">{{ release.packs_out }} pk</p>
-                            <p class="text-[9px] font-mono text-slate-400">Bal: {{ release.outstanding_balance|intcomma|default:"0" }}</p>
-                        </div>
-                    </div>
+                <div>
+                    <span class="block text-[10px] font-bold uppercase tracking-wider text-stone-500">Packs Out</span>
+                    <strong class="text-stone-900 font-semibold block leading-tight">{{ release.packs_out }} Packs</strong>
+                </div>
+                <div>
+                    <span class="block text-[10px] font-bold uppercase tracking-wider text-stone-500">Current Outstanding</span>
+                    <strong class="text-rose-600 font-bold block leading-tight">UGX {{ release.outstanding_balance|floatformat:0|intcomma }}</strong>
                 </div>
             </div>
-
-            <!-- Exact Payment Form Structure -->
-            <form id="form_settlement_{{ release.pk }}" method="post" class="space-y-2 border-t border-slate-100 pt-2.5">
-      
-                {% csrf_token %}
-                
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
-                            Amount Received (UGX)
-                        </label>
-                        <input type="number" 
-                               name="amount" 
-                               step="1" 
-                               max="{{ release.outstanding_balance }}"
-                               value="{{ release.outstanding_balance }}" 
-                               required
-                               class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1.5 text-xs font-mono font-bold text-slate-900">
-                    </div>
-                    <div>
-                        <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
-                            Payment Method
-                        </label>
-                        <select name="payment_method" required class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1.5 text-xs font-semibold text-slate-800">
-                            <option value="cash" selected>Cash Payment</option>
-                            <option value="mobile_money">Mobile Money (MoMo)</option>
-                            <option value="bank_transfer">Bank Wire Transfer</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
-                            Reference Hash / ID
-                        </label>
-                        <input type="text" 
-                               name="payment_reference" 
-                               placeholder="e.g. MM Txn ID"
-                               class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1 text-xs text-slate-800">
-                    </div>
-                    <div>
-                        <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
-                            Audit Comments
-                        </label>
-                        <input type="text"
-                               name="notes" 
-                               placeholder="Optional comments..."
-                               class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1 text-xs text-slate-800">
-                    </div>
-                </div>
-            </form>
-
         </div>
 
-        <!-- Modal Footer Actions Bar -->
-        <div class="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
-            <a href="{% url 'credit_control_ledger' %}" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md text-[11px] font-bold transition-all cursor-pointer">
-                Cancel
-            </a>
-            <button type="submit" form="form_settlement_{{ release.pk }}" class="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-md text-[11px] font-bold transition-all shadow-xs cursor-pointer">
-                Post & Clear Payment
-            </button>
-        </div>
-
+        <!-- FORM ENTRY SECTION -->
+        <form method="post" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+                <div class="rounded-lg bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {% for field in form %}
+                    <div class="{% if field.name == 'explanation' or field.name == 'notes' or field.name == 'evidence_document' %}sm:col-span-2{% endif %}">
+                        <label for="{{ field.id_for_label }}" class="block text-[10px] font-bold uppercase tracking-wider text-stone-500 mb-1">
+                            {{ field.label }} {% if field.field.required %}<span class="text-rose-500">*</span>{% endif %}
+                        </label>
+                        
+                        <div class="block-form-input">
+                            {{ field }}
+                        </div>
+                        
+                        {% if field.help_text %}
+                            <p class="mt-1 text-[10px] text-stone-400">{{ field.help_text }}</p>
+                        {% endif %}
+                        
+                        {% if field.errors %}
+                            <div class="mt-1 text-[11px] text-rose-600 font-medium">{{ field.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+            
+            <!-- ACTION BUTTONS FOOTER -->
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-stone-100">
+                <a 
+                    href="{% url 'credit_control_ledger' %}" 
+                    class="px-4 py-2 rounded-lg border border-stone-200 text-xs font-semibold text-stone-600 hover:bg-stone-50 transition-colors"
+                >
+                    Cancel
+                </a>
+                <button 
+                    type="submit" 
+                    class="px-5 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors shadow-sm cursor-pointer"
+                >
+                    Authorize & Save Adjustment
+                </button>
+            </div>
+        </form>
     </div>
 </div>
+
+<!-- Input controls configuration setup matching Nonda design system -->
+<style>
+    .block-form-input input, .block-form-input select {
+        width: 100%;
+        padding: 0.5rem 0.75rem !important;
+        border: 1px solid #E5E7EB !important;
+        border-radius: 0.5rem !important;
+        font-size: 0.75rem !important;
+        background-color: #FFFFFF;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+    
+    .block-form-input textarea {
+        width: 100%;
+        padding: 0.5rem 0.75rem !important;
+        border: 1px solid #E5E7EB !important;
+        border-radius: 0.5rem !important;
+        font-size: 0.75rem !important;
+        background-color: #FFFFFF;
+        outline: none;
+        resize: vertical !important;
+    }
+
+    .block-form-input input:focus, .block-form-input select:focus, .block-form-input textarea:focus {
+        border-color: #00674F !important;
+        box-shadow: 0 0 0 1px #00674F;
+    }
+</style>
 {% endblock %}

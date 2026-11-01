@@ -458,6 +458,12 @@ def fulfill_request_item(
     # All new deliveries arrive into BACKROOM first.
     # ---------------------------------------------------------
 
+    
+    # ---------------------------------------------------------
+    # CONSIGNMENT BRANCH STOCK
+    # All new deliveries arrive onto SHELVES first.
+    # ---------------------------------------------------------
+
     if request.purpose == "display":
 
         branch_inventory, _ = (
@@ -473,23 +479,22 @@ def fulfill_request_item(
             )
         )
 
-        branch_inventory.current_backroom_quantity += quantity
+        branch_inventory.current_shelf_quantity += quantity
 
         branch_inventory.save(
-            update_fields=[
-                "current_backroom_quantity",
-            ]
+            update_fields=["current_shelf_quantity"]
         )
 
         BranchStockLedger.objects.create(
             branch=request.branch,
             product=product,
-            stock_location="backroom",
+            stock_location="shelf",
             transaction_type="delivery",
             quantity=quantity,
             release=release,
             created_by=manager,
         )
+
 
 
     # ---------------------------------------------------------
@@ -847,3 +852,69 @@ def process_supermarket_audit(*, company, user, audit_items_data, notes=""):
         "Company-level audit is retired. Open the supermarket's branch and submit "
         "a branch audit. Only manager approval may create an invoice."
     )
+
+
+@transaction.atomic
+def create_price_adjustment(
+    *,
+    release,
+    adjustment_type,
+    quantity_affected,
+    unit_adjustment_amount,
+    reason,
+    explanation="",
+    evidence_document=None,
+    user,
+    notes="",
+):
+    """
+    Creates an authorized price adjustment (Discount or Price Increase) for an open release.
+    Strictly restricted to ADMIN and ACCOUNTS roles.
+    """
+    # 1. Role Authorization Check
+    user_role = getattr(user, "role", None)
+    if not user.is_superuser and user_role not in (User.Role.ADMIN, User.Role.ACCOUNTS):
+        raise ValidationError("Only ADMIN or ACCOUNTS roles may authorize price adjustments.")
+
+    # 2. Lock Release Row
+    release = (
+        PackRelease.objects
+        .select_for_update()
+        .prefetch_related("price_adjustments", "returns", "settlements", "payments")
+        .get(pk=release.pk)
+    )
+
+    if release.status == "settled" or release.outstanding_balance <= Decimal("0.00"):
+        raise ValidationError("Cannot adjust prices on a fully settled or closed release.")
+
+    quantity = _positive_int(quantity_affected, "Affected quantity")
+    unit_amount = _money(unit_adjustment_amount, "Unit adjustment amount")
+
+    if adjustment_type not in dict(PriceAdjustmentType.choices):
+        raise ValidationError("Select a valid price adjustment type.")
+
+    if reason not in dict(PriceAdjustmentReason.choices):
+        raise ValidationError("Select a valid adjustment reason.")
+
+    # 3. Validate Quantity Boundaries (Cannot exceed total active/unsettled packs)
+    max_allowable_quantity = release.packs_out - release.packs_returned
+    if quantity > max_allowable_quantity:
+        raise ValidationError(
+            f"Affected quantity ({quantity}) cannot exceed the active unreturned "
+            f"packs ({max_allowable_quantity}) on this release."
+        )
+
+    # 4. Create Immutable Adjustment Record
+    adjustment = ReleasePriceAdjustment.objects.create(
+        release=release,
+        adjustment_type=adjustment_type,
+        quantity_affected=quantity,
+        unit_adjustment_amount=unit_amount,
+        reason=reason,
+        explanation=explanation.strip(),
+        evidence_document=evidence_document,
+        authorized_by=user,
+        notes=notes.strip(),
+    )
+
+    return adjustment

@@ -3,6 +3,7 @@ from .views import ManagementReportsView
 from django.urls import path
 from . import sales_views, views, sales_workflow
 from django.urls import path
+from .sales_views import ReleasePriceAdjustmentCreateView
 
 urlpatterns = [
 # companies
@@ -333,6 +334,13 @@ path(
     'sales/consignments/<int:pk>/branches/<int:branch_pk>/releases/',
     consignment_views.ConsignmentBranchReleasesView.as_view(),
     name='consignment_branch_releases',
+),
+
+# price changes, discounts and credited prices;
+path(
+    "releases/<int:pk>/adjust-price/",
+    ReleasePriceAdjustmentCreateView.as_view(),
+    name="release_price_adjustment",
 ),
 
 
