@@ -2240,7 +2240,7 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
             .order_by("-released_at")
         )
 
-        # 🎯 Default to "all" credit categories unless chosen otherwise
+        # Choose which credit category to display (defaults to "all")
         self._release_filter = self.request.GET.get(
             "release_type",
             "all",
@@ -2264,17 +2264,23 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
         self._start = start
         self._end = end
         
-        # 🎯 Default to "all" (overall view scope) unless chosen otherwise
         self._view_scope = self.request.GET.get("scope", "all")
 
         # Separate consignment releases from regular releases.
         if self._release_filter == "consignments":
-            qs = qs.filter(purpose="display")
+            # For consignments, ONLY show records where stock has actually been billed (billable_packs > 0)
+            qs = qs.filter(purpose="display", billable_packs__gt=0)
 
         elif self._release_filter == "regular":
             qs = qs.exclude(purpose="display")
 
-        # Only filter out zero-balances if explicitly set to "active"
+        elif self._release_filter == "all":
+            # 🎯 FIX: For "All Credit", exclude display releases that haven't been audited/billed yet
+            qs = qs.exclude(
+                Q(purpose="display") & Q(billable_packs=0)
+            )
+
+        # Only filter out fully settled balances if explicitly requested as "active"
         if self._view_scope == "active":
             return [
                 release
