@@ -2275,24 +2275,32 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
             qs = qs.exclude(purpose="display")
 
         elif self._release_filter == "all":
-            # 🎯 FIX: For "All Credit", exclude display releases that haven't been audited/billed yet
+            # Exclude display releases that haven't been audited/billed yet
             qs = qs.exclude(
                 Q(purpose="display") & Q(billable_packs=0)
             )
 
-        # Only filter out fully settled balances if explicitly requested as "active"
-        if self._view_scope == "active":
-            return [
-                release
-                for release in qs
-                if getattr(
-                    release,
-                    "outstanding_balance",
-                    Decimal("0.00"),
-                ) > Decimal("0.00")
-            ]
+        # Evaluate queryset to list so we can apply a foolproof clean-up filter
+        releases = list(qs)
+        filtered_releases = []
 
-        return qs
+        for release in releases:
+            billable = getattr(release, "billable_packs", 0) or 0
+            gross = getattr(release, "gross_amount", Decimal("0.00")) or Decimal("0.00")
+            outstanding = getattr(release, "outstanding_balance", Decimal("0.00")) or Decimal("0.00")
+            is_display = getattr(release, "purpose", "") == "display"
+
+            # If it's an unbilled display/consignment with zero packs and zero value, skip it
+            if is_display and billable == 0 and gross == Decimal("0.00") and outstanding == Decimal("0.00"):
+                continue
+
+            # If scope is active, also filter out fully settled balances
+            if self._view_scope == "active" and outstanding <= Decimal("0.00"):
+                continue
+
+            filtered_releases.append(release)
+
+        return filtered_releases
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
