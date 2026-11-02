@@ -1920,7 +1920,7 @@ class ReleasePriceAdjustmentCreateView(View):
                     release=release,
                     adjustment_type=form.cleaned_data["adjustment_type"],
                     quantity_affected=form.cleaned_data["quantity_affected"],
-                    unit_adjustment_amount=form.cleaned_data["unit_adjustment_amount"],
+                    target_total_amount=form.cleaned_data["target_total_amount"],  # Passed directly
                     reason=form.cleaned_data["reason"],
                     explanation=form.cleaned_data.get("explanation", ""),
                     evidence_document=form.cleaned_data.get("evidence_document"),
@@ -1929,8 +1929,7 @@ class ReleasePriceAdjustmentCreateView(View):
                 )
                 messages.success(
                     request,
-                    f"Successfully authorized {adjustment.get_adjustment_type_display()} "
-                    f"of UGX {adjustment.total_adjustment_amount:,.0f} for release #{release.pk}."
+                    f"Successfully applied discount. New final total is UGX {form.cleaned_data['target_total_amount']:,.0f}."
                 )
                 return redirect("pack_release_detail", pk=release.pk)
             except ValidationError as exc:

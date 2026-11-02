@@ -5,273 +5,168 @@
 
 {% block breadcrumb %}Account Holders / {{ account.name }}{% endblock %}
 
-{% block page_subtitle %}
-<p class="mt-1 text-xs text-slate-500">
-    Type: <span class="font-bold text-slate-700">{{ account.get_account_type_display|default:account.account_type|title }}</span>
-    {% if account.phone_number %} · Contact: {{ account.phone_number }}{% endif %}
-</p>
-{% endblock %}
-
-{% block header_action %}
-    {% if can_collect_payment %}
-        {% if total_outstanding > 0 %}
-            <button
-                type="button"
-                onclick="openPaymentModal()"
-                class="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-md text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
-            >
-                Record Payment
-            </button>
-        {% else %}
-            <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Fully Cleared
-            </span>
-        {% endif %}
-    {% endif %}
-{% endblock %}
 
 {% block content %}
-<div class="space-y-4">
-    
-    <!-- =========================================================
-         1. SUMMARY CARDS
-         ========================================================= -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div class="bg-white border border-[#E4DECB] rounded-xl p-3.5 shadow-sm">
-            <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Total Value Released</p>
-            <p class="font-bold text-xl mt-1 text-slate-800">{{ total_value|floatformat:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">UGX</span></p>
-            <p class="text-[11px] text-slate-400 mt-0.5">Lifetime inventory assigned to account</p>
-        </div>
-        <div class="bg-white border border-[#E4DECB] rounded-xl p-3.5 shadow-sm">
-            <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Amount Paid So Far</p>
-            <p class="font-bold text-xl mt-1 text-emerald-600">{{ total_paid|floatformat:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">UGX</span></p>
-            <p class="text-[11px] text-slate-400 mt-0.5">Total cleared collections logged</p>
-        </div>
-        <div class="bg-white border border-[#E4DECB] rounded-xl p-3.5 shadow-sm">
-            <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Current Outstanding Balance</p>
-            <p class="font-bold text-xl mt-1 text-rose-600">{{ total_outstanding|floatformat:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">UGX</span></p>
-            <p class="text-[11px] text-slate-400 mt-0.5">Pending debt balance owed</p>
-        </div>
+
+<!-- =========================================================
+     1. SUMMARY CARDS
+     ========================================================= -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <div class="bg-white border border-[#E4DECB] rounded-xl p-3.5 shadow-sm">
+        <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Total Value Released</p>
+        <p class="font-bold text-xl mt-1 text-slate-800">{{ total_value|floatformat:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">UGX</span></p>
+        <p class="text-[11px] text-slate-400 mt-0.5">Lifetime inventory assigned to account</p>
     </div>
-
-    <!-- =========================================================
-         2. RELEASES LEDGER TABLE
-         ========================================================= -->
-    {% include "reports/components/report_filters.html" %}
-    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
-        <div class="px-4 py-3 border-b border-[#E4DECB] bg-slate-50/50">
-            <h3 class="text-xs font-bold text-slate-600 uppercase tracking-wider">Assigned Pack Releases</h3>
-        </div>
-        
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse bg-white">
-                <thead>
-                    <tr class="bg-slate-50 border-b border-[#E4DECB] text-slate-600 font-semibold text-[11px] uppercase tracking-wider">
-                        <th class="px-4 py-3">Date</th>
-                        <th class="px-4 py-3">Product Variant</th>
-                        <th class="px-4 py-3 text-center">Packs Out</th>
-                        <th class="px-4 py-3 text-center">Outstanding</th>
-                        <th class="px-4 py-3 text-right">Value (UGX)</th>
-                        <th class="px-4 py-3 text-right">Paid (UGX)</th>
-                        <th class="px-4 py-3 text-right">Balance Owed</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-[#E4DECB] text-slate-700 text-xs">
-                    {% for release in releases %}
-                    <tr class="hover:bg-slate-50/50 transition duration-150">
-                        <td class="px-4 py-3 whitespace-nowrap text-slate-500 font-medium">
-                            {{ release.released_at|date:"d M Y, H:i" }}
-                        </td>
-                        <td class="px-4 py-3 whitespace-nowrap font-bold text-slate-900">
-                            {{ release.product }}
-                        </td>
-                        <td class="px-4 py-3 text-center font-medium text-slate-500">
-                            {{ release.packs_out }}
-                        </td>
-                        <td class="px-4 py-3 text-center font-bold text-slate-800 bg-slate-50/50">
-                            {{ release.packs_outstanding }}
-                        </td>
-                        <td class="px-4 py-3 text-right font-medium text-slate-600">
-                            {{ release.gross_amount|floatformat:0|intcomma }}
-                        </td>
-                        <td class="px-4 py-3 text-right text-emerald-600 font-bold">
-                            {{ release.total_amount_paid|floatformat:0|intcomma }}
-                        </td>
-                        <td class="px-4 py-3 text-right text-rose-600 font-black bg-rose-50/10">
-                            {{ release.outstanding_balance|floatformat:0|intcomma }}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="px-4 py-12 text-center text-slate-400 italic">
-                            No pack releases recorded for this account holder.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    <div class="bg-white border border-[#E4DECB] rounded-xl p-3.5 shadow-sm">
+        <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Amount Paid So Far</p>
+        <p class="font-bold text-xl mt-1 text-emerald-600">{{ total_paid|floatformat:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">UGX</span></p>
+        <p class="text-[11px] text-slate-400 mt-0.5">Total cleared collections logged</p>
     </div>
-
-    <div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
-        <div class="px-4 py-3 border-b border-[#E4DECB] bg-slate-50/50">
-            <h3 class="text-xs font-bold text-slate-600 uppercase tracking-wider">Bulk Coffee Sales</h3>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-slate-50 border-b border-[#E4DECB] text-slate-600 font-semibold text-[11px] uppercase tracking-wider">
-                        <th class="px-4 py-3">Date</th>
-                        <th class="px-4 py-3">Batch / Stage</th>
-                        <th class="px-4 py-3 text-right">Kilograms</th>
-                        <th class="px-4 py-3 text-right">Value (UGX)</th>
-                        <th class="px-4 py-3 text-right">Paid (UGX)</th>
-                        <th class="px-4 py-3 text-right">Balance Owed</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-[#E4DECB] text-slate-700 text-xs">
-                    {% for sale in bulk_sales %}
-                        <tr>
-                            <td class="px-4 py-3 whitespace-nowrap">{{ sale.sold_at|date:"d M Y, H:i" }}</td>
-                            <td class="px-4 py-3 font-bold">{{ sale.stock.batch_number }} · {{ sale.get_stage_display }}</td>
-                            <td class="px-4 py-3 text-right font-mono">{{ sale.kg_sold }} kg × UGX {{ sale.price_per_kg|floatformat:0|intcomma }}</td>
-                            <td class="px-4 py-3 text-right font-mono">{{ sale.total_amount_due|floatformat:0|intcomma }}</td>
-                            <td class="px-4 py-3 text-right font-mono text-emerald-700">{{ sale.total_amount_paid|floatformat:0|intcomma }}</td>
-                            <td class="px-4 py-3 text-right font-mono font-bold text-rose-700">{{ sale.outstanding_balance|floatformat:0|intcomma }}</td>
-                        </tr>
-                    {% empty %}
-                        <tr><td colspan="6" class="px-4 py-10 text-center text-slate-400 italic">No bulk coffee sales recorded for this account holder.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    <div class="bg-white border border-[#E4DECB] rounded-xl p-3.5 shadow-sm">
+        <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Current Outstanding Balance</p>
+        <p class="font-bold text-xl mt-1 text-rose-600">{{ total_outstanding|floatformat:"0"|intcomma }} <span class="text-xs font-normal text-slate-400">UGX</span></p>
+        <p class="text-[11px] text-slate-400 mt-0.5">Pending debt balance owed</p>
     </div>
-
-    <!-- =========================================================
-         3. ORDER-QUEUE STYLE PAYMENT MODAL OVERLAY
-         ========================================================= -->
-    <div id="paymentModal" class="fixed inset-0 bg-slate-950/80 z-[9999] hidden items-center justify-center p-3 overflow-y-auto">
-        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 text-left flex flex-col animate-in fade-in zoom-in-95 duration-150">
-            
-            <!-- Dark Modal Top Bar -->
-            <div class="bg-slate-950 text-white px-4 py-2.5 flex items-center justify-between border-b border-slate-800 shrink-0">
-                <div>
-                    <span class="text-[9px] font-mono tracking-wider text-emerald-400 font-bold uppercase block">
-                        Account Settlement
-                    </span>
-                    <h3 class="text-xs font-bold text-white">Record Account Payment</h3>
-                </div>
-                <button type="button" onclick="closePaymentModal()" class="text-slate-400 hover:text-white text-base font-bold p-1 cursor-pointer">
-                    &times;
-                </button>
-            </div>
-
-            <!-- Modal Body Container -->
-            <div class="p-4 space-y-3">
-                <!-- Customer & Financial Summary -->
-                <div class="bg-slate-50 border border-slate-200/80 rounded-lg p-2.5 grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                        <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Account Holder</span>
-                        <p class="text-xs font-bold text-slate-800 truncate">{{ account.name }}</p>
-                    </div>
-                    <div class="text-right">
-                        <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Outstanding Balance</span>
-                        <p class="text-sm font-black text-rose-600 font-mono">UGX {{ total_outstanding|floatformat:0|intcomma }}</p>
-                    </div>
-                </div>
-
-                <!-- Compact Payment Form -->
-                <form id="accountPaymentFormElement" method="post" class="space-y-2 border-t border-slate-100 pt-2.5">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="record_account_payment">
-                    
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
-                                Amount Received (UGX)
-                            </label>
-                            <input type="number" 
-                                   name="amount" 
-                                   step="1" 
-                                   max="{{ total_outstanding }}"
-                                   value="{{ total_outstanding }}" 
-                                   required
-                                   class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1.5 text-xs font-mono font-bold text-slate-900">
-                        </div>
-                        <div>
-                            <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
-                                Payment Method
-                            </label>
-                            <select name="method" required class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1.5 text-xs font-semibold text-slate-800">
-                                {% for value, label in payment_methods %}
-                                    <option value="{{ value }}" {% if forloop.first %}selected{% endif %}>{{ label }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
-                                Reference Hash / ID
-                            </label>
-                            <input type="text" 
-                                   name="payment_reference" 
-                                   placeholder="e.g. MM Txn ID"
-                                   class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1 text-xs text-slate-800">
-                        </div>
-                        <div>
-                            <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
-                                Audit Comments
-                            </label>
-                            <input type="text"
-                                   name="notes" 
-                                   placeholder="Optional comments..."
-                                   class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1 text-xs text-slate-800">
-                        </div>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Modal Footer Actions -->
-            <div class="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
-                <button type="button" onclick="closePaymentModal()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md text-[11px] font-bold transition-all cursor-pointer">
-                    Cancel
-                </button>
-                <button type="submit" form="accountPaymentFormElement" class="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-md text-[11px] font-bold transition-all shadow-xs cursor-pointer">
-                    Post & Clear Payment
-                </button>
-            </div>
-
-        </div>
-    </div>
-
 </div>
-{% endblock %}
 
-{% block extra_scripts %}
-<script>
-function openPaymentModal() {
-    const modal = document.getElementById('paymentModal');
-    if (!modal) return;
-    modal.classList.remove("hidden");
-    modal.classList.add("flex");
-}
+<!-- =========================================================
+     2. UNIFIED RECEIVABLES LEDGER TABLE
+     ========================================================= -->
+{% include "reports/components/report_filters.html" %}
+<div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
+    <div class="px-4 py-3 border-b border-[#E4DECB] bg-slate-50/50 flex items-center justify-between">
+        <h3 class="text-xs font-bold text-slate-600 uppercase tracking-wider">Account Ledger & Receivables</h3>
+        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Packaged & Bulk Transactions</span>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse bg-white">
+            <thead>
+                <tr class="bg-slate-50 border-b border-[#E4DECB] text-slate-600 font-semibold text-[11px] uppercase tracking-wider">
+                    <th class="px-4 py-3">Date</th>
+                    <th class="px-4 py-3">Type</th>
+                    <th class="px-4 py-3">Inventory Details</th>
+                    <th class="px-4 py-3 text-right">Quantity</th>
+                    <th class="px-4 py-3 text-right">Value (UGX)</th>
+                    <th class="px-4 py-3 text-right">Paid (UGX)</th>
+                    <th class="px-4 py-3 text-right">Balance Owed</th>
+                    <th class="px-4 py-3 text-center">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-[#E4DECB] text-slate-700 text-xs">
+                {% for row in ledger_rows %}
+                    {% if row.kind == "packaged" %}
+                        {% with release=row.record %}
+                        <tr class="hover:bg-slate-50/50 transition duration-150">
+                            <td class="px-4 py-3 whitespace-nowrap text-slate-500 font-medium">
+                                {{ release.released_at|date:"d M Y, H:i" }}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <span class="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-800">
+                                    Packaged
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap font-bold text-slate-900">
+                                {% if release.product.blend %}{{ release.product.blend.name }}{% else %}{{ release.product }}{% endif %}
+                                {% if release.product.pack_size %}
+                                    <span class="block text-[10px] font-normal text-slate-400">{{ release.product.pack_size.label }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-center whitespace-nowrap">
+    {% if release.purpose == "display" %}
+        <!-- CONSIGNMENT RELEASE: Show billable/sold packs that match the monetary value -->
+        <span class="font-bold text-slate-800">
+            {% if release.billable_packs > 0 %}
+                {{ release.billable_packs }} Billed
+            {% else %}
+                0 Billed
+            {% endif %}
+        </span>
+       
+    {% else %}
+        <!-- ORDINARY SALE RELEASE: Show issued and unreturned packs -->
+        <span class="font-bold text-slate-800">{{ release.packs_out }}</span>
+        {% if release.packs_outstanding > 0 and release.packs_outstanding != release.packs_out %}
+            <span class="block text-[10px] font-semibold text-amber-600">({{ release.packs_outstanding }} Unreturned)</span>
+        {% endif %}
+    {% endif %}
+</td>
+                            <td class="px-4 py-3 text-right font-medium text-slate-600 whitespace-nowrap">
+                                {{ release.net_amount_due|floatformat:0|intcomma }}
+                            </td>
+                            <td class="px-4 py-3 text-right text-emerald-600 font-bold whitespace-nowrap">
+                                {{ release.total_amount_paid|floatformat:0|intcomma }}
+                            </td>
+                            <td class="px-4 py-3 text-right text-rose-600 font-black bg-rose-50/10 whitespace-nowrap">
+                                {{ release.outstanding_balance|floatformat:0|intcomma }}
+                            </td>
+                            <td class="px-4 py-3 text-center whitespace-nowrap">
+                                {% if release.outstanding_balance > 0 %}
+                                    <a href="{% url 'record_installment' release.pk %}" 
+                                       class="inline-flex px-2.5 py-1 rounded bg-orange-500 hover:bg-orange-600 text-white font-bold text-[11px] transition-colors shadow-xs">
+                                        Record Payment
+                                    </a>
+                                {% else %}
+                                    <span class="inline-flex px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold text-[10px]">
+                                        Cleared
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endwith %}
+                    {% else %}
+                        {% with sale=row.record %}
+                        <tr class="hover:bg-slate-50/50 transition duration-150">
+                            <td class="px-4 py-3 whitespace-nowrap text-slate-500 font-medium">
+                                {{ sale.sold_at|date:"d M Y, H:i" }}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-800">
+                                    Bulk
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap font-bold text-slate-900">
+                                {{ sale.stock.batch_number }}
+                                <span class="block text-[10px] font-normal text-slate-400">{{ sale.get_stage_display }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-right font-mono font-medium text-slate-600 whitespace-nowrap">
+                                {{ sale.kg_sold|floatformat:2 }} kg
+                                <span class="block text-[10px] text-slate-400">@ {{ sale.price_per_kg|floatformat:0|intcomma }}/kg</span>
+                            </td>
+                            <td class="px-4 py-3 text-right font-mono font-medium text-slate-600 whitespace-nowrap">
+                                {{ sale.total_amount_due|floatformat:0|intcomma }}
+                            </td>
+                            <td class="px-4 py-3 text-right font-mono text-emerald-600 font-bold whitespace-nowrap">
+                                {{ sale.total_amount_paid|floatformat:0|intcomma }}
+                            </td>
+                            <td class="px-4 py-3 text-right font-mono text-rose-600 font-black bg-rose-50/10 whitespace-nowrap">
+                                {{ sale.outstanding_balance|floatformat:0|intcomma }}
+                            </td>
+                            <td class="px-4 py-3 text-center whitespace-nowrap">
+                                {% if sale.outstanding_balance > 0 %}
+                                    <a href="{% url 'bulk_sale_payment' sale.pk %}" 
+                                       class="inline-flex px-2.5 py-1 rounded bg-orange-500 hover:bg-orange-600 text-white font-bold text-[11px] transition-colors shadow-xs">
+                                        Record Payment
+                                    </a>
+                                {% else %}
+                                    <span class="inline-flex px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold text-[10px]">
+                                        Cleared
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endwith %}
+                    {% endif %}
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="px-4 py-12 text-center text-slate-400 italic">
+                        No packaged releases or bulk coffee sales recorded for this account holder.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 
-function closePaymentModal() {
-    const modal = document.getElementById('paymentModal');
-    if (!modal) return;
-    modal.classList.add("hidden");
-    modal.classList.remove("flex");
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const modalBox = document.querySelector('#paymentModal > div');
-    if (modalBox) {
-        modalBox.addEventListener('click', function(e) {
-            e.stopPropagation();
-        });
-    }
-});
-</script>
 {% endblock %}

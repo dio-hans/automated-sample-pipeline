@@ -1,8 +1,8 @@
 from decimal import Decimal
 from django import forms
 from .models import (
-    AccountHolder, CoffeeStock, InternalStockIssueItem, PackagedProduct, PackagingRun, 
-PackRelease, PackReturn, PackSize, ProductForm
+    AccountHolder, CoffeeStock, Expense, InternalStockIssueItem, PackagedProduct, PackagingRun, 
+PackRelease, PackReturn, PackSize, ProductForm, ReleasePriceAdjustment
 )
 from .models import Blend
 
@@ -607,7 +607,7 @@ class PackagedProductBulkForm(forms.Form):
                     )
 
 
-from django.forms import formset_factory
+from django.forms import ValidationError, formset_factory
 
 class PackagedProductRowForm(forms.Form):
     grams = forms.IntegerField(
@@ -834,17 +834,22 @@ class PackReleaseForm(forms.ModelForm):
             )
 
         return price
-
-from django import forms
-from .models import ReleasePriceAdjustment, PriceAdjustmentType, PriceAdjustmentReason
-
+    
 class ReleasePriceAdjustmentForm(forms.ModelForm):
+    # New intuitive field for entering the final desired total
+    target_total_amount = forms.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "min": "0.00", "placeholder": "e.g. 30000"}),
+        help_text="Enter the new final total amount the client should pay."
+    )
+
     class Meta:
         model = ReleasePriceAdjustment
         fields = [
             "adjustment_type",
             "quantity_affected",
-            "unit_adjustment_amount",
+            "target_total_amount",  # Replaced unit_adjustment_amount
             "reason",
             "explanation",
             "evidence_document",
@@ -853,32 +858,26 @@ class ReleasePriceAdjustmentForm(forms.ModelForm):
         widgets = {
             "adjustment_type": forms.Select(attrs={"class": "form-control"}),
             "quantity_affected": forms.NumberInput(attrs={"class": "form-control", "min": "1"}),
-            "unit_adjustment_amount": forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "min": "0.01"}),
             "reason": forms.Select(attrs={"class": "form-control"}),
             "explanation": forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Required if 'Other' reason is selected..."}),
             "evidence_document": forms.ClearableFileInput(attrs={"class": "form-control"}),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["evidence_document"].required = False
+
     def clean(self):
         cleaned_data = super().clean()
         reason = cleaned_data.get("reason")
         explanation = cleaned_data.get("explanation", "").strip()
-        evidence = cleaned_data.get("evidence_document")
 
         if reason == "other" and not explanation:
             self.add_error("explanation", "A custom explanation is required when 'Other' reason is selected.")
-        
-        if not evidence:
-            self.add_error("evidence_document", "Mandatory supporting authorization evidence is required.")
 
         return cleaned_data
 # expenses form
-from django import forms
-from django.core.exceptions import ValidationError
-from .models import Expense
-from django import forms
-from .models import Expense
 
 
 class ExpenseForm(forms.ModelForm):
@@ -1006,42 +1005,3 @@ class BaseInternalIssueItemForm(forms.Form):
         max_digits=12, decimal_places=2, min_value=0, required=False
     )
 
-
-from django import forms
-from .models import ReleasePriceAdjustment, PriceAdjustmentType, PriceAdjustmentReason
-
-class ReleasePriceAdjustmentForm(forms.ModelForm):
-    class Meta:
-        model = ReleasePriceAdjustment
-        fields = [
-            "adjustment_type",
-            "quantity_affected",
-            "unit_adjustment_amount",
-            "reason",
-            "explanation",
-            "evidence_document",
-            "notes",
-        ]
-        widgets = {
-            "adjustment_type": forms.Select(attrs={"class": "form-control"}),
-            "quantity_affected": forms.NumberInput(attrs={"class": "form-control", "min": "1"}),
-            "unit_adjustment_amount": forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "min": "0.01"}),
-            "reason": forms.Select(attrs={"class": "form-control"}),
-            "explanation": forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Required if 'Other' reason is selected..."}),
-            "evidence_document": forms.ClearableFileInput(attrs={"class": "form-control"}),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
-        }
-
-    def clean(self):
-        cleaned_data = super().clean()
-        reason = cleaned_data.get("reason")
-        explanation = cleaned_data.get("explanation", "").strip()
-        evidence = cleaned_data.get("evidence_document")
-
-        if reason == "other" and not explanation:
-            self.add_error("explanation", "A custom explanation is required when 'Other' reason is selected.")
-        
-        if not evidence:
-            self.add_error("evidence_document", "Mandatory supporting authorization evidence is required.")
-
-        return cleaned_data

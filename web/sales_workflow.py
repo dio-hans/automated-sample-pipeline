@@ -29,11 +29,15 @@ from .models import (
     PackSettlement,
     PaymentReceipt,
     PAYMENT_METHOD_CHOICES,
+    PriceAdjustmentReason,
+    PriceAdjustmentType,
+    ReleasePriceAdjustment,
     StockAudit,
     StockMovement,
     StockStage,
     StockRequest,
     StockRequestItem,
+    User,
 )
 
 ZERO = Decimal("0.00")
@@ -860,7 +864,7 @@ def create_price_adjustment(
     release,
     adjustment_type,
     quantity_affected,
-    unit_adjustment_amount,
+    target_total_amount,
     reason,
     explanation="",
     evidence_document=None,
@@ -868,8 +872,8 @@ def create_price_adjustment(
     notes="",
 ):
     """
-    Creates an authorized price adjustment (Discount or Price Increase) for an open release.
-    Strictly restricted to ADMIN and ACCOUNTS roles.
+    Creates an authorized price adjustment based on a target final total amount.
+    The system automatically calculates the required discount/increase difference.
     """
     # 1. Role Authorization Check
     user_role = getattr(user, "role", None)
@@ -888,7 +892,7 @@ def create_price_adjustment(
         raise ValidationError("Cannot adjust prices on a fully settled or closed release.")
 
     quantity = _positive_int(quantity_affected, "Affected quantity")
-    unit_amount = _money(unit_adjustment_amount, "Unit adjustment amount")
+    target_total = _money(target_total_amount, "Target total amount")
 
     if adjustment_type not in dict(PriceAdjustmentType.choices):
         raise ValidationError("Select a valid price adjustment type.")
@@ -896,7 +900,7 @@ def create_price_adjustment(
     if reason not in dict(PriceAdjustmentReason.choices):
         raise ValidationError("Select a valid adjustment reason.")
 
-    # 3. Validate Quantity Boundaries (Cannot exceed total active/unsettled packs)
+    # 3. Validate Quantity Boundaries
     max_allowable_quantity = release.packs_out - release.packs_returned
     if quantity > max_allowable_quantity:
         raise ValidationError(
@@ -904,12 +908,30 @@ def create_price_adjustment(
             f"packs ({max_allowable_quantity}) on this release."
         )
 
-    # 4. Create Immutable Adjustment Record
+    # 4. Automatically calculate total adjustment amount from current net amount due vs target total
+    current_due = release.net_amount_due
+    
+    if adjustment_type == "discount":
+        if target_total >= current_due:
+            raise ValidationError("Target total for a discount must be less than the current amount due.")
+        total_adjustment = current_due - target_total
+    elif adjustment_type == "increase":
+        if target_total <= current_due:
+            raise ValidationError("Target total for a price increase must be greater than the current amount due.")
+        total_adjustment = target_total - current_due
+    else:
+        total_adjustment = abs(target_total - current_due)
+
+    # Compute per-unit adjustment amount automatically
+    unit_amount = total_adjustment / Decimal(quantity)
+
+    # 5. Create Immutable Adjustment Record
     adjustment = ReleasePriceAdjustment.objects.create(
         release=release,
         adjustment_type=adjustment_type,
         quantity_affected=quantity,
         unit_adjustment_amount=unit_amount,
+        total_adjustment_amount=total_adjustment,
         reason=reason,
         explanation=explanation.strip(),
         evidence_document=evidence_document,

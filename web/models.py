@@ -2049,6 +2049,11 @@ class PackRelease(models.Model):
         return Decimal(qty) * self.selling_price
 
     @property
+    def net_packs_delivered(self):
+        """Physical packs remaining with the client after deducting approved returns."""
+        return max(self.packs_out - self.packs_returned, 0)
+
+    @property
     def total_discounts(self):
         """Sum of all approved price reduction adjustments (Credit Notes)."""
         return sum(
@@ -2214,8 +2219,11 @@ class ReleasePriceAdjustment(models.Model):
     # Mandatory supporting evidence file attachment
     evidence_document = models.FileField(
         upload_to="price_adjustments/evidence/",
-        help_text="Mandatory supporting authorization document or evidence."
+        help_text="Mandatory supporting authorization document or evidence.",
+        null=True,
+        blank=True,
     )
+    
     
     authorized_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -2257,23 +2265,24 @@ class ReleasePriceAdjustment(models.Model):
             f"UGX {self.total_adjustment_amount:,.0f} on {target}"
         )
 
+    def clean(self):
+        super().clean()
+        if self.reason == "other" and not self.explanation.strip():
+            raise ValidationError({
+                "explanation": "A custom explanation is required when 'Other' reason is selected."
+            })
+
     def save(self, *args, **kwargs):
         # Enforce immutability once created
         if self.pk:
             raise ValidationError("Approved price adjustments are immutable and cannot be modified.")
         
-        # Automatically compute total adjustment amount
-        self.total_adjustment_amount = Decimal(self.quantity_affected) * self.unit_adjustment_amount
+        # Automatically compute unit adjustment amount if total and quantity exist
+        if self.quantity_affected and self.quantity_affected > 0 and self.total_adjustment_amount:
+            self.unit_adjustment_amount = Decimal(self.total_adjustment_amount) / Decimal(self.quantity_affected)
+        
         super().save(*args, **kwargs)
-    # 8. PACK RETURN  (salesperson â†’ store)
-from django.conf import settings
-from django.db import models
 
-
-from decimal import Decimal
-from django.db import models
-from django.conf import settings
-from django.utils import timezone
 
 class PackReturn(models.Model):
     RETURN_STATUS_CHOICES = (

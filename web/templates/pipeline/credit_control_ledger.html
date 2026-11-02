@@ -182,7 +182,23 @@
                                         <span class="text-rose-500">UNASSIGNED</span>
                                     {% endif %}
                                 </td>
-                                <td class="py-2 px-3 text-right whitespace-nowrap">{{ release.packs_out }} Unit<span class="block text-[10px] text-slate-400">({{ release.packs_out }} Pack)</span></td>
+<td class="py-2 px-3 text-center whitespace-nowrap">
+    {% if release.purpose == "display" %}
+        <!-- CONSIGNMENT / DISPLAY RELEASE -->
+        <span class="font-bold text-slate-900">
+            {% if release.billable_packs > 0 %}
+                {{ release.billable_packs }} Billed
+            {% else %}
+                0 Billed
+            {% endif %}
+        </span>
+       
+    {% else %}
+        <!-- ORDINARY SALE RELEASE -->
+        <span class="font-bold text-slate-900">{{ release.packs_out }} Unit</span>
+        <span class="block text-[10px] text-slate-400">({{ release.packs_out }} Pack)</span>
+    {% endif %}
+</td>
                                 <td class="py-2 px-3 text-right whitespace-nowrap">{{ release.net_amount_due|floatformat:0|intcomma }} UGX</td>
                                 <td class="py-2 px-3 text-right whitespace-nowrap">
                                     <span class="block text-emerald-700">Paid: {{ release.total_amount_paid|floatformat:0|intcomma }}</span>

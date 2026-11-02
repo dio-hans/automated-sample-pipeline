@@ -3520,35 +3520,33 @@ def account_holder_detail(request, pk):
 
         try:
             amount = Decimal(request.POST.get("amount", "").strip())
-
             method = request.POST.get("method", "").strip()
-            payment_reference = request.POST.get(
-                "payment_reference", ""
-            ).strip()
+            payment_reference = request.POST.get("payment_reference", "").strip()
             notes = request.POST.get("notes", "").strip()
 
             if not amount.is_finite() or amount <= Decimal("0.00"):
-                raise ValidationError(
-                    "Enter a payment amount greater than zero."
-                )
+                raise ValidationError("Enter a payment amount greater than zero.")
 
             with transaction.atomic():
-                # Lock this account's releases while allocating the payment.
+                release_filter = Q(released_to=account)
+                if hasattr(account, "company_profile") and account.company_profile:
+                    release_filter |= Q(company=account.company_profile)
+
+                bulk_filter = Q(account_holder=account)
+                if hasattr(account, "company_profile") and account.company_profile:
+                    bulk_filter |= Q(company=account.company_profile)
+
                 account_releases = list(
                     PackRelease.objects
                     .select_for_update()
-                    .filter(released_to=account)
-                    .prefetch_related(
-                        "settlements",
-                        "payments",
-                        "returns",
-                    )
+                    .filter(release_filter)
+                    .prefetch_related("settlements", "payments", "returns")
                     .order_by("released_at", "pk")
                 )
                 account_bulk_sales = list(
                     CoffeeBatchSale.objects
                     .select_for_update()
-                    .filter(account_holder=account)
+                    .filter(bulk_filter)
                     .prefetch_related("payments")
                     .order_by("sold_at", "pk")
                 )
@@ -3564,31 +3562,22 @@ def account_holder_detail(request, pk):
                 ]
                 debts.sort(key=lambda item: (item[0], item[2].pk))
 
-                total_due = sum(
-                    (balance for _, _, _, balance in debts),
-                    Decimal("0.00"),
-                )
+                total_due = sum((balance for _, _, _, balance in debts), Decimal("0.00"))
 
                 if total_due <= Decimal("0.00"):
-                    raise ValidationError(
-                        "This account has no outstanding debt to collect."
-                    )
+                    raise ValidationError("This account has no outstanding debt to collect.")
 
                 if amount > total_due:
                     raise ValidationError(
-                        f"Payment exceeds the account's outstanding "
-                        f"balance of UGX {total_due:,.0f}."
+                        f"Payment exceeds the account's outstanding balance of UGX {total_due:,.0f}."
                     )
 
                 remaining = amount
-
-                # Allocate oldest outstanding debt first.
                 for _, sale_type, sale, balance in debts:
                     if remaining <= Decimal("0.00"):
                         break
 
                     allocation = min(balance, remaining)
-
                     if allocation <= Decimal("0.00"):
                         continue
 
@@ -3608,81 +3597,77 @@ def account_holder_detail(request, pk):
 
             messages.success(
                 request,
-                f"Payment of UGX {amount:,.0f} recorded successfully "
-                f"for {account.name}.",
+                f"Payment of UGX {amount:,.0f} recorded successfully for {account.name}.",
             )
 
         except (InvalidOperation, AttributeError):
-            messages.error(
-                request,
-                "Enter a valid payment amount.",
-            )
+            messages.error(request, "Enter a valid payment amount.")
 
         except ValidationError as exc:
-            error_message = (
-                "; ".join(exc.messages)
-                if hasattr(exc, "messages")
-                else str(exc)
-            )
+            error_message = "; ".join(exc.messages) if hasattr(exc, "messages") else str(exc)
             messages.error(request, error_message)
 
         return redirect(request.get_full_path())
 
     # --------------------------------------------------
-    # ALL ACCOUNT RELEASES
+    # ALL ACCOUNT RELEASES & BULK SALES (WITH COMPANY SUPPORT)
     # --------------------------------------------------
+    release_filter = Q(released_to=account)
+    if hasattr(account, "company_profile") and account.company_profile:
+        release_filter |= Q(company=account.company_profile)
+
+    bulk_filter = Q(account_holder=account)
+    if hasattr(account, "company_profile") and account.company_profile:
+        bulk_filter |= Q(company=account.company_profile)
+
     all_releases_qs = (
         PackRelease.objects
-        .filter(released_to=account)
-        .select_related(
-            "product__blend",
-            "product__pack_size",
-        )
-        .prefetch_related(
-            "settlements",
-            "payments",
-            "returns",
-        )
+        .filter(release_filter)
+        .select_related("product__blend", "product__pack_size", "company")
+        .prefetch_related("settlements", "payments", "returns")
         .order_by("-released_at")
     )
 
-    # Apply the selected date filter to the table only.
     releases, preset, today, start, end = apply_date_filters(
-        request,
-        all_releases_qs,
-        date_field="released_at",
+        request, all_releases_qs, date_field="released_at"
     )
 
     all_releases = list(all_releases_qs)
+
     all_bulk_sales_qs = (
         CoffeeBatchSale.objects
-        .filter(account_holder=account)
-        .select_related("stock__variety", "bulk_request_item__request", "created_by")
+        .filter(bulk_filter)
+        .select_related("stock__variety", "bulk_request_item__request", "created_by", "company")
         .prefetch_related("payments")
         .order_by("-sold_at", "-pk")
     )
     bulk_sales, _, _, _, _ = apply_date_filters(
-        request,
-        all_bulk_sales_qs,
-        date_field="sold_at",
+        request, all_bulk_sales_qs, date_field="sold_at"
     )
     all_bulk_sales = list(all_bulk_sales_qs)
 
-    # Lifetime account figures, not just the selected date range.
-    total_value = sum(
-        (release.gross_amount for release in all_releases),
-        Decimal("0.00"),
-    ) + sum((sale.total_amount_due for sale in all_bulk_sales), Decimal("0.00"))
+    # --------------------------------------------------
+    # UNIFIED LEDGER ROWS FOR THE TABLE
+    # --------------------------------------------------
+    ledger_rows = []
+    for release in releases:
+        ledger_rows.append({
+            "kind": "packaged",
+            "date": release.released_at,
+            "record": release,
+        })
+    for sale in bulk_sales:
+        ledger_rows.append({
+            "kind": "bulk",
+            "date": sale.sold_at,
+            "record": sale,
+        })
+    ledger_rows.sort(key=lambda row: row["date"], reverse=True)
 
-    total_paid = sum(
-        (release.total_amount_paid for release in all_releases),
-        Decimal("0.00"),
-    ) + sum((sale.total_amount_paid for sale in all_bulk_sales), Decimal("0.00"))
-
-    total_outstanding = sum(
-        (release.outstanding_balance for release in all_releases),
-        Decimal("0.00"),
-    ) + sum((sale.outstanding_balance for sale in all_bulk_sales), Decimal("0.00"))
+    # Lifetime figures
+    total_value = sum((r.gross_amount for r in all_releases), Decimal("0.00")) + sum((s.total_amount_due for s in all_bulk_sales), Decimal("0.00"))
+    total_paid = sum((r.total_amount_paid for r in all_releases), Decimal("0.00")) + sum((s.total_amount_paid for s in all_bulk_sales), Decimal("0.00"))
+    total_outstanding = sum((r.outstanding_balance for r in all_releases), Decimal("0.00")) + sum((s.outstanding_balance for s in all_bulk_sales), Decimal("0.00"))
 
     labels = {
         "today": "Today",
@@ -3693,39 +3678,24 @@ def account_holder_detail(request, pk):
         "overall": "All Time",
     }
 
-    if preset == "custom" and start and end:
-        range_label = (
-            f"{start.strftime('%d %b %Y')} – "
-            f"{end.strftime('%d %b %Y')}"
-        )
-    else:
-        range_label = labels.get(preset, "All Time")
+    range_label = (f"{start.strftime('%d %b %Y')} – {end.strftime('%d %b %Y')}" if preset == "custom" and start and end else labels.get(preset, "All Time"))
 
     context = {
         "account": account,
         "releases": releases,
         "bulk_sales": bulk_sales,
+        "ledger_rows": ledger_rows,
         "total_value": total_value,
         "total_paid": total_paid,
         "total_outstanding": total_outstanding,
         "preset": preset,
-        "period": {
-            "start_date": start,
-            "end_date": end,
-        },
+        "period": {"start_date": start, "end_date": end},
         "selected_range_label": range_label,
         "can_collect_payment": can_collect_payment,
-        "payment_methods": PaymentReceipt._meta.get_field(
-            "payment_method"
-        ).choices,
-            }
+        "payment_methods": PaymentReceipt._meta.get_field("payment_method").choices,
+    }
 
-    return render(
-        request,
-        "pipeline/account_holder_detail.html",
-        context,
-    )
-
+    return render(request, "pipeline/account_holder_detail.html", context)
 # ---------------------------------------------------------
 # ITEM FULFILLMENT & PACK RELEASE
 # ---------------------------------------------------------
