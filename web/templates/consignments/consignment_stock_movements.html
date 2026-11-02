@@ -17,7 +17,7 @@ Sales / Consignments / {{ company.name }} / {{ branch.branch_name }} / Stock Mov
 {% block header_action %}
 <a href="{% url 'consignment_branch_detail' company.pk branch.pk %}"
    class="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">
-    <i class="fa-solid fa-arrow-left text-[10px]"></i>
+    
     Back to branch
 </a>
 {% endblock %}
