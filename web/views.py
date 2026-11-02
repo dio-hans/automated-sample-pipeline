@@ -2215,7 +2215,6 @@ from django.utils.decorators import method_decorator
 from django.views.generic import ListView
 
 
-
 @method_decorator(login_required, name="dispatch")
 class CreditControlLedgerView(RoleRequiredMixin, ListView):
     model = PackRelease
@@ -2241,10 +2240,10 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
             .order_by("-released_at")
         )
 
-        # Choose which credit category to display.
+        # 🎯 Default to "all" credit categories unless chosen otherwise
         self._release_filter = self.request.GET.get(
             "release_type",
-            "regular",
+            "all",
         )
 
         if self._release_filter not in {
@@ -2252,7 +2251,7 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
             "consignments",
             "all",
         }:
-            self._release_filter = "regular"
+            self._release_filter = "all"
 
         # Apply the existing date filters.
         qs, preset, today, start, end = apply_date_filters(
@@ -2264,17 +2263,18 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
         self._preset = preset
         self._start = start
         self._end = end
-        self._view_scope = self.request.GET.get("scope", "active")
+        
+        # 🎯 Default to "all" (overall view scope) unless chosen otherwise
+        self._view_scope = self.request.GET.get("scope", "all")
 
         # Separate consignment releases from regular releases.
-        # Consignment releases use purpose="display".
         if self._release_filter == "consignments":
             qs = qs.filter(purpose="display")
 
         elif self._release_filter == "regular":
             qs = qs.exclude(purpose="display")
 
-        # Preserve the existing active/all behaviour.
+        # Only filter out zero-balances if explicitly set to "active"
         if self._view_scope == "active":
             return [
                 release
@@ -2294,14 +2294,13 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
         release_filter = getattr(
             self,
             "_release_filter",
-            "regular",
+            "all",
         )
-        view_scope = getattr(self, "_view_scope", "active")
+        view_scope = getattr(self, "_view_scope", "all")
 
         # --------------------------------------------------
         # 1. TOTAL VALUE DISPATCHED IN THE SELECTED PERIOD
         # --------------------------------------------------
-
         dispatched_qs, preset, today, start, end = apply_date_filters(
             self.request,
             PackRelease.objects.all(),
@@ -2319,19 +2318,11 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
                 purpose="display",
             )
 
-        total_value_issued = (
-            dispatched_qs.aggregate(
-                total=Sum(
-                    ExpressionWrapper(
-                        F("packs_out") * F("selling_price"),
-                        output_field=DecimalField(
-                            max_digits=12,
-                            decimal_places=2,
-                        ),
-                    )
-                )
-            )["total"]
-            or Decimal("0.00")
+        # Calculate value based on net physical packs out (packs_out - approved returns)
+        # Keeps unbilled consignments included while correctly omitting returned stock.
+        total_value_issued = sum(
+            (Decimal(release.net_packs_delivered) * release.selling_price for release in dispatched_qs),
+            Decimal("0.00")
         )
 
         # Bulk sales belong in Regular or All, not Consignments.

@@ -221,24 +221,24 @@ class ConsignmentListView(RoleRequiredMixin, ListView):
             audits = list(company.audits.all())
             
             company_on_hand = 0
-            company_dispatched_value = Decimal("0.00")
+            company_inventory_value = Decimal("0.00")
 
             for branch in branches:
                 for inv in branch.consignment_inventories.all():
                     qty = inv.total_consignment_stock
                     company_on_hand += qty
-                    # Multiply physical stock quantity by product selling price
                     price = inv.product.selling_price if inv.product else Decimal("0.00")
-                    company_dispatched_value += Decimal(qty) * price
+                    company_inventory_value += Decimal(qty) * price
 
-            total_dispatched_val += company_dispatched_value
+            total_dispatched_val += company_inventory_value
 
             rows.append({
                 "company": company,
                 "branch_count": len(branches),
                 "on_hand": company_on_hand,
-                "dispatched_value": company_dispatched_value,
-                "billed": sum((release.gross_amount for release in releases), Decimal("0.00")),
+                "dispatched_value": company_inventory_value,
+                # 🎯 FIX: Use net_amount_due instead of gross_amount so returns are accounted for in Billed
+                "billed": sum((release.net_amount_due for release in releases), Decimal("0.00")),
                 "paid": sum((release.total_amount_paid for release in releases), Decimal("0.00")),
                 "outstanding": sum((release.outstanding_balance for release in releases), Decimal("0.00")),
                 "pending": sum(audit.status == "pending_approval" for audit in audits),

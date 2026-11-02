@@ -1,46 +1,115 @@
-{% extends "pipeline/base.html" %} {% load humanize %} {% block title %}Prepare Return | Nonda{% endblock %} {% block breadcrumb %}Sales / Orders / {{ order.short_number }} / Return{% endblock %} {% block page_title %}Prepare Returned Stock{% endblock %} {% block page_subtitle %}
-Select only the products that physically came back to the store, then set the exact quantity returned.
+{% extends "pipeline/base.html" %} 
+{% load humanize %} 
 
-{% endblock %} {% block content %}
-{% if messages %}
-{% for message in messages %}
-{{ message }}
-{% endfor %}
-{% endif %}
-Stage 1 of 2
-Return Intake Worksheet · #{{ order.short_number }}
-{{ order.account_holder|default:order.requested_by }}
-{% if order.company %}
-{{ order.company.name }}
-{% endif %}
-{% csrf_token %} {{ formset.management_form }}
-Return
-Product
-Returnable
-Quantity
-Condition
-{% for form, release in form_release_pairs %}
-{{ form.release_id }}
- Include
-{{ release.product.blend.name }}
+{% block title %}Prepare Return | Nonda{% endblock %} 
+{% block breadcrumb %}Sales / Orders / {{ order.short_number }} / Return{% endblock %} 
 
-{{ release.product.pack_size.label }} · {{ release.product.get_form_display }}
+{% block content %}
+<div class="max-w-4xl mx-auto py-4">
+    <form method="post" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        {% csrf_token %}
+        {{ formset.management_form }}
 
-{{ release.packs_returnable }} packs
-Sold: {{ release.packs_sold }} · Returned: {{ release.packs_returned }}
-− 
-0
- +
+        <!-- Card Header -->
+        <div class="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <span class="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-olive/10 text-olive uppercase tracking-wider mb-1">
+                    Stage 1 of 2
+                </span>
+                <h1 class="text-base font-bold text-slate-800">
+                    Return Intake Worksheet · #{{ order.short_number }}
+                </h1>
+                <p class="text-xs text-slate-500 mt-0.5">
+                    {{ order.account_holder|default:order.requested_by }} 
+                    {% if order.company %}· {{ order.company.name }}{% endif %}
+                </p>
+            </div>
+            <div class="text-right text-xs text-slate-500 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
+                <span class="font-semibold text-slate-700 block">Selected Return:</span>
+                <span class="font-bold text-olive text-sm">0 packs</span>
+            </div>
+        </div>
 
-Good condition
-{% empty %}
-There are no unsold packs eligible for return for this order.
-{% endfor %}
-Selected return
+        {% if messages %}
+        <div class="px-6 pt-4">
+            {% for message in messages %}
+            <div class="p-3 text-xs rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
 
-0 packs
+        <!-- Form Body / Products Table -->
+        <div class="p-6 max-h-[55vh] overflow-y-auto space-y-4">
+            <p class="text-xs font-medium text-slate-500">
+                Select only the products that physically came back to the store, then set the exact quantity returned.
+            </p>
 
-Nothing reaches store stock or the debt ledger yet.
+            <div class="border border-slate-200 rounded-lg overflow-hidden">
+                <table class="min-w-full text-xs divide-y divide-slate-200">
+                    <thead class="bg-slate-50 text-[10px] uppercase font-semibold text-slate-500">
+                        <tr>
+                            <th class="px-4 py-2.5 text-center w-16">Include</th>
+                            <th class="px-4 py-2.5 text-left">Product</th>
+                            <th class="px-4 py-2.5 text-center">Returnable</th>
+                            <th class="px-4 py-2.5 text-center">Quantity</th>
+                            <th class="px-4 py-2.5 text-left">Condition</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 bg-white">
+                        {% for form, release in form_release_pairs %}
+                        <tr class="hover:bg-slate-50/50">
+                            {{ form.release_id }}
+                            <td class="px-4 py-3 text-center">
+                                {{ form.DELETE }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <p class="font-semibold text-slate-800">{{ release.product.blend.name }}</p>
+                                <p class="text-[11px] text-slate-400">{{ release.product.pack_size.label }} · {{ release.product.get_form_display }}</p>
+                            </td>
+                            <td class="px-4 py-3 text-center font-medium text-slate-700">
+                                {{ release.packs_returnable }} packs
+                                <span class="block text-[10px] text-slate-400">Sold: {{ release.packs_sold }} · Returned: {{ release.packs_returned }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                {{ form.packs_returned }}
+                            </td>
+                            <td class="px-4 py-3">
+                                {{ form.condition }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="px-4 py-8 text-center text-slate-400">
+                                There are no unsold packs eligible for return for this order.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
 
-Review & Confirm →
+            <p class="text-[11px] text-slate-400 italic">
+                Nothing reaches store stock or the debt ledger yet.
+            </p>
+        </div>
+
+        <!-- Card Footer Actions (Matching Cancel / Submit button styling) -->
+        <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+            <a 
+                href="{% url 'order_detail' order.pk %}" 
+                class="h-9 px-4 inline-flex items-center rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50"
+            >
+                Cancel
+            </a>
+            <button 
+                type="submit" 
+                class="h-9 px-5 inline-flex items-center gap-1.5 rounded-lg bg-olive text-xs font-semibold text-white hover:bg-olive/90 shadow-sm"
+            >
+                Review & Confirm <i class="fa-solid fa-arrow-right text-[10px]"></i>
+            </button>
+        </div>
+    </form>
+</div>
 {% endblock %}
