@@ -1001,6 +1001,8 @@ class User(AbstractUser):
         MANAGER = 'MANAGER', 'Store Manager'
         CASHIER = 'CASHIER', 'Cashier'
         ACCOUNTS = 'ACCOUNTS', 'Accounts (Legacy)'
+        
+
 
     role = models.CharField(
         max_length=10,
