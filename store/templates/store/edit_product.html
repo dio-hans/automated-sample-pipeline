@@ -1,0 +1,107 @@
+
+{% extends "store/base.html" %}
+
+{% block content %}
+<section class="store-admin store-edit-page">
+
+    <a href="{% url 'store:manage_products' %}" class="store-back-link">
+        ← Back to products
+    </a>
+
+    <div class="store-admin-heading">
+        <div>
+            <p class="store-eyebrow">PRODUCT PRESENTATION</p>
+            <h1>{{ product.blend.name }}</h1>
+            <p>
+                {{ product.pack_size.label }}
+                · {{ product.form|title }}
+            </p>
+        </div>
+    </div>
+
+    <div class="store-edit-card">
+
+        <form
+            method="post"
+            enctype="multipart/form-data"
+            class="store-edit-form"
+        >
+            {% csrf_token %}
+
+            {{ form.non_field_errors }}
+
+            <div class="store-form-group">
+                <label for="{{ form.display_name.id_for_label }}">
+                    {{ form.display_name.label }}
+                </label>
+                {{ form.display_name }}
+                {{ form.display_name.errors }}
+            </div>
+
+            <div class="store-form-group">
+                <label for="{{ form.description.id_for_label }}">
+                    {{ form.description.label }}
+                </label>
+                {{ form.description }}
+                {{ form.description.errors }}
+            </div>
+
+            <div class="store-form-group">
+                <label for="{{ form.image.id_for_label }}">
+                    {{ form.image.label }}
+                </label>
+
+                {% if product.store_content.image %}
+                    <div class="store-current-image">
+                        <img
+                            src="{{ product.store_content.image.url }}"
+                            alt="Current product image"
+                        >
+                        <p>Current image</p>
+                    </div>
+                {% endif %}
+
+                {{ form.image }}
+                {{ form.image.errors }}
+                <small>JPEG, PNG or WebP. Maximum file size: 5 MB.</small>
+            </div>
+
+            <div class="store-form-options">
+                <label>
+                    {{ form.is_featured }}
+                    <span>
+                        **Feature on homepage**
+                        <small>Show this product in the featured section.</small>
+                    </span>
+                </label>
+
+                <label>
+                    {{ form.is_visible }}
+                    <span>
+                        **Publish online**
+                        <small>
+                            Customers can see this product when it is published.
+                        </small>
+                    </span>
+                </label>
+
+                {{ form.is_featured.errors }}
+                {{ form.is_visible.errors }}
+            </div>
+
+            <div class="store-form-actions">
+                <button type="submit" class="store-primary-button">
+                    Save product
+                </button>
+
+                <a href="{% url 'store:manage_products' %}">
+                    Cancel
+                </a>
+            </div>
+
+        </form>
+
+    </div>
+
+</section>
+{% endblock %}

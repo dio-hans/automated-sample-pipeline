@@ -1,0 +1,201 @@
+
+{% extends "store/base.html" %}
+{% load humanize %}
+
+{% block title %}Shopping Cart | Nonda Coffee{% endblock %}
+
+{% block content %}
+
+<section class="store-cart-page">
+
+    <div class="store-cart-heading">
+        <div>
+            <p class="eyebrow">YOUR NONDA SELECTION</p>
+            <h1>Your shopping cart.</h1>
+            <p>Review your coffee selection and quantities.</p>
+        </div>
+
+        <a href="{% url 'store:products' %}" class="text-link">
+            Continue shopping →
+        </a>
+    </div>
+
+    {% for message in messages %}
+        <div class="store-message">
+            {{ message }}
+        </div>
+    {% endfor %}
+
+    {% if cart_rows %}
+
+        <div class="store-cart-layout">
+
+            <div class="store-cart-items">
+
+                {% for row in cart_rows %}
+
+                    <article class="store-cart-item">
+
+                        <div class="store-cart-image">
+                            {% if row.content and row.content.image %}
+                                <img
+                                    src="{{ row.content.image.url }}"
+                                    alt="{{ row.content.display_name|default:row.product.blend.name }}"
+                                    loading="lazy"
+                                >
+                            {% else %}
+                                <span>NONDA</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="store-cart-product">
+
+                            <h2>
+                                {% if row.content and row.content.display_name %}
+                                    {{ row.content.display_name }}
+                                {% else %}
+                                    {{ row.product.blend.name }}
+                                {% endif %}
+                            </h2>
+
+                            <p>
+                                {{ row.product.pack_size.label }}
+                                · {{ row.product.get_form_display }}
+                            </p>
+
+                            {% if not row.is_listed %}
+                                <p class="store-cart-warning">
+                                    This product is no longer available online.
+                                    Remove it to continue.
+                                </p>
+                            {% endif %}
+
+                            <div class="store-cart-unit-price">
+                                {% if row.promotion %}
+                                    <del>
+                                        UGX {{ row.product.selling_price|floatformat:0|intcomma }}
+                                    </del>
+                                {% endif %}
+
+                                <strong>
+                                    UGX {{ row.unit_price|floatformat:0|intcomma }}
+                                </strong>
+                                <span>per pack</span>
+                            </div>
+
+                            <div class="store-cart-controls">
+
+                                {% if row.is_listed %}
+                                    <form
+                                        method="post"
+                                        action="{% url 'store:cart_update' row.item.pk %}"
+                                        class="store-cart-update"
+                                    >
+                                        {% csrf_token %}
+
+                                        <label for="quantity-{{ row.item.pk }}">
+                                            Quantity
+                                        </label>
+
+                                        <input
+                                            type="number"
+                                            id="quantity-{{ row.item.pk }}"
+                                            name="quantity"
+                                            value="{{ row.item.quantity }}"
+                                            min="1"
+                                            step="1"
+                                            required
+                                        >
+
+                                        <button type="submit">
+                                            Update
+                                        </button>
+                                    </form>
+                                {% endif %}
+
+                                <form
+                                    method="post"
+                                    action="{% url 'store:cart_remove' row.item.pk %}"
+                                >
+                                    {% csrf_token %}
+                                    <button
+                                        type="submit"
+                                        class="store-cart-remove"
+                                    >
+                                        Remove
+                                    </button>
+                                </form>
+
+                            </div>
+
+                        </div>
+
+                        <div class="store-cart-line-total">
+                            <span>Subtotal</span>
+                            <strong>
+                                UGX {{ row.line_total|floatformat:0|intcomma }}
+                            </strong>
+                        </div>
+
+                    </article>
+
+                {% endfor %}
+
+            </div>
+
+            <aside class="store-cart-summary">
+
+                <p class="eyebrow">ORDER SUMMARY</p>
+
+                <h2>Your total</h2>
+
+                <div class="store-cart-summary-row">
+                    <span>Total packs</span>
+                    <strong>{{ total_quantity }}</strong>
+                </div>
+
+                <div class="store-cart-summary-row store-cart-grand-total">
+                    <span>Subtotal</span>
+                    <strong>
+                        UGX {{ subtotal|floatformat:0|intcomma }}
+                    </strong>
+                </div>
+
+                <p class="store-cart-disclaimer">
+                    Delivery charges, if applicable, will be calculated
+                    later. Your cart does not reserve stock.
+                    Product availability and prices will be checked
+                    again when you place your order.
+                </p>
+
+                <a
+                    href="{% url 'store:products' %}"
+                    class="store-cart-continue"
+                >
+                    Continue shopping
+                </a>
+
+            </aside>
+
+        </div>
+
+    {% else %}
+
+        <div class="store-cart-empty">
+            <span class="store-cart-empty-icon">◇</span>
+            <h2>Your cart is empty.</h2>
+            <p>Discover the Nonda collection and find your coffee.</p>
+
+            <a
+                href="{% url 'store:products' %}"
+                class="button button-dark"
+            >
+                Explore our coffee
+            </a>
+        </div>
+
+    {% endif %}
+
+</section>
+
+{% endblock %}

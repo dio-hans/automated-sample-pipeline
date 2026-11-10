@@ -1,0 +1,133 @@
+
+{% extends "store/base.html" %}
+{% load humanize %}
+
+{% block title %}
+    {{ product.store_content.display_name|default:product.blend.name }} | Nonda Coffee
+{% endblock %}
+
+{% block content %}
+
+<section class="product-detail-page">
+
+    <nav class="product-breadcrumb">
+        <a href="{% url 'store:home' %}">Home</a>
+        <span>/</span>
+        <a href="{% url 'store:products' %}">Our Coffee</a>
+        <span>/</span>
+        <span>{{ product.store_content.display_name|default:product.blend.name }}</span>
+    </nav>
+
+    <div class="product-detail-layout">
+
+        <!-- PRODUCT IMAGE -->
+        <div class="product-detail-image">
+
+            {% if product.store_content.image %}
+                <img
+                    src="{{ product.store_content.image.url }}"
+                    alt="{{ product.store_content.display_name|default:product.blend.name }}"
+                    fetchpriority="high"
+                >
+            {% else %}
+                <div class="product-detail-placeholder">
+                    NONDA
+                </div>
+            {% endif %}
+
+        </div>
+
+        <!-- PRODUCT INFORMATION -->
+        <div class="product-detail-information">
+
+            <p class="eyebrow">NONDA COFFEE COLLECTION</p>
+
+            <h1>
+                {{ product.store_content.display_name|default:product.blend.name }}
+            </h1>
+
+            <p class="product-detail-variant">
+                {{ product.pack_size.label }}
+                · {{ product.get_form_display }}
+            </p>
+
+            <div class="product-detail-price">
+
+                {% with promotion=product.store_content.current_promotions|first %}
+
+                    {% if promotion %}
+                        <del>
+                            UGX {{ product.selling_price|floatformat:0|intcomma }}
+                        </del>
+
+                        <strong>
+                            UGX {{ promotion.discounted_price|floatformat:0|intcomma }}
+                        </strong>
+                    {% else %}
+                        <strong>
+                            UGX {{ product.selling_price|floatformat:0|intcomma }}
+                        </strong>
+                    {% endif %}
+
+                {% endwith %}
+
+            </div>
+
+            {% if product.store_content.description %}
+                <div class="product-detail-description">
+                    {{ product.store_content.description|linebreaks }}
+                </div>
+            {% endif %}
+
+            <div class="product-detail-actions">
+
+<div class="product-detail-actions">
+
+    <form
+        method="post"
+        action="{% url 'store:cart_add' product.pk %}"
+        class="product-add-cart-form"
+    >
+        {% csrf_token %}
+
+        <div class="product-quantity-control">
+            <label for="product-quantity">Quantity</label>
+
+            <input
+                type="number"
+                name="quantity"
+                id="product-quantity"
+                value="1"
+                min="1"
+                step="1"
+                required
+            >
+        </div>
+
+        <button type="submit" class="button button-dark">
+            Add to cart
+        </button>
+
+    </form>
+
+</div>
+
+                <a
+                    href="{% url 'store:products' %}"
+                    class="button button-dark"
+                >
+                    Continue exploring coffee
+                </a>
+            </div>
+
+            <p class="product-detail-note">
+                Nonda coffee. Good coffee, shared.
+            </p>
+
+        </div>
+
+    </div>
+
+</section>
+
+{% endblock %}

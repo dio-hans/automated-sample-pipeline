@@ -1,0 +1,341 @@
+
+{% extends "store/base.html" %}
+
+{% block title %}Homepage Editor | Nonda{% endblock %}
+
+{% block content %}
+
+<section class="store-admin homepage-editor">
+
+    <div class="homepage-editor-header">
+        <div>
+            <p class="store-eyebrow">STORE MANAGEMENT</p>
+            <h1>Homepage editor</h1>
+            <p>Control the content and presentation of your customer homepage.</p>
+        </div>
+
+        <a href="{% url 'store:home' %}" class="store-secondary-link">
+            Preview homepage ↗
+        </a>
+    </div>
+
+    {% for message in messages %}
+        <p class="store-message">{{ message }}</p>
+    {% endfor %}
+
+    <form
+        method="post"
+        enctype="multipart/form-data"
+        id="homepage-content-form"
+    >
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <!-- HERO -->
+        <details class="homepage-editor-panel" open id="hero-settings">
+            <summary>
+                <span class="editor-number">01</span>
+                <span>
+                    <strong>Hero banner</strong>
+                    <small>Main heading, introduction and photograph</small>
+                </span>
+                <span class="editor-toggle">+</span>
+            </summary>
+
+            <div class="homepage-editor-body">
+
+                <div class="editor-grid">
+
+                    <div class="store-form-group">
+                        <label>{{ form.hero_eyebrow.label }}</label>
+                        {{ form.hero_eyebrow }}
+                        {{ form.hero_eyebrow.errors }}
+                    </div>
+
+                    <div class="store-form-group">
+                        <label>{{ form.hero_button_text.label }}</label>
+                        {{ form.hero_button_text }}
+                        {{ form.hero_button_text.errors }}
+                    </div>
+
+                    <div class="store-form-group">
+                        <label>{{ form.hero_title_line.label }}</label>
+                        {{ form.hero_title_line }}
+                        {{ form.hero_title_line.errors }}
+                    </div>
+
+                    <div class="store-form-group">
+                        <label>{{ form.hero_title_emphasis.label }}</label>
+                        {{ form.hero_title_emphasis }}
+                        {{ form.hero_title_emphasis.errors }}
+                    </div>
+
+                    <div class="store-form-group editor-full">
+                        <label>{{ form.hero_description.label }}</label>
+                        {{ form.hero_description }}
+                        {{ form.hero_description.errors }}
+                    </div>
+
+                    <div class="store-form-group editor-full">
+                        <label>{{ form.hero_image.label }}</label>
+
+                        {% if homepage_content.hero_image %}
+                            <div class="store-homepage-preview">
+                                <img
+                                    src="{{ homepage_content.hero_image.url }}"
+                                    alt="{{ homepage_content.hero_image_alt }}"
+                                >
+                                <small>Current banner photograph</small>
+                            </div>
+                        {% endif %}
+
+                        {{ form.hero_image }}
+                        {{ form.hero_image.errors }}
+                        <small>JPEG, PNG or WebP. Maximum 5 MB.</small>
+                    </div>
+
+                    <div class="store-form-group">
+                        <label>{{ form.hero_image_alt.label }}</label>
+                        {{ form.hero_image_alt }}
+                        {{ form.hero_image_alt.errors }}
+                    </div>
+
+                    <div class="store-form-group">
+                        <label>{{ form.hero_visual_label.label }}</label>
+                        {{ form.hero_visual_label }}
+                        {{ form.hero_visual_label.errors }}
+                    </div>
+
+                    <div class="store-form-group">
+                        <label>{{ form.hero_visual_reference.label }}</label>
+                        {{ form.hero_visual_reference }}
+                        {{ form.hero_visual_reference.errors }}
+                    </div>
+
+                </div>
+            </div>
+        </details>
+
+        <!-- INTRO AND COLLECTION -->
+        <details class="homepage-editor-panel" open id="collection-settings">
+            <summary>
+                <span class="editor-number">02</span>
+                <span>
+                    <strong>Introduction and collection</strong>
+                    <small>Messages above the featured products</small>
+                </span>
+                <span class="editor-toggle">+</span>
+            </summary>
+
+            <div class="homepage-editor-body">
+
+                <h3 class="editor-subheading">Introduction strip</h3>
+
+                <div class="editor-grid">
+                    <div class="store-form-group">
+                        <label>{{ form.intro_text.label }}</label>
+                        {{ form.intro_text }}
+                        {{ form.intro_text.errors }}
+                    </div>
+
+                    <div class="store-form-group">
+                        <label>{{ form.intro_subtext.label }}</label>
+                        {{ form.intro_subtext }}
+                        {{ form.intro_subtext.errors }}
+                    </div>
+                </div>
+
+                <h3 class="editor-subheading">Featured collection</h3>
+
+                <div class="editor-grid">
+                    <div class="store-form-group">
+                        <label>{{ form.collection_eyebrow.label }}</label>
+                        {{ form.collection_eyebrow }}
+                        {{ form.collection_eyebrow.errors }}
+                    </div>
+
+                    <div class="store-form-group">
+                        <label>{{ form.collection_link_text.label }}</label>
+                        {{ form.collection_link_text }}
+                        {{ form.collection_link_text.errors }}
+                    </div>
+
+                    <div class="store-form-group editor-full">
+                        <label>{{ form.collection_title.label }}</label>
+                        {{ form.collection_title }}
+                        {{ form.collection_title.errors }}
+                    </div>
+                </div>
+
+            </div>
+        </details>
+
+        <!-- WHY NONDA -->
+        <details class="homepage-editor-panel" id="why-settings">
+            <summary>
+                <span class="editor-number">03</span>
+                <span>
+                    <strong>Why Nonda</strong>
+                    <small>Three reasons to explore the Nonda collection</small>
+                </span>
+                <span class="editor-toggle">+</span>
+            </summary>
+
+            <div class="homepage-editor-body">
+
+                <div class="editor-grid">
+                    <div class="store-form-group">
+                        <label>{{ form.why_eyebrow.label }}</label>
+                        {{ form.why_eyebrow }}
+                        {{ form.why_eyebrow.errors }}
+                    </div>
+
+                    <div class="store-form-group editor-full">
+                        <label>{{ form.why_title.label }}</label>
+                        {{ form.why_title }}
+                        {{ form.why_title.errors }}
+                    </div>
+
+                    <div class="store-form-group editor-full">
+                        <label>{{ form.why_description.label }}</label>
+                        {{ form.why_description }}
+                        {{ form.why_description.errors }}
+                    </div>
+                </div>
+
+                <h3 class="editor-subheading">First feature</h3>
+                <div class="editor-grid">
+                    <div class="store-form-group">
+                        <label>{{ form.why_first_title.label }}</label>
+                        {{ form.why_first_title }}
+                        {{ form.why_first_title.errors }}
+                    </div>
+                    <div class="store-form-group">
+                        <label>{{ form.why_first_description.label }}</label>
+                        {{ form.why_first_description }}
+                        {{ form.why_first_description.errors }}
+                    </div>
+                </div>
+
+                <h3 class="editor-subheading">Second feature</h3>
+                <div class="editor-grid">
+                    <div class="store-form-group">
+                        <label>{{ form.why_second_title.label }}</label>
+                        {{ form.why_second_title }}
+                        {{ form.why_second_title.errors }}
+                    </div>
+                    <div class="store-form-group">
+                        <label>{{ form.why_second_description.label }}</label>
+                        {{ form.why_second_description }}
+                        {{ form.why_second_description.errors }}
+                    </div>
+                </div>
+
+                <h3 class="editor-subheading">Third feature</h3>
+                <div class="editor-grid">
+                    <div class="store-form-group">
+                        <label>{{ form.why_third_title.label }}</label>
+                        {{ form.why_third_title }}
+                        {{ form.why_third_title.errors }}
+                    </div>
+                    <div class="store-form-group">
+                        <label>{{ form.why_third_description.label }}</label>
+                        {{ form.why_third_description }}
+                        {{ form.why_third_description.errors }}
+                    </div>
+                </div>
+
+            </div>
+        </details>
+
+        <!-- STORY -->
+        <details class="homepage-editor-panel" id="story-settings">
+            <summary>
+                <span class="editor-number">04</span>
+                <span>
+                    <strong>Our Story</strong>
+                    <small>Tell customers about the Nonda brand</small>
+                </span>
+                <span class="editor-toggle">+</span>
+            </summary>
+
+            <div class="homepage-editor-body">
+                <div class="editor-grid">
+
+                    <div class="store-form-group">
+                        <label>{{ form.story_eyebrow.label }}</label>
+                        {{ form.story_eyebrow }}
+                        {{ form.story_eyebrow.errors }}
+                    </div>
+
+                    <div class="store-form-group">
+                        <label>{{ form.story_title_line.label }}</label>
+                        {{ form.story_title_line }}
+                        {{ form.story_title_line.errors }}
+                    </div>
+
+                    <div class="store-form-group editor-full">
+                        <label>{{ form.story_title_emphasis.label }}</label>
+                        {{ form.story_title_emphasis }}
+                        {{ form.story_title_emphasis.errors }}
+                    </div>
+
+                    <div class="store-form-group editor-full">
+                        <label>{{ form.story_description.label }}</label>
+                        {{ form.story_description }}
+                        {{ form.story_description.errors }}
+                    </div>
+
+                </div>
+            </div>
+        </details>
+
+        <!-- FIND NONDA -->
+        <details class="homepage-editor-panel" id="find-settings">
+            <summary>
+                <span class="editor-number">05</span>
+                <span>
+                    <strong>Find Nonda</strong>
+                    <small>Introduction to stores carrying Nonda coffee</small>
+                </span>
+                <span class="editor-toggle">+</span>
+            </summary>
+
+            <div class="homepage-editor-body">
+                <div class="editor-grid">
+
+                    <div class="store-form-group">
+                        <label>{{ form.find_eyebrow.label }}</label>
+                        {{ form.find_eyebrow }}
+                        {{ form.find_eyebrow.errors }}
+                    </div>
+
+                    <div class="store-form-group editor-full">
+                        <label>{{ form.find_title.label }}</label>
+                        {{ form.find_title }}
+                        {{ form.find_title.errors }}
+                    </div>
+
+                    <div class="store-form-group editor-full">
+                        <label>{{ form.find_description.label }}</label>
+                        {{ form.find_description }}
+                        {{ form.find_description.errors }}
+                    </div>
+
+                </div>
+            </div>
+        </details>
+
+        <div class="homepage-editor-save">
+            <span>Changes are applied to the customer homepage when saved.</span>
+
+            <button type="submit" class="store-primary-button">
+                Save homepage changes
+            </button>
+        </div>
+
+    </form>
+
+</section>
+
+{% endblock %}

@@ -1,0 +1,106 @@
+
+{% extends "store/base.html" %}
+
+{% block title %}{{ page_heading }} | Nonda Store{% endblock %}
+
+{% block content %}
+<section class="store-admin store-edit-page">
+
+    <a
+        href="{% url 'store:manage_promotions' %}"
+        class="store-back-link"
+    >
+        ← Back to promotions
+    </a>
+
+    <div class="store-admin-heading">
+        <div>
+            <p class="store-eyebrow">STORE MANAGEMENT</p>
+            <h1>{{ page_heading }}</h1>
+            <p>
+                Set the promotional price and the period during
+                which customers can receive the offer.
+            </p>
+        </div>
+    </div>
+
+    <div class="store-edit-card">
+
+        <form method="post" class="store-edit-form">
+            {% csrf_token %}
+
+            {{ form.non_field_errors }}
+
+            <div class="store-form-group">
+                <label for="{{ form.content.id_for_label }}">
+                    {{ form.content.label }}
+                </label>
+
+                {{ form.content }}
+                {{ form.content.errors }}
+            </div>
+
+            <div class="store-form-group">
+                <label for="{{ form.discounted_price.id_for_label }}">
+                    {{ form.discounted_price.label }}
+                </label>
+
+                {{ form.discounted_price }}
+                {{ form.discounted_price.errors }}
+
+                <small>
+                    Must be lower than the product's original Pipeline price.
+                </small>
+            </div>
+
+            <div class="store-form-group">
+                <label for="{{ form.starts_at.id_for_label }}">
+                    {{ form.starts_at.label }}
+                </label>
+
+                {{ form.starts_at }}
+                {{ form.starts_at.errors }}
+            </div>
+
+            <div class="store-form-group">
+                <label for="{{ form.ends_at.id_for_label }}">
+                    {{ form.ends_at.label }}
+                </label>
+
+                {{ form.ends_at }}
+                {{ form.ends_at.errors }}
+            </div>
+
+            <div class="store-form-options">
+                <label>
+                    {{ form.is_active }}
+                    <span>
+                        **Enable promotion**
+                        <small>
+                            Disable this to stop the offer from applying.
+                        </small>
+                    </span>
+                </label>
+
+                {{ form.is_active.errors }}
+            </div>
+
+            <div class="store-form-actions">
+                <button
+                    type="submit"
+                    class="store-primary-button"
+                >
+                    Save promotion
+                </button>
+
+                <a href="{% url 'store:manage_promotions' %}">
+                    Cancel
+                </a>
+            </div>
+
+        </form>
+
+    </div>
+
+</section>
+{% endblock %}
