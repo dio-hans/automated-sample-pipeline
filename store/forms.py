@@ -298,3 +298,15 @@ class CartQuantityForm(forms.Form):
             "min_value": "Quantity must be at least 1.",
         },
     )
+
+
+class CartQuantityForm(forms.Form):
+    quantity = forms.IntegerField(
+        min_value=1,
+        required=True,
+        widget=forms.NumberInput(attrs={
+            "min": 1,
+            "step": 1,
+            "class": "store-field",
+        }),
+    )

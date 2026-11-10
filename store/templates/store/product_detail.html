@@ -81,36 +81,45 @@
 
             <div class="product-detail-actions">
 
-<div class="product-detail-actions">
 
-    <form
-        method="post"
-        action="{% url 'store:cart_add' product.pk %}"
-        class="product-add-cart-form"
-    >
-        {% csrf_token %}
+                <div class="product-detail-actions">
 
-        <div class="product-quantity-control">
-            <label for="product-quantity">Quantity</label>
+                    <form
+                        method="post"
+                        action="{% url 'store:cart_add' product.pk %}"
+                        class="product-add-cart-form"
+                    >
+                        {% csrf_token %}
 
-            <input
-                type="number"
-                name="quantity"
-                id="product-quantity"
-                value="1"
-                min="1"
-                step="1"
-                required
-            >
-        </div>
+                        <div class="product-quantity-control">
+                            <label for="product-quantity">Quantity</label>
 
-        <button type="submit" class="button button-dark">
-            Add to cart
-        </button>
+                            <input
+                                type="number"
+                                name="quantity"
+                                id="product-quantity"
+                                value="1"
+                                min="1"
+                                step="1"
+                                required
+                            >
+                        </div>
 
-    </form>
+                        <button type="submit" class="button button-dark">
+                            Add to cart
+                        </button>
 
-</div>
+                    </form>
+
+                    <a
+                        href="{% url 'store:products' %}"
+                        class="product-back-link"
+                    >
+                        ← Back to products
+                    </a>
+
+                </div>
+
 
                 <a
                     href="{% url 'store:products' %}"

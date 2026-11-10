@@ -16,7 +16,7 @@
         </div>
 
         <a href="{% url 'store:products' %}" class="text-link">
-            Continue shopping →
+            ← Back to products
         </a>
     </div>
 
@@ -25,6 +25,13 @@
             {{ message }}
         </div>
     {% endfor %}
+
+    {% if has_unavailable_products %}
+        <div class="store-cart-warning-banner">
+            Some products in your cart are no longer published.
+            Remove them before proceeding to checkout.
+        </div>
+    {% endif %}
 
     {% if cart_rows %}
 
@@ -66,11 +73,12 @@
                             {% if not row.is_listed %}
                                 <p class="store-cart-warning">
                                     This product is no longer available online.
-                                    Remove it to continue.
+                                    Please remove it.
                                 </p>
                             {% endif %}
 
                             <div class="store-cart-unit-price">
+
                                 {% if row.promotion %}
                                     <del>
                                         UGX {{ row.product.selling_price|floatformat:0|intcomma }}
@@ -80,6 +88,7 @@
                                 <strong>
                                     UGX {{ row.unit_price|floatformat:0|intcomma }}
                                 </strong>
+
                                 <span>per pack</span>
                             </div>
 
@@ -118,6 +127,7 @@
                                     action="{% url 'store:cart_remove' row.item.pk %}"
                                 >
                                     {% csrf_token %}
+
                                     <button
                                         type="submit"
                                         class="store-cart-remove"
@@ -131,7 +141,8 @@
                         </div>
 
                         <div class="store-cart-line-total">
-                            <span>Subtotal</span>
+                            <span>Line total</span>
+
                             <strong>
                                 UGX {{ row.line_total|floatformat:0|intcomma }}
                             </strong>
@@ -146,7 +157,6 @@
             <aside class="store-cart-summary">
 
                 <p class="eyebrow">ORDER SUMMARY</p>
-
                 <h2>Your total</h2>
 
                 <div class="store-cart-summary-row">
@@ -156,6 +166,7 @@
 
                 <div class="store-cart-summary-row store-cart-grand-total">
                     <span>Subtotal</span>
+
                     <strong>
                         UGX {{ subtotal|floatformat:0|intcomma }}
                     </strong>
@@ -163,9 +174,8 @@
 
                 <p class="store-cart-disclaimer">
                     Delivery charges, if applicable, will be calculated
-                    later. Your cart does not reserve stock.
-                    Product availability and prices will be checked
-                    again when you place your order.
+                    during order placement. Adding coffee to your cart
+                    does not reserve stock.
                 </p>
 
                 <a
@@ -183,8 +193,12 @@
 
         <div class="store-cart-empty">
             <span class="store-cart-empty-icon">◇</span>
+
             <h2>Your cart is empty.</h2>
-            <p>Discover the Nonda collection and find your coffee.</p>
+
+            <p>
+                Discover the Nonda collection and find your coffee.
+            </p>
 
             <a
                 href="{% url 'store:products' %}"

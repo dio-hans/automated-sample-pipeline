@@ -1,16 +1,25 @@
-from web.models import PackagedInventory
-from decimal import Decimal
+
+from django.db import transaction
 from django.db.models import F, Prefetch, Sum
 from django.utils import timezone
 
-from .models import StoreCart, StoreCartItem, StorePromotion
+from web.models import PackagedInventory
+
+from .models import (
+    StoreCart,
+    StoreCartItem,
+    StoreCartItem,
+    StorePromotion,
+    StoreProductContent,
+)
+
+
+class CartOperationError(Exception):
+    """An expected shopping-cart validation error."""
 
 
 def get_open_cart(request):
-    """
-    Get or create the open cart associated with this visitor's
-    Django session.
-    """
+    """Return the open cart belonging to this visitor's session."""
 
     if not request.session.session_key:
         request.session.create()
@@ -24,10 +33,7 @@ def get_open_cart(request):
 
 
 def sync_cart_count(request, cart):
-    """
-    Store a lightweight item count in the session for the header.
-    Cart contents themselves remain in the database.
-    """
+    """Update the navigation count with the number of packs."""
 
     count = (
         cart.items.aggregate(total=Sum("quantity"))["total"]
@@ -39,14 +45,41 @@ def sync_cart_count(request, cart):
     return count
 
 
-def cart_items_queryset(cart):
+def product_is_listed(product):
+    """Check that the product is eligible for the online shop."""
+
+    try:
+        content = product.store_content
+    except StoreProductContent.DoesNotExist:
+        return False
+
+    return bool(
+        content.is_visible
+        and product.is_active
+        and product.blend.is_active
+        and product.pack_size.is_active
+    )
+
+
+def get_available_quantity(product):
     """
-    Retrieve cart items and current promotions efficiently.
+    Read actual availability from Nonda's existing inventory ledger.
+    This does not maintain a second inventory balance.
     """
+
+    inventory, _ = PackagedInventory.objects.get_or_create(
+        product=product
+    )
+
+    return max(inventory.available, 0)
+
+
+def get_cart_items_queryset(cart):
+    """Fetch cart data efficiently, including current promotions."""
 
     now = timezone.now()
 
-    active_promotions = (
+    current_promotions = (
         StorePromotion.objects
         .filter(
             is_active=True,
@@ -71,7 +104,7 @@ def cart_items_queryset(cart):
         .prefetch_related(
             Prefetch(
                 "product__store_content__promotions",
-                queryset=active_promotions,
+                queryset=current_promotions,
                 to_attr="current_promotions",
             )
         )
@@ -79,20 +112,23 @@ def cart_items_queryset(cart):
 
 
 def build_cart_summary(cart):
-    """
-    Calculate every line total and the cart subtotal on the
-    server. Never use a price submitted by the browser.
-    """
+    """Calculate current prices and totals on the server."""
 
     rows = []
-    subtotal = Decimal("0.00")
+    subtotal = 0
     total_quantity = 0
     has_unavailable_products = False
 
-    for item in cart_items_queryset(cart):
+    from decimal import Decimal
+
+    for item in get_cart_items_queryset(cart):
 
         product = item.product
-        content = getattr(product, "store_content", None)
+
+        try:
+            content = product.store_content
+        except StoreProductContent.DoesNotExist:
+            content = None
 
         promotions = (
             getattr(content, "current_promotions", [])
@@ -109,19 +145,10 @@ def build_cart_summary(cart):
 
         line_total = unit_price * item.quantity
 
-        is_listed = bool(
-            content
-            and content.is_visible
-            and product.is_active
-            and product.blend.is_active
-            and product.pack_size.is_active
-        )
+        listed = product_is_listed(product)
 
-        if not is_listed:
+        if not listed:
             has_unavailable_products = True
-
-        subtotal += line_total
-        total_quantity += item.quantity
 
         rows.append({
             "item": item,
@@ -130,8 +157,11 @@ def build_cart_summary(cart):
             "promotion": promotion,
             "unit_price": unit_price,
             "line_total": line_total,
-            "is_listed": is_listed,
+            "is_listed": listed,
         })
+
+        subtotal += line_total
+        total_quantity += item.quantity
 
     return {
         "cart_rows": rows,
@@ -141,25 +171,119 @@ def build_cart_summary(cart):
     }
 
 
-def get_available_quantity(product):
-    """
-    Read availability from Nonda's existing packaged inventory.
-    The cart does not create or maintain separate stock records.
-    """
+@transaction.atomic
+def add_product_to_cart(cart, product, quantity):
+    """Add packs to a cart, or increase the existing line quantity."""
 
-    try:
-        return max(product.inventory.available, 0)
-    except PackagedInventory.DoesNotExist:
-        return 0
+    if not product_is_listed(product):
+        raise CartOperationError(
+            "This product is no longer available in the online shop."
+        )
 
-
-def product_is_listed(product):
-    content = getattr(product, "store_content", None)
-
-    return bool(
-        content
-        and content.is_visible
-        and product.is_active
-        and product.blend.is_active
-        and product.pack_size.is_active
+    locked_cart = (
+        StoreCart.objects
+        .select_for_update()
+        .get(pk=cart.pk, status=StoreCart.Status.OPEN)
     )
+
+    item = (
+        StoreCartItem.objects
+        .select_for_update()
+        .filter(cart=locked_cart, product=product)
+        .first()
+    )
+
+    existing_quantity = item.quantity if item else 0
+    new_quantity = existing_quantity + quantity
+
+    available = get_available_quantity(product)
+
+    if available < 1:
+        raise CartOperationError(
+            "Sorry, this product is currently out of stock."
+        )
+
+    if new_quantity > available:
+        raise CartOperationError(
+            f"Only {available} packs are currently available. "
+            f"You already have {existing_quantity} in your cart."
+        )
+
+    if item:
+        item.quantity = new_quantity
+        item.save(update_fields=["quantity", "updated_at"])
+    else:
+        StoreCartItem.objects.create(
+            cart=locked_cart,
+            product=product,
+            quantity=quantity,
+        )
+
+    locked_cart.save(update_fields=["updated_at"])
+
+    return locked_cart
+
+
+@transaction.atomic
+def update_cart_item(cart, item_id, quantity):
+    """Update one item, ensuring it belongs to this visitor's cart."""
+
+    locked_cart = (
+        StoreCart.objects
+        .select_for_update()
+        .get(pk=cart.pk, status=StoreCart.Status.OPEN)
+    )
+
+    item = (
+        StoreCartItem.objects
+        .select_for_update()
+        .select_related(
+            "product",
+            "product__blend",
+            "product__pack_size",
+            "product__store_content",
+        )
+        .get(pk=item_id, cart=locked_cart)
+    )
+
+    if not product_is_listed(item.product):
+        raise CartOperationError(
+            "This product is no longer published. "
+            "Please remove it from your cart."
+        )
+
+    available = get_available_quantity(item.product)
+
+    if quantity > available:
+        raise CartOperationError(
+            f"Only {available} packs are currently available."
+        )
+
+    item.quantity = quantity
+    item.save(update_fields=["quantity", "updated_at"])
+
+    locked_cart.save(update_fields=["updated_at"])
+
+    return locked_cart
+
+
+@transaction.atomic
+def remove_cart_item(cart, item_id):
+    """Remove an item belonging to this visitor's cart."""
+
+    locked_cart = (
+        StoreCart.objects
+        .select_for_update()
+        .get(pk=cart.pk, status=StoreCart.Status.OPEN)
+    )
+
+    item = StoreCartItem.objects.select_for_update().get(
+        pk=item_id,
+        cart=locked_cart,
+    )
+
+    item.delete()
+
+    locked_cart.save(update_fields=["updated_at"])
+
+    return locked_cart

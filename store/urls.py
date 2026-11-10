@@ -2,6 +2,7 @@
 from django.urls import path
 
 from . import views
+from . import cart_views
 
 app_name = "store"
 
@@ -32,5 +33,13 @@ urlpatterns = [
     path("cart/item/<int:item_id>/update/",views.cart_update,name="cart_update",),
 
     path("cart/item/<int:item_id>/remove/",views.cart_remove,name="cart_remove",),
+
+    path("cart/", cart_views.cart_view, name="cart"),
+
+    path("cart/add/<int:product_id>/",cart_views.cart_add,name="cart_add",),
+
+    path("cart/item/<int:item_id>/update/",cart_views.cart_update,name="cart_update", ),
+
+    path("cart/item/<int:item_id>/remove/",cart_views.cart_remove,name="cart_remove",),
 
 ]
