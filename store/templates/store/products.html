@@ -1,0 +1,52 @@
+
+{% extends "store/base.html" %}
+{% load humanize %}
+
+{% block title %}Our Coffee | Nonda Coffee{% endblock %}
+
+{% block content %}
+
+<section class="page-heading">
+    <p class="eyebrow">THE NONDA COLLECTION</p>
+    <h1>Our coffee.</h1>
+    <p>Explore our blends and find the pack that suits you.</p>
+</section>
+
+<section class="section catalogue-section">
+
+    <div class="catalogue-toolbar">
+        <span>{{ products|length }} products</span>
+        <span>Crafted for your everyday moments</span>
+    </div>
+
+    <div class="product-grid">
+        {% for product in products %}
+            <article class="product-card">
+                <div class="product-image">
+                    <span class="product-placeholder">NONDA</span>
+                </div>
+
+                <div class="product-info">
+                    <div>
+                        <h3>{{ product.blend.name }}</h3>
+                        <p>
+                            {{ product.pack_size.label }}
+                            · {{ product.get_form_display }}
+                        </p>
+                    </div>
+
+                    <strong>
+                        UGX {{ product.selling_price|floatformat:0|intcomma }}
+                    </strong>
+                </div>
+            </article>
+        {% empty %}
+            <p class="empty-message">
+                No products are currently available.
+            </p>
+        {% endfor %}
+    </div>
+
+</section>
+
+{% endblock %}

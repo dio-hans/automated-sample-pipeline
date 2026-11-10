@@ -1,0 +1,70 @@
+-
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>{% block title %}Nonda Coffee{% endblock %}</title>
+
+    <meta name="description" content="{% block meta_description %}Discover and shop Nonda coffee blends.{% endblock %}">
+
+    <link rel="stylesheet" href="{% static 'store/css/store.css' %}">
+
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+
+    <header class="site-header">
+        <div class="header-inner">
+
+            <a href="{% url 'store:home' %}" class="brand">
+                NONDA<span>.</span>
+            </a>
+
+            <nav class="main-nav">
+                <a href="{% url 'store:home' %}">Home</a>
+                <a href="{% url 'store:products' %}">Our Coffee</a>
+                <a href="{% url 'store:home' %}#our-story">Our Story</a>
+                <a href="{% url 'store:home' %}#find-us">Find Nonda</a>
+            </nav>
+
+            <div class="header-actions">
+                <a href="#" class="cart-link">Cart <span>0</span></a>
+            </div>
+
+        </div>
+    </header>
+
+    <main>
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div>
+                <a href="{% url 'store:home' %}" class="brand footer-brand">
+                    NONDA<span>.</span>
+                </a>
+                <p>Good coffee, shared.</p>
+            </div>
+
+            <div class="footer-links">
+                <a href="{% url 'store:products' %}">Shop coffee</a>
+                <a href="{% url 'store:home' %}#our-story">Our story</a>
+                <a href="{% url 'store:home' %}#find-us">Find Nonda</a>
+            </div>
+
+            <p class="copyright">
+                © {% now "Y" %} Nonda Coffee. All rights reserved.
+            </p>
+        </div>
+    </footer>
+
+    {% block extra_js %}{% endblock %}
+
+</body>
+</html>

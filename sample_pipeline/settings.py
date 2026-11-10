@@ -35,6 +35,7 @@ ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.s
 
 INSTALLED_APPS = [
     'web',
+    'store',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -44,6 +45,7 @@ INSTALLED_APPS = [
     'crispy_forms',
     'crispy_tailwind',
     'django.contrib.humanize',
+    
     
 ]
 

@@ -140,7 +140,7 @@ path('expenses/', views.ExpenseTrackerView.as_view(), name='expense_tracker'),
 
 path("expenses/history/",views.ExpenseListView.as_view(),name="expense_list",),
 
-### INTERNAL ACCOUNTS
+# INTERNAL ACCOUNTS
 path("internal/accounts/", views.InternalAccountListView.as_view(), name="internal_account_list"),
 
 path("internal-accounts/create/",views.InternalAccountCreateView.as_view(),name="internal_account_create",),
