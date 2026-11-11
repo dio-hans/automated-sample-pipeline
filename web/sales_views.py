@@ -415,12 +415,8 @@ class StockRequestCreateView(RoleRequiredMixin, View):
                         if is_sales_request
                         else form.cleaned_data.get("purpose")
                     ),
-                    destination_type=(
-                        "agent_float"
-                        if is_sales_request
-                        else form.cleaned_data.get("destination_type", "")
-                    ),
-                    company=form.cleaned_data.get("company"),
+                    destination_type="agent_float",  # Default fallback since field is removed from form
+                    company=None,                    # Default fallback since field is removed from form
                     account_holder=(
                         form.sales_account_holder
                         if is_sales_request

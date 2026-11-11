@@ -87,16 +87,16 @@ Order Queue
             <div id="order_modal_{{ order.pk }}" class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 hidden items-center justify-center p-3">
                 <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 text-left flex flex-col animate-in fade-in zoom-in-95 duration-150">
                     
-                    <!-- Dark Modal Top Bar -->
-                    <div class="bg-slate-950 text-white px-4 py-2.5 flex items-center justify-between border-b border-slate-800 shrink-0">
+                    <!-- Clean White Modal Top Bar -->
+                    <div class="bg-white px-5 py-4 flex items-center justify-between border-b border-slate-100 shrink-0">
                         <div>
-                            <span class="text-[9px] font-mono tracking-wider text-emerald-400 font-bold uppercase block">
+                            <span class="text-[10px] font-mono tracking-wider text-emerald-700 font-bold uppercase block mb-0.5">
                                 Order #{{ order.short_number }}
                             </span>
-                            <h3 class="text-xs font-bold text-white">Record Order Settlement</h3>
+                            <h3 class="text-sm font-bold text-slate-900 tracking-tight">Record Order Settlement</h3>
                         </div>
-                        <button type="button" onclick="closeOrderModal('order_modal_{{ order.pk }}')" class="text-slate-400 hover:text-white text-base font-bold p-1 cursor-pointer">
-                            
+                        <button type="button" onclick="closeOrderModal('order_modal_{{ order.pk }}')" class="text-slate-400 hover:text-slate-700 text-lg font-bold p-1 transition-colors cursor-pointer" aria-label="Close modal">
+                            ✕
                         </button>
                     </div>
 
@@ -192,7 +192,7 @@ Order Queue
             <select name="method" required class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-md px-2 py-1.5 text-xs font-semibold text-slate-800">
                 <option value="cash" selected>Cash Payment</option>
                 <option value="mobile_money">Mobile Money (MoMo)</option>
-                <option value="bank_transfer">Bank Wire Transfer</option>
+                <option value="bank_transfer">Bank Transfer</option>
                 <option value="other">Other</option>
             </select>
         </div>
@@ -201,7 +201,7 @@ Order Queue
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
                                     <label class="block text-[9px] uppercase font-bold text-slate-500 mb-0.5">
-                                        Reference Hash / ID
+                                        Reference ID
                                     </label>
                                     <input type="text" 
                                            name="payment_reference" 
@@ -231,7 +231,7 @@ Order Queue
             Cancel
         </button>
 
-        <!-- 🎯 THE SAFE INVENTORY RETURN HOOK: Grabs the first valid release pointer index natively -->
+        <!--  THE SAFE INVENTORY RETURN HOOK: Grabs the first valid release pointer index natively -->
         {% with first_release=order.queue_releases.0 %}
             {% if first_release %}
                 <a href="{% url 'pack_return_form' first_release.pk %}" 

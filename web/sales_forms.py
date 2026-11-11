@@ -86,99 +86,69 @@ class DirectPackReleaseForm(forms.Form):
 class StockRequestForm(forms.ModelForm):
     class Meta:
         model = StockRequest
-        # 1. Added "destination_type" to fields
-        fields = ("purpose", "destination_type", "company", "account_holder")
+        fields = ("purpose", "account_holder")
         widgets = {
             "purpose": forms.Select(attrs={"class": FIELD_CLASS}),
-            "destination_type": forms.Select(attrs={"class": FIELD_CLASS}),  # 2. Widget added
-            "company": forms.Select(attrs={"class": FIELD_CLASS}),
             "account_holder": forms.Select(attrs={"class": FIELD_CLASS}),
         }
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.requesting_user = user
+        
+        # 🎯 RESTRICT PURPOSE CHOICES TO ONLY THESE FOUR
+        self.fields["purpose"].choices = [
+            ("sale", "For Sale"),
+            ("sample", "Sample"),
+            ("event", "Event"),
+            ("other", "Other"),
+        ]
+        
+        # Exclude company / consignee account holders from the dropdown
         self.fields["account_holder"].queryset = (
-            AccountHolder.objects.filter(is_active=True).order_by("name")
-        )
-        self.fields["company"].queryset = (
-            Company.objects.all().order_by("name")
+            AccountHolder.objects.filter(is_active=True, company_profile__isnull=True).order_by("name")
         )
         self.fields["account_holder"].required = False
-        self.fields["company"].required = False
-        self.fields["account_holder"].empty_label = "— No dedicated account —"
-        self.fields["company"].empty_label = "— No company —"
+        self.fields["account_holder"].empty_label = "— Default to Me (My Account) —"
 
-        self.sales_account_holder = None
+        # Find the AccountHolder profile linked to the current logged-in user
+        self.user_account_holder = None
+        if user and user.is_authenticated:
+            self.user_account_holder = (
+                AccountHolder.objects
+                .filter(system_user=user, company_profile__isnull=True)
+                .order_by("pk")
+                .first()
+            )
+
+        # If user is a strict SALES requester, lock purpose and account to them
         is_sales_requester = (
             getattr(user, "role", None) == "SALES"
             and not getattr(user, "is_superuser", False)
         )
-        if is_sales_requester:
-            self.sales_account_holder = (
-                AccountHolder.objects
-                .filter(system_user=user)
-                .order_by("pk")
-                .first()
-            )
-            for field_name, value in (
-                ("purpose", "sale"),
-                ("destination_type", "agent_float"),
-            ):
-                field = self.fields[field_name]
-                field.initial = value
-                field.disabled = True
-                field.widget = forms.HiddenInput()
-                self.initial[field_name] = value
+        if is_sales_requester and self.user_account_holder:
+            field = self.fields["purpose"]
+            field.initial = "sale"
+            field.disabled = True
+            field.widget = forms.HiddenInput()
+            self.initial["purpose"] = "sale"
 
             account_field = self.fields["account_holder"]
-            account_field.queryset = (
-                AccountHolder.objects.filter(pk=self.sales_account_holder.pk)
-                if self.sales_account_holder
-                else AccountHolder.objects.none()
-            )
-            account_field.initial = self.sales_account_holder
+            account_field.queryset = AccountHolder.objects.filter(pk=self.user_account_holder.pk)
+            account_field.initial = self.user_account_holder
             account_field.disabled = True
             account_field.widget = forms.HiddenInput()
-            self.initial["account_holder"] = self.sales_account_holder
+            self.initial["account_holder"] = self.user_account_holder
 
     def clean(self):
         cleaned = super().clean()
-        if (
-            getattr(self.requesting_user, "role", None) == "SALES"
-            and not getattr(self.requesting_user, "is_superuser", False)
-        ):
-            if not self.sales_account_holder:
-                self.add_error(
-                    None,
-                    "Your user account is not linked to a salesperson account. "
-                    "Ask an administrator to link it before requesting stock.",
-                )
-                return cleaned
-
-            cleaned["purpose"] = "sale"
-            cleaned["destination_type"] = "agent_float"
-            cleaned["account_holder"] = self.sales_account_holder
-            return cleaned
-
-        destination = cleaned.get("destination_type")
-        company = cleaned.get("company")
-        account = cleaned.get("account_holder")
-
-        if destination == "company" and not company:
-            self.add_error(
-                "company",
-                "Select the company / restaurant receiving this stock.",
-            )
-
-        if destination == "agent_float" and not account:
-            self.add_error(
-                "account_holder",
-                "Select the account responsible for this stock.",
-            )
-
+        
+        # Auto-default account holder to logged-in user if left blank
+        account_holder = cleaned.get("account_holder")
+        if not account_holder and self.user_account_holder:
+            cleaned["account_holder"] = self.user_account_holder
+            
         return cleaned
-
 
 
 class StockRequestItemForm(forms.Form):

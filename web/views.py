@@ -3486,30 +3486,33 @@ def get_context_data(self, **kwargs):
 # ---------------------------------------------------------
 @login_required
 def account_holder_list(request):
-    # Accounts associated with companies managed as consignees
-    # should not appear in the ordinary Account Holders directory.
-    consignment_account_ids = (
-        Company.objects
-        .filter(account_holder__isnull=False)
-        .filter(
-            Q(branches__isnull=False)
-            | Q(pack_releases__purpose="display")
-        )
-        .values_list("account_holder_id", flat=True)
-    )
+    # 1. Get all account names or IDs that belong to corporate/supermarket companies
+    company_account_ids = Company.objects.filter(account_holder__isnull=False).values_list("account_holder_id", flat=True)
+    company_names = Company.objects.values_list("name", flat=True)
 
+    # 2. Base queryset: exclude company profiles and names matching supermarkets/companies
     accounts = (
         AccountHolder.objects
-        .exclude(pk__in=consignment_account_ids)
+        .exclude(pk__in=company_account_ids)
+        .exclude(name__in=company_names)
         .select_related("system_user")
-        .order_by("name")
     )
+
+    # 3. Optional Search Bar Filter (by name or phone number)
+    query = request.GET.get("q", "").strip()
+    if query:
+        accounts = accounts.filter(
+            Q(name__icontains=query) | Q(phone_number__icontains=query)
+        )
+
+    accounts = accounts.order_by("name")
 
     return render(
         request,
         "pipeline/account_holder_list.html",
-        {"accounts": accounts},
+        {"accounts": accounts, "search_query": query},
     )
+
 
 @login_required
 def account_holder_create(request):
@@ -3522,18 +3525,6 @@ def account_holder_create(request):
     else:
         form = AccountHolderForm()
     return render(request, 'pipeline/account_holder_form.html', {'form': form, 'title': 'Create Account Holder'})
-
-from django.db.models import Sum, F, ExpressionWrapper, DecimalField
-from django.shortcuts import get_object_or_404, render
-from django.contrib.auth.decorators import login_required
-
-from django.shortcuts import render, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from django.db.models import Sum, F, ExpressionWrapper, DecimalField
-
-from .models import AccountHolder, PackRelease
-from .utils.util import apply_date_filters  # Adjust import path if needed
-
 
 
 @login_required

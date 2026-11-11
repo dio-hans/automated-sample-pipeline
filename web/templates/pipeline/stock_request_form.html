@@ -23,20 +23,21 @@
         </div>
     {% endif %}
 
-    <!-- 1. REQUEST DETAILS -->
+   <!-- 1. REQUEST DETAILS -->
     <section class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
         <!-- SECTION HEADER -->
         <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-700 border-b border-slate-100 pb-1.5 mb-2.5">
             1. Request Details
         </h2>
         
-        <!-- FORM GRID -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <!-- FORM GRID: 2 columns on medium+ screens, 1 column on mobile -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             {% for field in form %}
                 {% if field.is_hidden %}
                     {{ field }}
                 {% else %}
-                    <div class="{% if field.name == 'account_holder' %}md:col-span-2{% endif %}">
+                    <!-- Removed the md:col-span-2 check so each field takes 1 equal column -->
+                    <div>
                         <label for="{{ field.id_for_label }}" class="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-1">
                             {{ field.label }}
                         </label>
