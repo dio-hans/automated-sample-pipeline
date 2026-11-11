@@ -1,0 +1,112 @@
+
+{% extends "store/base.html" %}
+{% load humanize %}
+
+{% block title %}Promotions | Nonda Store{% endblock %}
+
+{% block content %}
+<section class="store-admin">
+
+    <div class="store-admin-heading">
+        <div>
+            <p class="store-eyebrow">STORE MANAGEMENT</p>
+            <h1>Promotions</h1>
+            <p>Manage discounts and scheduled product offers.</p>
+        </div>
+
+        <a
+            href="{% url 'store:promotion_create' %}"
+            class="store-primary-button"
+        >
+            Create promotion
+        </a>
+    </div>
+
+    {% for message in messages %}
+        <p class="store-message">{{ message }}</p>
+    {% endfor %}
+
+    <div class="store-promotion-list">
+
+        {% for promotion in promotions %}
+
+            <article class="store-promotion-card">
+
+                <div>
+                    <h2>
+                        {{ promotion.content.display_name|default:promotion.content.product.blend.name }}
+                    </h2>
+
+                    <p>
+                        {{ promotion.content.product.pack_size.label }}
+                        · {{ promotion.content.product.get_form_display }}
+                    </p>
+
+                    <div class="store-promotion-prices">
+                        <del>
+                            UGX {{ promotion.content.product.selling_price|floatformat:0|intcomma }}
+                        </del>
+
+                        <strong>
+                            UGX {{ promotion.discounted_price|floatformat:0|intcomma }}
+                        </strong>
+                    </div>
+                </div>
+
+                <div class="store-promotion-dates">
+                    <p>
+                        Starts:
+                        {{ promotion.starts_at|date:"d M Y, H:i" }}
+                    </p>
+
+                    <p>
+                        Ends:
+                        {{ promotion.ends_at|date:"d M Y, H:i" }}
+                    </p>
+
+                    <span class="store-promotion-status">
+                        {{ promotion.status }}
+                    </span>
+                </div>
+
+                <div>
+                    <a href="{% url 'store:promotion_edit' promotion.pk %}">
+                        Edit promotion
+                    </a>
+                </div>
+
+            </article>
+
+        {% empty %}
+            <div class="store-empty-state">
+                <h2>No promotions yet</h2>
+                <p>Create your first offer for a published Nonda product.</p>
+            </div>
+        {% endfor %}
+
+    </div>
+
+    {% if page_obj.has_other_pages %}
+        <nav class="store-pagination">
+
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}">
+                    Previous
+                </a>
+            {% endif %}
+
+            <span>
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </span>
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}">
+                    Next
+                </a>
+            {% endif %}
+
+        </nav>
+    {% endif %}
+
+</section>
+{% endblock %}

@@ -1,4 +1,3 @@
--
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
@@ -21,7 +20,7 @@
         <div class="header-inner">
 
             <a href="{% url 'store:home' %}" class="brand">
-                NONDA<span>.</span>
+                NONDA COMMODITIES<span>.</span>
             </a>
 
             <nav class="main-nav">
@@ -32,7 +31,9 @@
             </nav>
 
             <div class="header-actions">
-                <a href="#" class="cart-link">Cart <span>0</span></a>
+                <a href="{% url 'store:cart' %}" class="cart-link">
+                    Cart <span>{{ store_cart_count|default:0 }}</span>
+                </a>
             </div>
 
         </div>

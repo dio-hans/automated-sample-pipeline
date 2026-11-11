@@ -8,41 +8,59 @@
 
 <section class="hero">
     <div class="hero-content">
-        <p class="eyebrow">ROOTED IN AFRICA. MADE TO BE SHARED.</p>
 
-        <h1>Make room for<br><em>good coffee.</em></h1>
+        <p class="eyebrow">
+            {{ homepage_content.hero_eyebrow }}
+        </p>
+
+        <h1>
+            {{ homepage_content.hero_title_line }}<br>
+            <em>{{ homepage_content.hero_title_emphasis }}</em>
+        </h1>
 
         <p class="hero-description">
-            Discover Nonda's carefully crafted coffee blends.
-            Find your favourite, choose your pack and enjoy
-            good coffee wherever life takes you.
+            {{ homepage_content.hero_description }}
         </p>
 
         <a href="{% url 'store:products' %}" class="button button-dark">
             Explore our coffee <span>→</span>
         </a>
+
     </div>
 
     <div class="hero-visual">
+
+        {% if homepage_content.hero_image %}
+            <img
+                class="hero-banner-image"
+                src="{{ homepage_content.hero_image.url }}"
+                alt="{{ homepage_content.hero_image_alt }}"
+                fetchpriority="high"
+            >
+        {% endif %}
+
         <div class="hero-visual-label">
-            <span>THE NONDA COLLECTION</span>
-            <span>01 / COFFEE</span>
+            <span>{{ homepage_content.hero_visual_label }}</span>
+            <span>{{ homepage_content.hero_visual_reference }}</span>
         </div>
+
     </div>
 </section>
 
-
 <section class="intro-band">
-    <p>Good coffee is worth sharing.</p>
-    <span>Discover the Nonda collection</span>
+    <p>{{ homepage_content.intro_text }}</p>
+    <span>{{ homepage_content.intro_subtext }}</span>
 </section>
 
-
 <section class="section products-preview">
+
     <div class="section-heading">
         <div>
-            <p class="eyebrow">THE COLLECTION</p>
-            <h2>Find your everyday coffee.</h2>
+            <p class="eyebrow">
+                {{ homepage_content.collection_eyebrow }}
+            </p>
+
+            <h2>{{ homepage_content.collection_title }}</h2>
         </div>
 
         <a href="{% url 'store:products' %}" class="text-link">
@@ -51,63 +69,109 @@
     </div>
 
     <div class="product-grid">
-        {% for product in featured_products %}
-            <article class="product-card">
-                <a href="{% url 'store:products' %}" class="product-image">
-                    <span class="product-placeholder">NONDA</span>
-                </a>
 
-                <div class="product-info">
-                    <div>
-                        <h3>{{ product.blend.name }}</h3>
-                        <p>
-                            {{ product.pack_size.label }}
-                            · {{ product.get_form_display }}
-                        </p>
-                    </div>
+        
+{% for product in featured_products %}
+    {% with content=product.store_content %}
 
-                    <strong>
-                        UGX {{ product.selling_price|floatformat:0|intcomma }}
-                    </strong>
+        <article class="product-card">
+
+            <a href="{% url 'store:product_detail' product.pk %}"
+               class="product-card-image-link">
+
+                <div class="product-image">
+                    {% if content.image %}
+                        <img
+                            src="{{ content.image.url }}"
+                            alt="{{ content.display_name|default:product.blend.name }}"
+                            loading="lazy"
+                        >
+                    {% else %}
+                        <span class="product-placeholder">NONDA</span>
+                    {% endif %}
                 </div>
-            </article>
-        {% empty %}
-            <p class="empty-message">
-                Our coffee collection is being prepared.
-                Please check back soon.
-            </p>
-        {% endfor %}
+
+            </a>
+
+            <div class="product-info">
+                <div>
+                    <h3>
+                        <a href="{% url 'store:product_detail' product.pk %}">
+                            {{ content.display_name|default:product.blend.name }}
+                        </a>
+                    </h3>
+
+                    <p>
+                        {{ product.pack_size.label }}
+                        · {{ product.get_form_display }}
+                    </p>
+
+                    {% if content.description %}
+                        <p class="product-description">
+                            {{ content.description|linebreaksbr }}
+                        </p>
+                    {% endif %}
+                </div>
+
+                {% with promotion=content.current_promotions|first %}
+                    {% if promotion %}
+                        <div class="product-pricing">
+                            <del>UGX {{ product.selling_price|floatformat:0|intcomma }}</del>
+                            <strong>UGX {{ promotion.discounted_price|floatformat:0|intcomma }}</strong>
+                        </div>
+                    {% else %}
+                        <strong>UGX {{ product.selling_price|floatformat:0|intcomma }}</strong>
+                    {% endif %}
+                {% endwith %}
+
+                <a
+                    href="{% url 'store:product_detail' product.pk %}"
+                    class="product-view-link"
+                >
+                    View product →
+                </a>
+            </div>
+
+        </article>
+
+    {% endwith %}
+{% endfor %}
+
+
     </div>
 </section>
-
 
 <section class="story-section" id="our-story">
+
     <div>
-        <p class="eyebrow">THE NONDA WAY</p>
-        <h2>More than coffee.<br><em>A moment worth keeping.</em></h2>
+        <p class="eyebrow">
+            {{ homepage_content.story_eyebrow }}
+        </p>
+
+        <h2>
+            {{ homepage_content.story_title_line }}<br>
+            <em>{{ homepage_content.story_title_emphasis }}</em>
+        </h2>
     </div>
 
-    <p>
-        Every blend has a story. We bring carefully selected coffee
-        and thoughtful craftsmanship together to make every cup
-        worth enjoying.
-    </p>
+    <p>{{ homepage_content.story_description }}</p>
+
 </section>
 
-
 <section class="find-section" id="find-us">
+
     <div>
-        <p class="eyebrow">FIND NONDA</p>
-        <h2>Your favourite coffee<br>could be closer than you think.</h2>
+        <p class="eyebrow">
+            {{ homepage_content.find_eyebrow }}
+        </p>
+
+        <h2>{{ homepage_content.find_title }}</h2>
     </div>
 
     <div>
-        <p>
-            Discover supermarkets and stores stocking Nonda coffee.
-            Find a branch near you and get your favourite blend.
-        </p>
-        <a href="#" class="text-link">Explore nearby stores →</a>
+        <p>{{ homepage_content.find_description }}</p>
     </div>
+
 </section>
 
 {% endblock %}

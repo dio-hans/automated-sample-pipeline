@@ -20,31 +20,86 @@
     </div>
 
     <div class="product-grid">
-        {% for product in products %}
-            <article class="product-card">
+
+        
+{% for product in products %}
+    {% with content=product.store_content %}
+
+        <article class="product-card">
+
+            <a
+                href="{% url 'store:product_detail' product.pk %}"
+                class="product-card-image-link"
+            >
                 <div class="product-image">
-                    <span class="product-placeholder">NONDA</span>
+                    {% if content.image %}
+                        <img
+                            src="{{ content.image.url }}"
+                            alt="{{ content.display_name|default:product.blend.name }}"
+                            loading="lazy"
+                        >
+                    {% else %}
+                        <span class="product-placeholder">NONDA</span>
+                    {% endif %}
                 </div>
+            </a>
 
-                <div class="product-info">
-                    <div>
-                        <h3>{{ product.blend.name }}</h3>
-                        <p>
-                            {{ product.pack_size.label }}
-                            · {{ product.get_form_display }}
+            <div class="product-info">
+                <div>
+                    <h3>
+                        <a href="{% url 'store:product_detail' product.pk %}">
+                            {{ content.display_name|default:product.blend.name }}
+                        </a>
+                    </h3>
+
+                    <p>
+                        {{ product.pack_size.label }}
+                        · {{ product.get_form_display }}
+                    </p>
+
+                    {% if content.description %}
+                        <p class="product-description">
+                            {{ content.description|linebreaksbr }}
                         </p>
-                    </div>
-
-                    <strong>
-                        UGX {{ product.selling_price|floatformat:0|intcomma }}
-                    </strong>
+                    {% endif %}
                 </div>
-            </article>
-        {% empty %}
-            <p class="empty-message">
-                No products are currently available.
-            </p>
-        {% endfor %}
+
+                {% with promotion=content.current_promotions|first %}
+                    {% if promotion %}
+                        <div class="product-pricing">
+                            <del>
+                                UGX {{ product.selling_price|floatformat:0|intcomma }}
+                            </del>
+                            <strong>
+                                UGX {{ promotion.discounted_price|floatformat:0|intcomma }}
+                            </strong>
+                        </div>
+                    {% else %}
+                        <strong>
+                            UGX {{ product.selling_price|floatformat:0|intcomma }}
+                        </strong>
+                    {% endif %}
+                {% endwith %}
+
+                <a
+                    href="{% url 'store:product_detail' product.pk %}"
+                    class="product-view-link"
+                >
+                    View product →
+                </a>
+
+            </div>
+
+        </article>
+
+    {% endwith %}
+{% empty %}
+    <p class="empty-message">
+        No products are currently available.
+    </p>
+{% endfor %}
+
+
     </div>
 
 </section>

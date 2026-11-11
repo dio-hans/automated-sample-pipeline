@@ -1,0 +1,107 @@
+
+{% extends "store/base.html" %}
+
+{% block content %}
+<section class="store-admin">
+
+    <div class="store-admin-heading">
+        <div>
+            <p class="store-eyebrow">STORE MANAGEMENT</p>
+            <h1>Online products</h1>
+            <p>Choose which Nonda products appear in the online shop.</p>
+        </div>
+
+        <a href="{% url 'store:products' %}" class="store-secondary-link">
+            View online shop
+        </a>
+
+        <a href="{% url 'store:manage_homepage' %}">
+            Edit homepage content
+        </a>
+    </div>
+
+    <div class="store-admin-list">
+
+        {% for row in product_rows %}
+            <article class="store-admin-card">
+
+                <div class="store-admin-image">
+                    {% if row.content and row.content.image %}
+                        <img
+                            src="{{ row.content.image.url }}"
+                            alt="{{ row.product.blend.name }}"
+                            loading="lazy"
+                        >
+                    {% else %}
+                        <span>No image uploaded</span>
+                    {% endif %}
+                </div>
+
+                <div class="store-admin-details">
+                    <h2>{{ row.product.blend.name }}</h2>
+
+                    <p>
+                        {{ row.product.pack_size.label }}
+                        · {{ row.product.form|title }}
+                    </p>
+
+                    <p class="store-admin-price">
+                        UGX {{ row.product.selling_price|floatformat:0 }}
+                    </p>
+
+                    <div class="store-status">
+                        {% if row.content and row.content.is_visible %}
+                            <span class="store-status-published">Published</span>
+                        {% else %}
+                            <span class="store-status-draft">Not published</span>
+                        {% endif %}
+
+                        {% if row.content and row.content.is_featured %}
+                            <span class="store-status-featured">Featured</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="store-admin-action">
+                    <a href="{% url 'store:edit_product' row.product.pk %}">
+                        {% if row.content %}
+                            Manage product
+                        {% else %}
+                            Set up product
+                        {% endif %}
+                    </a>
+                </div>
+
+            </article>
+        {% empty %}
+            <div class="store-empty-state">
+                <h2>No active packaged products found</h2>
+                <p>
+                    Create or activate packaged products in Nonda Pipeline
+                    before managing their online presentation.
+                </p>
+            </div>
+        {% endfor %}
+
+    </div>
+
+    {% if page_obj.has_other_pages %}
+        <nav class="store-pagination" aria-label="Product pages">
+
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}">Previous</a>
+            {% endif %}
+
+            <span>
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </span>
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}">Next</a>
+            {% endif %}
+
+        </nav>
+    {% endif %}
+
+</section>
+{% endblock %}
