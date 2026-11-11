@@ -104,45 +104,103 @@
                         <th class="px-3.5 py-2 text-right">Action</th>
                     </tr>
                 </thead>
+                
                 <tbody class="divide-y divide-stone-100">
                     {% for employee in users %}
                     <tr class="hover:bg-stone-50/50 transition-colors">
+
+                        <!-- User -->
                         <td class="px-3.5 py-2 whitespace-nowrap">
-                            <p class="font-bold text-stone-900 leading-tight">{{ employee.username }}</p>
-                            <p class="text-[10px] text-stone-500 mt-0.5">{{ employee.email|default:"No email" }}</p>
+                            <p class="font-bold text-stone-900 leading-tight">
+                                {{ employee.username }}
+                            </p>
+                            <p class="text-[10px] text-stone-500 mt-0.5">
+                                {{ employee.email|default:"No email" }}
+                            </p>
                         </td>
+
+                        <!-- Employee ID -->
                         <td class="px-3.5 py-2 text-stone-600 font-mono text-[11px] whitespace-nowrap">
                             {{ employee.employee_id|default:"—" }}
                         </td>
+
+                        <!-- Current Role -->
                         <td class="px-3.5 py-2 font-medium text-stone-800 whitespace-nowrap">
                             {{ employee.get_role_display }}
                         </td>
+
+                        <!-- Status -->
                         <td class="px-3.5 py-2 whitespace-nowrap">
                             {% if employee.is_active %}
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Active</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                    Active
+                                </span>
                             {% else %}
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">Suspended</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">
+                                    Suspended
+                                </span>
                             {% endif %}
                         </td>
+
+                        <!-- Actions -->
                         <td class="px-3.5 py-2 text-right whitespace-nowrap">
                             {% if employee != request.user and not employee.is_superuser %}
-                            <form method="post" action="{% url 'toggle_user_status' employee.id %}" class="inline">
-                                {% csrf_token %}
-                                <button type="submit" class="px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors cursor-pointer {% if employee.is_active %}bg-red-600 text-white hover:bg-red-700{% else %}bg-emerald-600 text-white hover:bg-emerald-700{% endif %}">
-                                    {% if employee.is_active %}Suspend{% else %}Activate{% endif %}
-                                </button>
-                            </form>
+
+                                <!-- Change Role -->
+                                <form method="post"
+                                    action="{% url 'change_user_role' employee.id %}"
+                                    class="inline-flex items-center gap-1">
+                                    {% csrf_token %}
+
+                                    <select name="role"
+                                            class="border border-stone-300 rounded px-2 py-1 text-[11px] bg-white">
+                                        {% for value, label in role_choices %}
+                                            <option value="{{ value }}"
+                                                {% if employee.role == value %}selected{% endif %}>
+                                                {{ label }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+
+                                    <button type="submit"
+                                            class="px-2.5 py-1 text-[11px] font-bold rounded-md bg-blue-700 text-white hover:bg-blue-800">
+                                        Save Role
+                                    </button>
+                                </form>
+
+                                <!-- Suspend / Activate (only once) -->
+                                <form method="post"
+                                    action="{% url 'toggle_user_status' employee.id %}"
+                                    class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit"
+                                            class="px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors
+                                            {% if employee.is_active %}
+                                                bg-red-600 text-white hover:bg-red-700
+                                            {% else %}
+                                                bg-emerald-600 text-white hover:bg-emerald-700
+                                            {% endif %}">
+                                        {% if employee.is_active %}Suspend{% else %}Activate{% endif %}
+                                    </button>
+                                </form>
+
                             {% else %}
-                                <span class="text-[10px] font-semibold text-stone-400 bg-stone-100 px-2 py-0.5 rounded">Protected</span>
+                                <span class="text-[10px] font-semibold text-stone-400 bg-stone-100 px-2 py-0.5 rounded">
+                                    Protected
+                                </span>
                             {% endif %}
                         </td>
+
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="px-3.5 py-6 text-center text-stone-500">No staff accounts found.</td>
+                        <td colspan="5" class="px-3.5 py-6 text-center text-stone-500">
+                            No staff accounts found.
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
+
             </table>
         </div>
     </div>

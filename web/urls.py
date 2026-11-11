@@ -50,7 +50,9 @@ path("stock/low/", views.low_stock_list, name="stock_low"),
 #login
 path('', views.user_login, name='login'),
 path('register/', views.register_user, name='register'),
-path("users/<int:user_id>/toggle-status/",views.toggle_user_status,name="toggle_user_status",),# more inventory urls
+path("users/<int:user_id>/toggle-status/",views.toggle_user_status,name="toggle_user_status",),
+path("users/<int:user_id>/change-role/",views.change_user_role,name="change_user_role",),
+# more inventory urls
 # --- Auth ---
 path('logout/', views.user_logout, name='logout'),
 path('forgot-password/', views.forgot_password_view, name='forgot_password'),

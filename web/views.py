@@ -114,20 +114,44 @@ from .services.processing import (
 from .utils.util import apply_date_filters
 from .sales_forms import AccountHolderForm, PackReturnForm
 
-
 def redirect_user_by_role(user):
     """Send each authenticated user to the workspace for their role."""
+
     if user.is_superuser or user.role == User.Role.ADMIN:
         return redirect("admin_dashboard")
-    if user.role == User.Role.MANAGER:
+
+    if user.role in (User.Role.MANAGER, User.Role.PRODUCTION):
         return redirect("inventory_dashboard")
+
     if user.role == User.Role.SALES:
         return redirect("record_sale")
+
     if user.role == User.Role.CASHIER:
         return redirect("order_queue")
+
     if user.role == User.Role.ACCOUNTS:
         return redirect("admin_dashboard")
+
+    if user.role == User.Role.EXPENSES:
+        return redirect("expense_list")
+
     return redirect("login")
+
+
+def user_has_any_role(user, allowed_roles):
+    if not user.is_authenticated:
+        return False
+
+    if user.is_superuser:
+        return True
+
+    allowed = set(allowed_roles)
+
+    # Production Manager inherits Store Manager permissions.
+    if User.Role.MANAGER in allowed:
+        allowed.add(User.Role.PRODUCTION)
+
+    return user.role in allowed
 
 def user_login(request):
     if request.method == 'POST':
@@ -170,36 +194,95 @@ def register_user(request):
         form = UserRegistrationForm()
 
     system_users = User.objects.all().order_by('role', 'username')
-    return render(request, 'pipeline/registration.html', {'form': form, 'users': system_users})
+    return render(
+    request,
+    'pipeline/registration.html',
+    {
+        'form': form,
+        'users': system_users,
+        'role_choices': User.Role.choices,
+    }
+)
 
+@require_POST
 def toggle_user_status(request, user_id):
-    """
-    Soft deactivation feature to handle account locks safely.
-    Protected explicitly against arbitrary privilege- escalations.
-    """
+    if not (
+        request.user.is_authenticated
+        and (
+            request.user.is_superuser
+            or request.user.role == User.Role.ADMIN
+        )
+    ):
+        messages.error(request, "You do not have permission to manage users.")
+        return redirect("register")
+
     employee = get_object_or_404(User, id=user_id)
-    
-    if employee == request.user:
-        messages.error(request, "Security Violation Protection: You cannot lock out your own administrative account.")
-        return redirect('register')
 
-    # Atomic inversion of status state
+    if employee == request.user or employee.is_superuser:
+        messages.error(request, "This account is protected.")
+        return redirect("register")
+
     employee.is_active = not employee.is_active
-    employee.save()
+    employee.save(update_fields=["is_active"])
 
-    status = "activated" if employee.is_active else "suspended"
-    
     if employee.is_active:
-        messages.success(request, f"Access clearance for {employee.username} successfully restored.")
+        messages.success(
+            request,
+            f"Access for {employee.username} successfully restored."
+        )
     else:
-        messages.warning(request, f"Terminal operational rights for {employee.username} have been suspended.")
-        
-    return redirect('register')
+        messages.warning(
+            request,
+            f"Access for {employee.username} has been suspended."
+        )
+
+    return redirect("register")
+
+
+@require_POST
+def change_user_role(request, user_id):
+    # Only System Admins can change employee roles.
+    if not (
+        request.user.is_authenticated
+        and (
+            request.user.is_superuser
+            or request.user.role == User.Role.ADMIN
+        )
+    ):
+        messages.error(request, "You do not have permission to change user roles.")
+        return redirect("register")
+
+    employee = get_object_or_404(User, id=user_id)
+
+    # Protect the current account and superuser accounts.
+    if employee == request.user or employee.is_superuser:
+        messages.error(request, "This account is protected from role changes.")
+        return redirect("register")
+
+    new_role = request.POST.get("role", "").strip()
+
+    valid_roles = {choice[0] for choice in User.Role.choices}
+
+    if new_role not in valid_roles:
+        messages.error(request, "Invalid role selected.")
+        return redirect("register")
+
+    old_role = employee.get_role_display()
+    employee.role = new_role
+    employee.save(update_fields=["role"])
+
+    messages.success(
+        request,
+        f"{employee.username}'s role changed from {old_role} "
+        f"to {employee.get_role_display()}."
+    )
+
+    return redirect("register")
 
 # AUTH & USER CONTROL 
 @method_decorator(login_required, name='dispatch') 
 class InventoryRoleRequiredMixin:
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER, User.Role.ACCOUNTS)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER, User.Role.ACCOUNTS, User.Role.PRODUCTION)
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect("login")
@@ -208,15 +291,11 @@ class InventoryRoleRequiredMixin:
         messages.error(request, "You do not have permission to access inventory operations.")
         return redirect("record_sale")  
           
-from django.contrib.auth.decorators import login_required
-from django.utils.decorators import method_decorator
-from django.views.generic import ListView
-from .models import PackagingRun, User
 from .utils.util import apply_date_filters  # Ensure this utility is imported
 
 @method_decorator(login_required, name="dispatch")
 class PackagingRunListView(InventoryRoleRequiredMixin, ListView):
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS, User.Role.PRODUCTION)
     model = PackagingRun
     template_name = "pipeline/packaging_run_list.html"
     context_object_name = "packaging_runs"
@@ -428,33 +507,13 @@ class PackReleaseCreateView(InventoryRoleRequiredMixin, CreateView):
             form.add_error(None, e.message)
             return self.form_invalid(form)
 
-
-from datetime import datetime, time
-from django.utils import timezone
-
-from datetime import datetime, time
-from django.db.models import Q
-from django.utils import timezone
-
-from django.db.models import F, Sum, DecimalField, ExpressionWrapper
-from django.utils import timezone
-from datetime import datetime, time
-# ... your other imports ...
-
-from django.db.models import F, Sum, DecimalField, ExpressionWrapper
-from django.utils import timezone
-from datetime import datetime, time
-
-from datetime import datetime, time
-from django.db.models import F, Q, Sum, DecimalField, ExpressionWrapper
-from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views.generic import ListView
 
 @method_decorator(login_required, name='dispatch')
 class PackReturnListView(InventoryRoleRequiredMixin, ListView):
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER, User.Role.ACCOUNTS)
+    allowed_roles = (User.Role.MANAGER, User.Role.PRODUCTION, User.Role.ADMIN, User.Role.CASHIER, User.Role.ACCOUNTS)
     model = PackReturn
     template_name = "pipeline/pack_return_list.html"
     context_object_name = "returns"
@@ -618,7 +677,6 @@ class CompanyDeleteView(DeleteView):
 # COFFEE STOCK
 
 from django.views.generic import ListView
-from .models import CoffeeStock
 
 @method_decorator(login_required, name='dispatch')
 class CoffeeStockListViews(RoleRequiredMixin, ListView):
@@ -626,7 +684,7 @@ class CoffeeStockListViews(RoleRequiredMixin, ListView):
     model = CoffeeStock
     template_name = "pipeline/coffee_stock_list.html"
     context_object_name = "stocks"
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.SALES, User.Role.CASHIER, User.Role.ACCOUNTS)
+    allowed_roles = (User.Role.MANAGER, User.Role.PRODUCTION, User.Role.ADMIN, User.Role.SALES, User.Role.CASHIER, User.Role.ACCOUNTS)
 
     def get_queryset(self):
         # Optimized database query pulling your varieties up front
@@ -698,7 +756,7 @@ class CoffeeStockCreateView(
     VarietyDatalistMixin,
     CreateView,
 ):
-    allowed_roles = (User.Role.MANAGER,)
+    allowed_roles = (User.Role.MANAGER, User.Role.PRODUCTION)
     model = CoffeeStock
     form_class = CoffeeStockIntakeForm
     template_name = "pipeline/stock_form.html"
@@ -721,7 +779,7 @@ class CoffeeStockUpdateView(
     VarietyDatalistMixin,
     UpdateView,
 ):
-    allowed_roles = (User.Role.MANAGER,)
+    allowed_roles = (User.Role.MANAGER, User.Role.PRODUCTION)
     model = CoffeeStock
     form_class = CoffeeStockForm
     template_name = "pipeline/stock_form.html"
@@ -944,7 +1002,7 @@ class StockMovementListView(ListView):
     template_name = "pipeline/stock_movement_list.html"
     context_object_name = "movements"
     paginate_by = 50
-    allowed_roles =(User.Role.ACCOUNTS, User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER)
+    allowed_roles =(User.Role.ACCOUNTS, User.Role.MANAGER, User.Role.PRODUCTION, User.Role.ADMIN, User.Role.CASHIER)
 
     def get_queryset(self):
         queryset = (
@@ -987,7 +1045,7 @@ class StockMovementListView(ListView):
 @method_decorator(login_required, name='dispatch')
 class DashboardView(TemplateView):
     template_name = "pipeline/dashboard.html"
-    allowed_roles =(User.Role.ACCOUNTS, User.Role.MANAGER, User.Role.ADMIN)
+    allowed_roles =(User.Role.ACCOUNTS, User.Role.MANAGER, User.Role.PRODUCTION, User.Role.ADMIN)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1068,7 +1126,8 @@ def low_stock_list(request):
 class ProcessingWorkspaceView(RoleRequiredMixin, View):
     allowed_roles = (
         User.Role.MANAGER,
-        User.Role.ADMIN
+        User.Role.ADMIN,
+        User.Role.PRODUCTION
     )
 
     template_name = "pipeline/processing_workspace.html"
@@ -1098,7 +1157,7 @@ class ProcessingWorkspaceView(RoleRequiredMixin, View):
 @method_decorator(login_required, name='dispatch')
 class IssueProcessingRunView(RoleRequiredMixin, View):
     """Step 1: Called when coffee is taken and loaded into the machinery."""
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
+    allowed_roles = (User.Role.MANAGER, User.Role.PRODUCTION, User.Role.ADMIN)
 
     def post(self, request, pk):
         stock = get_object_or_404(CoffeeStock, pk=pk)
@@ -1126,7 +1185,7 @@ class IssueProcessingRunView(RoleRequiredMixin, View):
 
 @method_decorator(login_required, name='dispatch')
 class CompleteProcessingRunView(RoleRequiredMixin, View):
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.PRODUCTION)
 
     def post(self, request, pk):
         run = get_object_or_404(ProcessingRun.objects.select_related("stock"), pk=pk)
@@ -1310,6 +1369,7 @@ class PackagedInventoryListView(InventoryRoleRequiredMixin, ListView):
         User.Role.MANAGER,
         User.Role.ADMIN,
         User.Role.CASHIER,
+        User.Role.PRODUCTION,
     )
 
     def get_queryset(self):
@@ -1320,9 +1380,18 @@ class PackagedInventoryListView(InventoryRoleRequiredMixin, ListView):
     def post(self, request, *args, **kwargs):
         # GET access remains available to existing inventory roles, but only an
         # ADMIN may submit either packaged-stock adjustment action.
-        if getattr(request.user, "role", None) != User.Role.ADMIN:
+        is_admin = (
+    request.user.is_superuser
+    or request.user.role == User.Role.ADMIN
+)
+
+        is_production_manager = (
+            request.user.role == User.Role.PRODUCTION
+        )
+
+        if not (is_admin or is_production_manager):
             return HttpResponseForbidden(
-                "Only a System Admin can adjust packaged stock."
+                "You do not have permission to adjust packaged stock."
             )
 
         action = request.POST.get("stock_adjustment_action", "")
@@ -1409,7 +1478,6 @@ from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views import View
-from .models import PackagedProduct, PackagedInventory
 
 @method_decorator(login_required, name='dispatch')
 class InitializeOrRestockProductView(View):
@@ -1431,13 +1499,8 @@ class InitializeOrRestockProductView(View):
         messages.success(request, f"Successfully stocked {quantity_to_add} units for {product}.")
         return redirect('packaged_inventory_list') # Replace with your actual list URL name
 
-
-from django.views import View
-from django.shortcuts import get_object_or_404, redirect
-from django.contrib import messages
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
-from .models import PackagedProduct, PackagedInventory
 
 @method_decorator(login_required, name='dispatch')
 class InitializeUnlistedStockView(View):
@@ -1463,7 +1526,7 @@ class PackagedProductDetailView(InventoryRoleRequiredMixin, DetailView):
     model = PackagedProduct
     template_name = "pipeline/packaged_product_detail.html"
     context_object_name = "product"
-    allowed_roles = (User.Role.ACCOUNTS, User.Role.MANAGER, User.Role.ADMIN)
+    allowed_roles = (User.Role.ACCOUNTS, User.Role.MANAGER, User.Role.PRODUCTION, User.Role.ADMIN)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -1506,7 +1569,7 @@ class PackagedProductDetailView(InventoryRoleRequiredMixin, DetailView):
 #by linking input and output
 @method_decorator(login_required, name="dispatch")
 class QuickRecordPackagingView(InventoryRoleRequiredMixin, View):
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.ACCOUNTS, User.Role.PRODUCTION)
 
     def post(self, request, pk):
         product = get_object_or_404(PackagedProduct, pk=pk)
@@ -1552,7 +1615,7 @@ class QuickRecordPackagingView(InventoryRoleRequiredMixin, View):
 @method_decorator(login_required, name='dispatch')
 class PackagedProductCreateView(InventoryRoleRequiredMixin, View):
     template_name = "pipeline/packaged_product_form.html"
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
+    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.PRODUCTION)
 
     def get(self, request):
         formset = PackagedProductFormSet(prefix="variants")
@@ -1609,13 +1672,7 @@ class PackagedProductCreateView(InventoryRoleRequiredMixin, View):
         return render(request, self.template_name, {"formset": formset, "existing_blends": existing_blends})
 
 
-from decimal import Decimal
-from django.shortcuts import get_object_or_404, redirect, render
-from django.contrib import messages
 from django.views.generic import TemplateView, View
-from django.db import transaction
-from django.core.exceptions import ValidationError
-from web.models import StockRequest, PackRelease, PackReturn
 
 class SingleItemReturnForm(forms.Form):
     release_id = forms.IntegerField(widget=forms.HiddenInput())
@@ -1634,6 +1691,7 @@ class SingleItemReturnForm(forms.Form):
 ReturnItemFormSet = formset_factory(SingleItemReturnForm, extra=0)
 
 @method_decorator(login_required, name='dispatch')
+
 class PackReturnCreateView(InventoryRoleRequiredMixin, TemplateView):
     template_name = "pipeline/pack_return_form.html"
     allowed_roles = (User.Role.CASHIER, User.Role.ADMIN, User.Role.ACCOUNTS)
@@ -1811,7 +1869,7 @@ def redirect_after_return_submission(user):
 @method_decorator(login_required, name='dispatch')
 class PackReturnConfirmationView(InventoryRoleRequiredMixin, TemplateView):
     template_name = "pipeline/pack_return_confirmation.html"
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN, User.Role.CASHIER, User.Role.ACCOUNTS)
+    allowed_roles = (User.Role.MANAGER, User.Role.PRODUCTION, User.Role.ADMIN, User.Role.CASHIER, User.Role.ACCOUNTS)
 
     def get_payload(self, token):
         payload = self.request.session.get(f"return_review:{token}")
@@ -1910,6 +1968,7 @@ class PackReturnApproveView(InventoryRoleRequiredMixin, View):
     allowed_roles = (
         User.Role.MANAGER,
         User.Role.ADMIN,
+        User.Role.PRODUCTION,
         
     )
 
@@ -1965,6 +2024,7 @@ class PendingReturnApprovalListView(InventoryRoleRequiredMixin, ListView):
         User.Role.MANAGER,
         User.Role.CASHIER,
         User.Role.ADMIN,
+        User.Role.PRODUCTION
     )
 
     def get_queryset(self):
@@ -2194,7 +2254,7 @@ class CancelStockRequestView(RoleRequiredMixin, View):
     Completely isolated view to handle order cancellations safely 
     without impacting any fulfillment or packaging code paths.
     """
-    allowed_roles = (User.Role.MANAGER, User.Role.ADMIN)
+    allowed_roles = (User.Role.MANAGER, User.Role.PRODUCTION, User.Role.ADMIN)
 
     def post(self, request, pk):
         # Fetch the request
@@ -2266,7 +2326,8 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
         
         self._view_scope = self.request.GET.get("scope", "all")
 
-        # Separate consignment releases from regular releases.
+        # Separate consignment
+        #  releases from regular releases.
         if self._release_filter == "consignments":
             # For consignments, ONLY show records where stock has actually been billed (billable_packs > 0)
             qs = qs.filter(purpose="display", billable_packs__gt=0)
@@ -2496,13 +2557,9 @@ class CreditControlLedgerView(RoleRequiredMixin, ListView):
 
         return ctx
     
-from decimal import Decimal, InvalidOperation
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404, redirect
-from django.contrib import messages
 from django.db import transaction
-from django.core.exceptions import ValidationError
-from .models import StockRequest, User
+
 # Ensure record_installment_payment is imported from your services/utils module where defined
 
 @login_required
@@ -2652,13 +2709,8 @@ existing create_stock_request / fulfill_request_item / return_packs /
 settle_release / record_payment functions.
 """
 
-from decimal import Decimal
-from django.core.exceptions import ValidationError
 from django.db import transaction
-from .models import PackRelease, StockRequest
-
-from django.shortcuts import get_object_or_404, redirect
-from django.contrib import messages
+from .models import PackRelease
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 
@@ -3719,13 +3771,7 @@ def fulfill_item_view(request, item_pk):
     return render(request, 'pipeline/fulfill_item.html', {'item': item})
 
     # company expenses
-    from decimal import Decimal
-from datetime import datetime
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.db.models import Sum
-from django.shortcuts import redirect
-from django.utils import timezone
+
 from django.utils.decorators import method_decorator
 from django.views.generic import ListView, TemplateView
 
@@ -3739,6 +3785,7 @@ class ExpenseTrackerView(RoleRequiredMixin, TemplateView):
     allowed_roles = (
         User.Role.ADMIN,
         User.Role.ACCOUNTS,
+        User.Role.EXPENSES,
     )
 
     def get_context_data(self, **kwargs):
@@ -3762,7 +3809,7 @@ class ExpenseTrackerView(RoleRequiredMixin, TemplateView):
                 f"Expense of UGX {expense.amount:,.0f} logged successfully under "
                 f"'{expense.get_category_display()}'."
             )
-            return redirect("expense_tracker")
+            return redirect("expense_list")
             
         return self.render_to_response({"form": form})
 
@@ -3788,6 +3835,7 @@ class ExpenseListView(RoleRequiredMixin, ListView):
     allowed_roles = (
         User.Role.ADMIN,
         User.Role.ACCOUNTS,
+        User.Role.EXPENSES,
     )
 
     def get_queryset(self):
@@ -4335,10 +4383,6 @@ class InternalStockIssueCreateView(
         }
 
 
-from datetime import date, datetime, time, timedelta
-from decimal import Decimal
-from django.utils import timezone
-from django.utils.dateparse import parse_date
 from django.views.generic import DetailView
 
 
@@ -4468,6 +4512,7 @@ class InternalStockIssueDetailView(
         User.Role.MANAGER,
         User.Role.ACCOUNTS,
         User.Role.CASHIER,
+        User.Role.PRODUCTION,
     )
 
     def get_queryset(self):
@@ -4506,7 +4551,6 @@ class InternalStockIssueDetailView(
         return context
 
 from datetime import timedelta
-from django.utils import timezone
 
 def apply_date_filter(queryset, request, date_field='issue_date'):
     period = request.GET.get('period', 'all')
@@ -4867,6 +4911,7 @@ class ProductionLossReportDetailView(
         User.Role.ADMIN,
         User.Role.ACCOUNTS,
         User.Role.MANAGER,
+        User.Role.PRODUCTION,
     )
 
     def get_context_data(self, **kwargs):
@@ -5036,7 +5081,6 @@ class OperationsDetailReportView(
 
 
 # views.py
-from django.shortcuts import render
 
 def forgot_password_view(request):
     """Temporary placeholder for password reset workflow."""
