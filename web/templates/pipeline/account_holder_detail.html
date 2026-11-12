@@ -5,6 +5,27 @@
 
 {% block breadcrumb %}Account Holders / {{ account.name }}{% endblock %}
 
+{% block header_action %}
+    <div class="flex items-center gap-2">
+        <!-- Stock Transfer Button -->
+        <button type="button" 
+                onclick="openTransferModal('page_stock_transfer_modal')" 
+                class="inline-flex items-center justify-center px-3.5 py-2 text-xs font-semibold tracking-wide text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg shadow-xs transition cursor-pointer">
+            <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+            Transfer Stock
+        </button>
+
+        {% if can_collect_payment and total_outstanding > 0 %}
+            <button type="button" 
+                    onclick="openPaymentModal()" 
+                    class="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold tracking-wide text-white bg-[#FF6B00] hover:bg-[#E05E00] rounded-lg shadow-xs transition cursor-pointer">
+                Record Payment
+            </button>
+        {% endif %}
+    </div>
+{% endblock %}
 
 {% block content %}
 
@@ -33,7 +54,7 @@
      2. UNIFIED RECEIVABLES LEDGER TABLE
      ========================================================= -->
 {% include "reports/components/report_filters.html" %}
-<div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden">
+<div class="bg-white border border-[#E4DECB] rounded-xl shadow-sm overflow-hidden mt-4">
     <div class="px-4 py-3 border-b border-[#E4DECB] bg-slate-50/50 flex items-center justify-between">
         <h3 class="text-xs font-bold text-slate-600 uppercase tracking-wider">Account Ledger & Receivables</h3>
         <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Packaged & Bulk Transactions</span>
@@ -73,24 +94,21 @@
                                 {% endif %}
                             </td>
                             <td class="px-4 py-3 text-center whitespace-nowrap">
-    {% if release.purpose == "display" %}
-        <!-- CONSIGNMENT RELEASE: Show billable/sold packs that match the monetary value -->
-        <span class="font-bold text-slate-800">
-            {% if release.billable_packs > 0 %}
-                {{ release.billable_packs }} Billed
-            {% else %}
-                0 Billed
-            {% endif %}
-        </span>
-       
-    {% else %}
-        <!-- ORDINARY SALE RELEASE: Show issued and unreturned packs -->
-        <span class="font-bold text-slate-800">{{ release.packs_out }}</span>
-        {% if release.packs_outstanding > 0 and release.packs_outstanding != release.packs_out %}
-            <span class="block text-[10px] font-semibold text-amber-600">({{ release.packs_outstanding }} Unreturned)</span>
-        {% endif %}
-    {% endif %}
-</td>
+                                {% if release.purpose == "display" %}
+                                    <span class="font-bold text-slate-800">
+                                        {% if release.billable_packs > 0 %}
+                                            {{ release.billable_packs }} Billed
+                                        {% else %}
+                                            0 Billed
+                                        {% endif %}
+                                    </span>
+                                {% else %}
+                                    <span class="font-bold text-slate-800">{{ release.packs_out }}</span>
+                                    {% if release.packs_outstanding > 0 and release.packs_outstanding != release.packs_out %}
+                                        <span class="block text-[10px] font-semibold text-amber-600">({{ release.packs_outstanding }} Unreturned)</span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
                             <td class="px-4 py-3 text-right font-medium text-slate-600 whitespace-nowrap">
                                 {{ release.net_amount_due|floatformat:0|intcomma }}
                             </td>
@@ -168,5 +186,141 @@
         </table>
     </div>
 </div>
+
+<!-- =========================================================
+     3. MULTI-PRODUCT GLOBAL STOCK TRANSFER MODAL & SCRIPTS
+     ========================================================= -->
+<div id="page_stock_transfer_modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 hidden items-center justify-center p-3">
+    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 text-left flex flex-col max-h-[90vh]">
+        
+        <!-- Header -->
+        <div class="bg-white px-5 py-4 flex items-center justify-between border-b border-slate-100 shrink-0">
+            <div>
+                <span class="text-[10px] font-mono tracking-wider text-orange-600 font-bold uppercase block mb-0.5">
+                    Multi-Product Stock Reallocation
+                </span>
+                <h3 class="text-sm font-bold text-slate-900 tracking-tight">
+                    Transfer Stock from {{ account.name }}
+                </h3>
+            </div>
+            <button type="button" onclick="closeTransferModal('page_stock_transfer_modal')" class="text-slate-400 hover:text-slate-700 text-lg font-bold p-1 cursor-pointer">
+                ✕
+            </button>
+        </div>
+
+        <!-- Form Body -->
+        <form method="post" class="p-4 space-y-4 overflow-y-auto">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="execute_stock_transfer">
+            <input type="hidden" name="source_account" value="{{ account.pk }}">
+
+            <!-- DYNAMIC PRODUCT ROWS CONTAINER -->
+            <div id="transfer-items-container" class="space-y-3">
+                <label class="block text-[10px] uppercase font-bold text-slate-600">
+                    Products to Move (Uncleared Only) *
+                </label>
+                
+                <div class="transfer-row flex items-center gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <select name="product[]" required class="flex-1 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500">
+                        <option value="">— Select Uncleared Product —</option>
+                        {% for release in releases %}
+                            {% if release.outstanding_balance > 0 %}
+                                <option value="{{ release.product.pk }}">
+                                    {{ release.product.blend.name }} ({{ release.product.pack_size.label }}) — [Bal: {{ release.outstanding_balance|floatformat:0|intcomma }} UGX]
+                                </option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                    <input type="number" name="packs_transferred[]" min="1" placeholder="Packs" required
+                           class="w-20 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500">
+                    <button type="button" onclick="removeTransferRow(this)" class="text-rose-500 hover:text-rose-700 p-1 font-bold text-sm cursor-pointer">✕</button>
+                </div>
+            </div>
+
+            <!-- Add Another Product Button -->
+            <button type="button" onclick="addTransferRow()" class="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1 cursor-pointer">
+                + Add Another Product
+            </button>
+
+            <!-- Destination Selection -->
+            <div class="space-y-2 border-t border-slate-100 pt-3">
+                <label class="block text-[10px] uppercase font-bold text-slate-600">
+                    Select Destination
+                </label>
+
+                <!-- Option A: Agent / Staff -->
+                <div>
+                    <span class="text-[9px] text-slate-400 font-bold uppercase block mb-0.5">Option A: Field Agent / Staff</span>
+                    <select name="destination_account" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500">
+                        <option value="">— Select Target Agent —</option>
+                        {% for acc in active_accounts %}
+                            <option value="{{ acc.pk }}">{{ acc.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Option B: Supermarket / Company -->
+                <div>
+                    <span class="text-[9px] text-slate-400 font-bold uppercase block mb-0.5">Option B: Supermarket / Consignee</span>
+                    <select name="destination_company" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500">
+                        <option value="">— Select Target Supermarket —</option>
+                        {% for comp in companies %}
+                            <option value="{{ comp.pk }}">{{ comp.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Transfer Notes -->
+            <div class="border-t border-slate-100 pt-2">
+                <label class="block text-[10px] uppercase font-bold text-slate-600 mb-1">Transfer Particulars / Reason</label>
+                <input type="text" name="notes" placeholder="e.g. Bulk reallocation to supermarket display..."
+                       class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500">
+            </div>
+
+            <!-- Footer Buttons -->
+            <div class="bg-slate-50 px-4 py-3 border-t border-slate-100 flex items-center justify-end gap-2 -mx-4 -mb-4 mt-4 shrink-0">
+                <button type="button" onclick="closeTransferModal('page_stock_transfer_modal')" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md text-[11px] font-bold transition cursor-pointer">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-1.5 bg-[#FF6B00] hover:bg-[#E05E00] text-white rounded-md text-[11px] font-bold transition shadow-xs cursor-pointer">
+                    Confirm & Execute Transfer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openTransferModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+}
+
+function closeTransferModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+}
+
+function addTransferRow() {
+    const container = document.getElementById("transfer-items-container");
+    const firstRow = container.querySelector(".transfer-row");
+    const newRow = firstRow.cloneNode(true);
+    newRow.querySelector("input").value = "";
+    newRow.querySelector("select").selectedIndex = 0;
+    container.appendChild(newRow);
+}
+
+function removeTransferRow(btn) {
+    const container = document.getElementById("transfer-items-container");
+    if (container.querySelectorAll(".transfer-row").length > 1) {
+        btn.closest(".transfer-row").remove();
+    }
+}
+</script>
 
 {% endblock %}

@@ -6,7 +6,7 @@ from django.forms import BaseFormSet, formset_factory
 
 
 from .models import (Company,
- PackRelease,
+ PackRelease, StockTransfer,
   PackagedProduct, PaymentReceipt,
    StockRequest,
 PackagedInventory,
@@ -523,3 +523,5 @@ class PaymentReceiptForm(forms.ModelForm):
                 }
             ),
         }
+
+

@@ -2920,3 +2920,53 @@ class InternalStockIssueItem(models.Model):
             f"{item_name} - "
             f"{self.quantity_label}"
         )
+
+class StockTransfer(models.Model):
+    source_account = models.ForeignKey(
+        AccountHolder, 
+        on_delete=models.PROTECT, 
+        related_name="transfers_out",
+        help_text="Account holder giving up or moving the stock."
+    )
+    destination_account = models.ForeignKey(
+        AccountHolder, 
+        on_delete=models.PROTECT, 
+        related_name="transfers_in",
+        null=True, blank=True,
+        help_text="Target account holder (if transferring to an agent/staff)."
+    )
+    destination_company = models.ForeignKey(
+        Company, 
+        on_delete=models.PROTECT,
+        related_name="stock_transfers_received",
+        null=True, blank=True,
+        help_text="Target supermarket or corporate consignee company."
+    )
+    transferred_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.SET_NULL, 
+        null=True,
+        blank=True
+    )
+    transferred_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True, null=True)
+
+    def clean(self):
+        super().clean()
+        if not self.destination_account and not self.destination_company:
+            raise ValidationError("You must specify either a destination account holder or a supermarket company.")
+        if self.destination_account and self.destination_company:
+            raise ValidationError("Cannot select both an account holder and a company as destination simultaneously.")
+
+    def __str__(self):
+        dest = self.destination_account.name if self.destination_account else (self.destination_company.name if self.destination_company else "Unknown")
+        return f"Transfer from {self.source_account.name} to {dest}"
+
+
+class StockTransferItem(models.Model):
+    transfer = models.ForeignKey(StockTransfer, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(PackagedProduct, on_delete=models.PROTECT)
+    packs_transferred = models.PositiveIntegerField()
+
+    def __str__(self):
+        return f"{self.packs_transferred}x {self.product}"

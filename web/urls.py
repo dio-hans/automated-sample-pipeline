@@ -344,6 +344,6 @@ path(
     ReleasePriceAdjustmentCreateView.as_view(),
     name="release_price_adjustment",
 ),
-
+path("sales/transfers/new/", views.process_stock_transfer, name="stock_transfer_create"),
 
 ]

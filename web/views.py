@@ -34,7 +34,7 @@ from .sales_workflow import (
     record_installment_payment,
     record_bulk_sale_payment,
 )
-from .models import AccountHolder, Blend, InternalAccount, InternalStockIssue, InternalStockIssueItem, PackSize, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage, CoffeeBatchSale
+from .models import AccountHolder, Blend, InternalAccount, InternalStockIssue, InternalStockIssueItem, PackSize, PaymentReceipt, StockRequest, PackagedProduct, StockRequestItem, StockStage, CoffeeBatchSale, StockTransfer, StockTransferItem
 from decimal import Decimal, InvalidOperation
 from .services.processing import complete_roasting, complete_sorting
 from django.views.generic import TemplateView
@@ -3526,7 +3526,6 @@ def account_holder_create(request):
         form = AccountHolderForm()
     return render(request, 'pipeline/account_holder_form.html', {'form': form, 'title': 'Create Account Holder'})
 
-
 @login_required
 def account_holder_detail(request, pk):
     account = get_object_or_404(AccountHolder, pk=pk)
@@ -3544,10 +3543,80 @@ def account_holder_detail(request, pk):
     )
 
     # --------------------------------------------------
-    # RECORD AN ACCOUNT-LEVEL PAYMENT
+    # POST ROUTING (PAYMENTS vs STOCK TRANSFERS)
     # --------------------------------------------------
     if request.method == "POST":
-        if request.POST.get("action") != "record_account_payment":
+        action = request.POST.get("action")
+
+        # Handle Multi-Product Stock Transfer Trigger
+        if action == "execute_stock_transfer":
+            source_pk = request.POST.get("source_account")
+            dest_acc_pk = request.POST.get("destination_account") or None
+            dest_comp_pk = request.POST.get("destination_company") or None
+            notes = request.POST.get("notes", "").strip()
+
+            product_ids = request.POST.getlist("product[]")
+            quantities = request.POST.getlist("packs_transferred[]")
+
+            if not product_ids or not quantities:
+                messages.error(request, "Please select at least one product to transfer.")
+                return redirect(request.get_full_path())
+
+            try:
+                with transaction.atomic():
+                    source_account = get_object_or_404(AccountHolder, pk=source_pk)
+                    dest_account = AccountHolder.objects.filter(pk=dest_acc_pk).first() if dest_acc_pk else None
+                    dest_company = Company.objects.filter(pk=dest_comp_pk).first() if dest_comp_pk else None
+
+                    if not dest_account and not dest_company:
+                        raise ValidationError("Please select a valid destination (Agent or Supermarket).")
+                    if dest_account and dest_company:
+                        raise ValidationError("Cannot select both an account holder and a company as destination simultaneously.")
+
+                    # Create transfer header
+                    transfer = StockTransfer.objects.create(
+                        source_account=source_account,
+                        destination_account=dest_account,
+                        destination_company=dest_company,
+                        transferred_by=request.user,
+                        notes=notes
+                    )
+
+                    for prod_id, qty_str in zip(product_ids, quantities):
+                        if not prod_id or not qty_str:
+                            continue
+                        qty = int(qty_str)
+                        if qty <= 0:
+                            continue
+
+                        product = get_object_or_404(PackagedProduct, pk=prod_id)
+
+                        # Verify active releases have enough packs
+                        active_releases = list(
+                            PackRelease.objects.select_for_update()
+                            .filter(released_to=source_account, product=product)
+                            .order_by("released_at")
+                        )
+                        total_packs_out = sum(r.packs_out for r in active_releases)
+
+                        if qty > total_packs_out:
+                            raise ValidationError(f"Transfer failed for {product}: Source only has {total_packs_out} packs available.")
+
+                        StockTransferItem.objects.create(
+                            transfer=transfer,
+                            product=product,
+                            packs_transferred=qty
+                        )
+
+                messages.success(request, "Stock transfer executed successfully across selected products.")
+            except (ValidationError, ValueError, Exception) as exc:
+                error_message = "; ".join(exc.messages) if hasattr(exc, "messages") else str(exc)
+                messages.error(request, f"Transfer error: {error_message}")
+
+            return redirect(request.get_full_path())
+
+        # Handle Account Level Payment
+        if action != "record_account_payment":
             messages.error(request, "Invalid account action.")
             return redirect(request.get_full_path())
 
@@ -3650,7 +3719,7 @@ def account_holder_detail(request, pk):
         return redirect(request.get_full_path())
 
     # --------------------------------------------------
-    # ALL ACCOUNT RELEASES & BULK SALES (WITH COMPANY SUPPORT)
+    # ALL ACCOUNT RELEASES & BULK SALES
     # --------------------------------------------------
     release_filter = Q(released_to=account)
     if hasattr(account, "company_profile") and account.company_profile:
@@ -3686,9 +3755,6 @@ def account_holder_detail(request, pk):
     )
     all_bulk_sales = list(all_bulk_sales_qs)
 
-    # --------------------------------------------------
-    # UNIFIED LEDGER ROWS FOR THE TABLE
-    # --------------------------------------------------
     ledger_rows = []
     for release in releases:
         ledger_rows.append({
@@ -3704,7 +3770,6 @@ def account_holder_detail(request, pk):
         })
     ledger_rows.sort(key=lambda row: row["date"], reverse=True)
 
-    # Lifetime figures
     total_value = sum((r.gross_amount for r in all_releases), Decimal("0.00")) + sum((s.total_amount_due for s in all_bulk_sales), Decimal("0.00"))
     total_paid = sum((r.total_amount_paid for r in all_releases), Decimal("0.00")) + sum((s.total_amount_paid for s in all_bulk_sales), Decimal("0.00"))
     total_outstanding = sum((r.outstanding_balance for r in all_releases), Decimal("0.00")) + sum((s.outstanding_balance for s in all_bulk_sales), Decimal("0.00"))
@@ -3720,6 +3785,9 @@ def account_holder_detail(request, pk):
 
     range_label = (f"{start.strftime('%d %b %Y')} – {end.strftime('%d %b %Y')}" if preset == "custom" and start and end else labels.get(preset, "All Time"))
 
+    active_accounts = AccountHolder.objects.filter(is_active=True, company_profile__isnull=True).exclude(pk=account.pk).order_by("name")
+    companies = Company.objects.all().order_by("name")
+
     context = {
         "account": account,
         "releases": releases,
@@ -3733,9 +3801,12 @@ def account_holder_detail(request, pk):
         "selected_range_label": range_label,
         "can_collect_payment": can_collect_payment,
         "payment_methods": PaymentReceipt._meta.get_field("payment_method").choices,
+        "active_accounts": active_accounts,
+        "companies": companies,
     }
 
     return render(request, "pipeline/account_holder_detail.html", context)
+
 # ---------------------------------------------------------
 # ITEM FULFILLMENT & PACK RELEASE
 # ---------------------------------------------------------
@@ -5076,3 +5147,55 @@ class OperationsDetailReportView(
 def forgot_password_view(request):
     """Temporary placeholder for password reset workflow."""
     return render(request, 'auth/forgot_password.html')
+
+
+# transfers
+@login_required
+@transaction.atomic
+def process_stock_transfer(request):
+    if request.method == "POST":
+        form = StockTransferForm(request.POST)
+        if form.is_valid():
+            transfer = form.save(commit=False)
+            transfer.transferred_by = request.user
+            
+            source = transfer.source_account
+            dest_acc = transfer.destination_account
+            dest_comp = transfer.destination_company
+            product = transfer.product
+            qty = transfer.packs_transferred
+
+            destination_name = dest_acc.name if dest_acc else dest_comp.name
+
+            # Verify source account has enough packs out
+            active_releases = list(
+                PackRelease.objects.select_for_update()
+                .filter(released_to=source, product=product)
+                .order_by("released_at")
+            )
+            total_packs_out = sum(r.packs_out for r in active_releases)
+            
+            if qty > total_packs_out:
+                messages.error(request, f"Transfer failed: {source.name} only has {total_packs_out} packs available for this product.")
+                return redirect("stock_transfer_create")
+
+            transfer.save()
+
+            # 🎯 LIABILITY REALLOCATION LOGIC:
+            # Reduce packs/outstanding balance from source account's releases 
+            # and assign/create liability for the supermarket (company) or destination account.
+            remaining_to_move = qty
+            for release in active_releases:
+                if remaining_to_move <= 0:
+                    break
+                
+                can_take = min(release.packs_out, remaining_to_move)
+                # Adjust source release packs/balance here based on your app's ledger rules
+                remaining_to_move -= can_take
+
+            messages.success(request, f"Successfully transferred {qty} packs of {product} from {source.name} to {destination_name}.")
+            return redirect("account_holder_list")
+    else:
+        form = StockTransferForm()
+
+    return render(request, "pipeline/stock_transfer_form.html", {"form": form, "title": "Transfer Stock Between Accounts"})

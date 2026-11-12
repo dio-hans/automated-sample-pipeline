@@ -1,0 +1,110 @@
+{% extends "pipeline/base.html" %}
+{% load humanize %}
+
+{% block title %}{{ title }} | Nonda{% endblock %}
+{% block breadcrumb %}Sales / Stock Transfer{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-slate-500">
+    Move product packs dynamically between agent floats and supermarket consignees while reallocating debt liabilities.
+</p>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg text-xs font-bold">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Source Account -->
+                <div>
+                    <label for="{{ form.source_account.id_for_label }}" class="block text-[10px] uppercase font-bold text-slate-600 mb-1">
+                        Source Account (Giving Stock) *
+                    </label>
+                    {{ form.source_account }}
+                    {% if form.source_account.errors %}
+                        <p class="text-[11px] text-rose-600 mt-1 font-bold">{{ form.source_account.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Product -->
+                <div>
+                    <label for="{{ form.product.id_for_label }}" class="block text-[10px] uppercase font-bold text-slate-600 mb-1">
+                        Product *
+                    </label>
+                    {{ form.product }}
+                    {% if form.product.errors %}
+                        <p class="text-[11px] text-rose-600 mt-1 font-bold">{{ form.product.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
+                <!-- Destination Option A: Account Holder -->
+                <div>
+                    <label for="{{ form.destination_account.id_for_label }}" class="block text-[10px] uppercase font-bold text-slate-600 mb-1">
+                        Destination Account (Agent/Staff)
+                    </label>
+                    {{ form.destination_account }}
+                    <span class="text-[10px] text-slate-400 block mt-0.5">Use if transferring to another agent.</span>
+                    {% if form.destination_account.errors %}
+                        <p class="text-[11px] text-rose-600 mt-1 font-bold">{{ form.destination_account.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Destination Option B: Supermarket Company -->
+                <div>
+                    <label for="{{ form.destination_company.id_for_label }}" class="block text-[10px] uppercase font-bold text-slate-600 mb-1">
+                        Destination Supermarket (Company)
+                    </label>
+                    {{ form.destination_company }}
+                    <span class="text-[10px] text-slate-400 block mt-0.5">Use if stocking a supermarket.</span>
+                    {% if form.destination_company.errors %}
+                        <p class="text-[11px] text-rose-600 mt-1 font-bold">{{ form.destination_company.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="border-t border-slate-100 pt-4">
+                <!-- Packs Transferred -->
+                <div>
+                    <label for="{{ form.packs_transferred.id_for_label }}" class="block text-[10px] uppercase font-bold text-slate-600 mb-1">
+                        Number of Packs to Transfer *
+                    </label>
+                    {{ form.packs_transferred }}
+                    {% if form.packs_transferred.errors %}
+                        <p class="text-[11px] text-rose-600 mt-1 font-bold">{{ form.packs_transferred.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="border-t border-slate-100 pt-4">
+                <!-- Notes -->
+                <div>
+                    <label for="{{ form.notes.id_for_label }}" class="block text-[10px] uppercase font-bold text-slate-600 mb-1">
+                        Transfer Notes / Particulars
+                    </label>
+                    {{ form.notes }}
+                </div>
+            </div>
+
+            <!-- Actions Footer -->
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <a href="{% url 'account_holder_list' %}" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition">
+                    Cancel
+                </a>
+                <button type="submit" class="px-5 py-2 bg-[#FF6B00] hover:bg-[#E05E00] text-white font-bold text-xs rounded-lg shadow-sm transition cursor-pointer">
+                    Execute Stock Transfer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
